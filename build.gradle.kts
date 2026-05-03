@@ -10,6 +10,9 @@ repositories {
 }
 
 dependencies {
+    implementation("org.postgresql:postgresql:42.7.11")
+    implementation("org.mongodb:mongodb-driver-sync:5.1.0")
+
     testImplementation(kotlin("test"))
 }
 
