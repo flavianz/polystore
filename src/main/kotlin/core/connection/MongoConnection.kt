@@ -6,9 +6,6 @@ import com.mongodb.client.MongoDatabase
 
 /**
  * Manages a connection to a MongoDB database via the official Kotlin driver.
- *
- * Dependencies (add to build.gradle.kts):
- *   implementation("org.mongodb:mongodb-driver-sync:5.1.0")
  */
 class MongoConnection(
     private val host: String = "localhost",

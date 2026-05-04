@@ -1,8 +1,13 @@
 package ch.flavianz
 
+import ch.flavianz.core.DatabaseManager
 import ch.flavianz.core.connection.ConnectionManager
 import ch.flavianz.core.connection.MongoConnection
 import ch.flavianz.core.connection.PostgresConnection
+import ch.flavianz.core.driver.DriverManager
+import ch.flavianz.core.model.CollectionModel
+import ch.flavianz.core.model.DataType
+import ch.flavianz.core.model.ObjectSchema
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
@@ -35,11 +40,12 @@ fun main() {
     }
 
     val pg = manager.get<PostgresConnection>("PostgreSQL[polystore]")
-    val resultSet = pg.jdbcConnection.createStatement().executeQuery("SELECT version()")
-    if (resultSet.next()) println("Postgres version: ${resultSet.getString(1)}")
-
     val mongo = manager.get<MongoConnection>("MongoDB[polystore]")
-    println("MongoDB collections: ${mongo.mongoDatabase.listCollectionNames().toList()}")
+
+    DriverManager.initialize {
+        initPostgres(pg.jdbcConnection)
+    }
+    DatabaseManager.createCollection(CollectionModel("animals", ObjectSchema(mapOf(Pair("name", DataType.String), Pair("age", DataType.Int)))))
 
     manager.disconnectAll()
 }

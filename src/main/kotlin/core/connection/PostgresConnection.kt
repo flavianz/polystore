@@ -5,9 +5,6 @@ import java.sql.DriverManager
 
 /**
  * Manages a connection to a PostgreSQL database via JDBC.
- *
- * Dependencies (add to build.gradle.kts):
- *   implementation("org.postgresql:postgresql:42.7.3")
  */
 class PostgresConnection(
     private val host: String = "localhost",
