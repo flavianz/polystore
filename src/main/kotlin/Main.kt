@@ -8,6 +8,8 @@ import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
+import ch.flavianz.query.CreateQuery
+import ch.flavianz.query.QueryHandler
 
 fun main() {
     val manager = ConnectionManager()
@@ -43,14 +45,16 @@ fun main() {
     DriverManager.initialize {
         initPostgres(pg.jdbcConnection)
     }
-    DatabaseManager.createCollection(
-        CollectionModel("animals",
-            ObjectSchema(mapOf(Pair("name", DataType.String), Pair("age", DataType.Int))),
-            listOf(CollectionModel("toys",
+
+    val handler = QueryHandler()
+
+    handler.query(CreateQuery(CollectionModel("animals",
+        ObjectSchema(mapOf(Pair("name", DataType.String), Pair("age", DataType.Int))),
+        listOf(CollectionModel("toys",
+            ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int)))), CollectionModel("meals",
+            ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int))), listOf(CollectionModel("toys",
                 ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int)))), CollectionModel("meals",
-                ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int))), listOf(CollectionModel("toys",
-                    ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int)))), CollectionModel("meals",
-                    ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int)))))))))
+                ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int))))))))))
 
     manager.disconnectAll()
 }
