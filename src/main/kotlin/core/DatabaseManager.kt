@@ -13,5 +13,6 @@ object DatabaseManager {
             throw CollectionAlreadyExistsException(model.name)
         }
         DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(model) }
+        rootCollections[model.name] = model
     }
 }

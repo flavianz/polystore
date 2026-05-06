@@ -45,7 +45,14 @@ fun main() {
     DriverManager.initialize {
         initPostgres(pg.jdbcConnection)
     }
-    DatabaseManager.createCollection(CollectionModel("animals", ObjectSchema(mapOf(Pair("name", DataType.String), Pair("age", DataType.Int)))))
+    DatabaseManager.createCollection(
+        CollectionModel("animals",
+            ObjectSchema(mapOf(Pair("name", DataType.String), Pair("age", DataType.Int))),
+            listOf(CollectionModel("toys",
+                ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int)))), CollectionModel("meals",
+                ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int))), listOf(CollectionModel("toys",
+                    ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int)))), CollectionModel("meals",
+                    ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int)))))))))
 
     manager.disconnectAll()
 }
