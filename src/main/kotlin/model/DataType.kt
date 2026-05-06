@@ -1,4 +1,4 @@
-package ch.flavianz.core.model
+package ch.flavianz.model
 
 enum class DataType {
     String,

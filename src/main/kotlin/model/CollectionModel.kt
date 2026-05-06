@@ -1,4 +1,4 @@
-package ch.flavianz.core.model
+package ch.flavianz.model
 
 data class CollectionModel(
     val name: String,

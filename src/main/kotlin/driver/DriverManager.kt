@@ -1,6 +1,7 @@
-package ch.flavianz.core.driver
+package ch.flavianz.driver
 
 import core.driver.DatabaseDriver
+import java.sql.Connection
 
 class DriverManager private constructor(){
     var postgresDriver: PostgresDriver? = null
@@ -9,7 +10,7 @@ class DriverManager private constructor(){
         postgresDriver?.a()
     }
 
-    fun initPostgres(jdbcConnection: java.sql.Connection): DriverManager {
+    fun initPostgres(jdbcConnection: Connection): DriverManager {
         this.postgresDriver = PostgresDriver(jdbcConnection)
         return this
     }

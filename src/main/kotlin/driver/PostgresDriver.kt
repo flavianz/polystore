@@ -1,8 +1,9 @@
-package ch.flavianz.core.driver
+package ch.flavianz.driver
 
-import ch.flavianz.core.model.CollectionModel
+import ch.flavianz.model.CollectionModel
 import core.driver.DatabaseDriver
 import java.sql.Connection
+import kotlin.collections.iterator
 
 class PostgresDriver(val connection: Connection) : DatabaseDriver {
 

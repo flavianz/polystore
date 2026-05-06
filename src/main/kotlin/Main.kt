@@ -1,13 +1,13 @@
 package ch.flavianz
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.core.connection.ConnectionManager
-import ch.flavianz.core.connection.MongoConnection
-import ch.flavianz.core.connection.PostgresConnection
-import ch.flavianz.core.driver.DriverManager
-import ch.flavianz.core.model.CollectionModel
-import ch.flavianz.core.model.DataType
-import ch.flavianz.core.model.ObjectSchema
+import ch.flavianz.connection.ConnectionManager
+import ch.flavianz.connection.MongoConnection
+import ch.flavianz.connection.PostgresConnection
+import ch.flavianz.driver.DriverManager
+import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.DataType
+import ch.flavianz.model.ObjectSchema
 
 fun main() {
     val manager = ConnectionManager()

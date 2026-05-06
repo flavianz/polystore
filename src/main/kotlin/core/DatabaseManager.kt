@@ -1,8 +1,8 @@
 package ch.flavianz.core
 
-import ch.flavianz.core.driver.DriverManager
-import ch.flavianz.core.exceptions.CollectionAlreadyExistsException
-import ch.flavianz.core.model.CollectionModel
+import ch.flavianz.driver.DriverManager
+import ch.flavianz.exceptions.CollectionAlreadyExistsException
+import ch.flavianz.model.CollectionModel
 import core.driver.DatabaseDriver
 
 object DatabaseManager {

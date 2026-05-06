@@ -1,3 +1,3 @@
-package ch.flavianz.core.exceptions
+package ch.flavianz.exceptions
 
 data class CollectionAlreadyExistsException(val name: String) : Exception()

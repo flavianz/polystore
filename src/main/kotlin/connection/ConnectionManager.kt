@@ -1,4 +1,4 @@
-package ch.flavianz.core.connection
+package ch.flavianz.connection
 
 
 class ConnectionManager {

@@ -1,8 +1,9 @@
-package ch.flavianz.core.connection
+package ch.flavianz.connection
 
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
 import com.mongodb.client.MongoDatabase
+import org.bson.Document
 
 /**
  * Manages a connection to a MongoDB database via the official Kotlin driver.
@@ -42,7 +43,7 @@ class MongoConnection(
 
     override fun ping(): Boolean {
         return try {
-            mongoDatabase.runCommand(org.bson.Document("ping", 1))
+            mongoDatabase.runCommand(Document("ping", 1))
             true
         } catch (_: Exception) {
             false
