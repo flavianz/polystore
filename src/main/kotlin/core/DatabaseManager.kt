@@ -5,27 +5,44 @@ import ch.flavianz.driver.DriverManager
 import ch.flavianz.exceptions.CollectionAlreadyExistsException
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.exceptions.CollectionNotFoundException
-import ch.flavianz.query.CreateQuery
+import ch.flavianz.query.CreateCollectionQuery
 import ch.flavianz.driver.DatabaseDriver
+import ch.flavianz.exceptions.ConnectionAlreadyExistsException
+import ch.flavianz.model.CollectionConnection
 
 object DatabaseManager {
-    var rootCollections = mutableMapOf<String, CollectionModel>()
+    private var rootCollections = mutableMapOf<String, CollectionModel>()
+    private var connections = mutableMapOf<String, CollectionConnection>()
 
     fun initRootCollections(rootCollections: MutableMap<String, CollectionModel>) {
         this.rootCollections = rootCollections
     }
 
-    fun createCollection(createQuery: CreateQuery) {
-        if(!existsCollection(createQuery.parentCollection)) {
+    fun createCollection(createCollectionQuery: CreateCollectionQuery) {
+        if(!existsCollection(createCollectionQuery.parentCollection)) {
             // parent collection does not exist
-            throw CollectionNotFoundException(createQuery.parentCollection)
+            throw CollectionNotFoundException(createCollectionQuery.parentCollection)
         }
-        if(existsCollection(createQuery.parentCollection.sub(createQuery.collectionModel.name))) {
+        if(existsCollection(createCollectionQuery.parentCollection.sub(createCollectionQuery.collectionModel.name))) {
             // collection to be created already exists
-            throw CollectionAlreadyExistsException(createQuery.parentCollection.sub(createQuery.collectionModel.name))
+            throw CollectionAlreadyExistsException(createCollectionQuery.parentCollection.sub(createCollectionQuery.collectionModel.name))
         }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(createQuery) }
+        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(createCollectionQuery) }
+    }
+
+    fun createConnection(connection: CollectionConnection){
+        if(connections.containsKey(connection.name)) {
+            throw ConnectionAlreadyExistsException(connection.name)
+        }
+        if(!existsCollection(connection.collection1)) {
+            throw CollectionNotFoundException(connection.collection1)
+        }
+        if(!existsCollection(connection.collection2)) {
+            throw CollectionNotFoundException(connection.collection2)
+        }
+
+        DriverManager.getInstance().execute { (DatabaseDriver::createConnection)(connection) }
     }
 
     fun registerCollection(collectionModel: CollectionModel, parentCollectionRef: CollectionRef) {
@@ -35,6 +52,10 @@ object DatabaseManager {
             currentCollections = (currentCollections[collectionName] ?: throw CollectionNotFoundException(parentCollectionRef)).subCollections
         }
         currentCollections[collectionModel.name] = collectionModel
+    }
+
+    fun registerConnection(connection: CollectionConnection) {
+        connections[connection.name] = connection
     }
 
     private fun existsCollection(collectionRef: CollectionRef): Boolean {

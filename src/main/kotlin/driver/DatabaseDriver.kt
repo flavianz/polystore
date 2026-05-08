@@ -1,7 +1,11 @@
 package ch.flavianz.driver
 
-import ch.flavianz.query.CreateQuery
+import ch.flavianz.data.CollectionRef
+import ch.flavianz.model.CollectionConnection
+import ch.flavianz.query.CreateCollectionQuery
 
 interface DatabaseDriver {
-    fun createCollection(createQuery: CreateQuery)
+    fun createCollection(createCollectionQuery: CreateCollectionQuery)
+
+    fun createConnection(connection: CollectionConnection)
 }
