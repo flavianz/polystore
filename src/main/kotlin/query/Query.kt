@@ -1,4 +1,3 @@
 package ch.flavianz.query
 
-interface Query {
-}
+interface Query

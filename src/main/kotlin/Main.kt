@@ -4,6 +4,7 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.PostgresConnection
+import ch.flavianz.data.CollectionRef
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
@@ -48,13 +49,16 @@ fun main() {
 
     val handler = QueryHandler()
 
-    handler.query(CreateQuery(CollectionModel("animals",
+    DatabaseManager.initRootCollections(mutableMapOf(Pair("animalss", CollectionModel("animalss",
         ObjectSchema(mapOf(Pair("name", DataType.String), Pair("age", DataType.Int))),
-        listOf(CollectionModel("toys",
-            ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int)))), CollectionModel("meals",
-            ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int))), listOf(CollectionModel("toys",
-                ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int)))), CollectionModel("meals",
-                ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int))))))))))
+        mutableMapOf(Pair("toys", CollectionModel("toys",
+            ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int))))), Pair("meals", CollectionModel("meals",
+            ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int))), mutableMapOf(Pair("toys", CollectionModel("toys",
+                ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int))))), Pair("meals", CollectionModel("meals",
+                ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int)))))))))))))
+
+    handler.query(CreateQuery(CollectionModel("meals",
+        ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int)))), CollectionRef("animalss.meals")))
 
     manager.disconnectAll()
 }

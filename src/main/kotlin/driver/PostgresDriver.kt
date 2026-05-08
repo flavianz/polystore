@@ -1,30 +1,30 @@
 package ch.flavianz.driver
 
-import ch.flavianz.model.CollectionModel
-import core.driver.DatabaseDriver
+import ch.flavianz.core.DatabaseManager
+import ch.flavianz.query.CreateQuery
 import java.sql.Connection
 import kotlin.collections.iterator
 
 class PostgresDriver(val connection: Connection) : DatabaseDriver {
+    override fun createCollection(createQuery: CreateQuery) {
+        val collectionModel = createQuery.collectionModel
+        val collectionName = createQuery.parentCollection.sub(collectionModel.name).toPostgresPath()
+        println("parent ${createQuery.parentCollection}")
 
-    override fun createCollection(collectionModel: CollectionModel) {
-        createCollection(collectionModel, null)
-    }
-
-    private fun createCollection(collectionModel: CollectionModel, parentCollectionName: String? = null) {
         val sql = StringBuilder()
 
         // Add the primary key column
         // ps_col = polystore_collection
-        sql.append("CREATE TABLE ").append(quoteIdentifier("ps_col_${collectionModel.name}"))
+        sql.append("CREATE TABLE ").append(quoteIdentifier("ps_col_$collectionName"))
 
         // ps_pk = polystore_primarykey
-        sql.append(" (").append(quoteIdentifier("ps_pk_${collectionModel.name}")).append(" UUID PRIMARY KEY")
+        sql.append(" (").append(quoteIdentifier("ps_pk_$collectionName")).append(" UUID PRIMARY KEY")
 
-        if(parentCollectionName != null) {
+        if(!createQuery.parentCollection.isRoot()) {
+            val parentCollectionName = createQuery.parentCollection.toPostgresPath()
             // ps_pfk = polystore_parentforeignkey
             sql.append(", ").append(quoteIdentifier("ps_pfk_$parentCollectionName")).append(" UUID CONSTRAINT ")
-                .append(quoteIdentifier("${collectionModel.name}_parent_${parentCollectionName}_fk"))
+                .append(quoteIdentifier("${collectionName}_parent_${parentCollectionName}_fk"))
                 .append(" references ").append(quoteIdentifier("ps_col_${parentCollectionName}"))
                 .append(" (").append(quoteIdentifier("ps_pk_${parentCollectionName}")).append(")")
         }
@@ -37,12 +37,14 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(")")
 
         println(sql)
-
         connection.prepareStatement(sql.toString()).execute()
 
+        DatabaseManager.registerCollection(createQuery.collectionModel, createQuery.parentCollection)
+
         if(collectionModel.subCollections.isNotEmpty()) {
-            for (model in collectionModel.subCollections) {
-                createCollection(CollectionModel("${collectionModel.name}_${model.name}", model.schema, model.subCollections), collectionModel.name)
+            for (model in HashMap(collectionModel.subCollections).values) {
+                createCollection(CreateQuery(
+                    model, createQuery.parentCollection.sub(createQuery.collectionModel.name)))
             }
         }
     }

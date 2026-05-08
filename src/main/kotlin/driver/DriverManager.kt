@@ -1,6 +1,5 @@
 package ch.flavianz.driver
 
-import core.driver.DatabaseDriver
 import java.sql.Connection
 
 class DriverManager private constructor(){
