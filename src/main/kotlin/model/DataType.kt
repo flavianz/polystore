@@ -1,14 +1,21 @@
 package ch.flavianz.model
 
 enum class DataType {
-    String,
-    Int;
+    STRING,
+    INT;
 
 
     fun toPostgresType(): String {
         return when (this) {
-            String -> "TEXT"
-            Int -> "INTEGER"
+            STRING -> "TEXT"
+            INT -> "INTEGER"
+        }
+    }
+
+    fun matchesType(value: Any?): Boolean {
+        return when (this) {
+            STRING -> value is String
+            INT -> value is Int
         }
     }
 }

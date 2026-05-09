@@ -1,10 +1,12 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.CollectionRef
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.query.CreateCollectionQuery
+import ch.flavianz.query.InsertRootObjectQuery
+import java.security.InvalidParameterException
 import java.sql.Connection
+import java.util.UUID
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
@@ -82,18 +84,48 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         sql.append(")")
 
+        this.connection.prepareStatement(sql.toString()).execute()
+    }
+
+    override fun insertRootObject(uuid: UUID, insertRootObjectQuery: InsertRootObjectQuery) {
+        val sql = StringBuilder()
+        sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${insertRootObjectQuery.collection.toPostgresPath()}")).append(" (")
+        sql.append(quoteIdentifier("ps_pk_${insertRootObjectQuery.collection.toPostgresPath()}"))
+
+        val entries = ArrayList(insertRootObjectQuery.data.fields.entries)
+
+        for(entry in entries) {
+            sql.append(", ").append(quoteIdentifier("f_${entry.key}"))
+        }
+        sql.append(") VALUES (").append(prepareValue(uuid))
+        for(entry in entries) {
+            sql.append(", ").append(prepareValue(entry.value))
+        }
+        sql.append(")")
+
         println(sql)
 
         this.connection.prepareStatement(sql.toString()).execute()
-
-        // TODO: move this out of specific driver
-        DatabaseManager.registerConnection(connection)
     }
 
     private fun quoteIdentifier(name: String): String {
         // Reject anything that's not a safe identifier character
         require(name.matches("[a-zA-Z_][a-zA-Z0-9_]*".toRegex())) { "Invalid identifier: $name" }
         return "\"${name}\""
+    }
+
+    private fun prepareValue(value: Any): String {
+        return when (value) {
+            is String, is UUID -> {
+                "'${value}'"
+            }
+            is Int -> {
+                value.toString()
+            }
+            else -> {
+                throw InvalidParameterException("Unknown value type ${value.javaClass}")
+            }
+        }
     }
 }
 

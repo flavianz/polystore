@@ -1,8 +1,9 @@
-04.02.26; 11.03.21; a; https://medium.com/firebase-tips-tricks/how-to-secure-many-to-many-relationships-in-firestore-d19f972fd4d3
-04.02.26;         ; f; https://www.reddit.com/r/Firebase/comments/1fp43o5/firestore_manytomany_difficulties/
-04.02.26; 14.07.21; v; https://www.youtube.com/watch?v=-bt_y4Loofg
-27.04.26;         ; d; https://neo4j.com/docs/getting-started/data-modeling/tutorial-data-modeling/
-04.05.26;         ; d; https://kotlinlang.org/docs/object-declarations.html
-04.05.26;         ; d; https://kotlinlang.org/docs/object-declarations.html#companion-objects
-04.05.26;         ; a; https://www.w3schools.com/sql/sql_prepared_statements.asp
-04.05.26;         ; d; https://docs.oracle.com/javase/tutorial/jdbc/basics/prepared.html
+04.02.26;11.03.21;a;https://medium.com/firebase-tips-tricks/how-to-secure-many-to-many-relationships-in-firestore-d19f972fd4d3
+04.02.26;;f;https://www.reddit.com/r/Firebase/comments/1fp43o5/firestore_manytomany_difficulties/
+04.02.26;14.07.21;v;https://www.youtube.com/watch?v=-bt_y4Loofg
+27.04.26;;d;https://neo4j.com/docs/getting-started/data-modeling/tutorial-data-modeling/
+04.05.26;;d;https://kotlinlang.org/docs/object-declarations.html
+04.05.26;;d;https://kotlinlang.org/docs/object-declarations.html#companion-objects
+04.05.26;;a;https://www.w3schools.com/sql/sql_prepared_statements.asp
+04.05.26;;d;https://docs.oracle.com/javase/tutorial/jdbc/basics/prepared.html
+09.05.26;;a;https://www.w3schools.com/sql/sql_insert.asp

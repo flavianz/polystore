@@ -5,13 +5,13 @@ import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.data.CollectionRef
+import ch.flavianz.data.DataObject
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
-import ch.flavianz.query.CreateCollectionQuery
-import ch.flavianz.query.CreateConnectionQuery
+import ch.flavianz.query.InsertRootObjectQuery
 import ch.flavianz.query.QueryHandler
 
 fun main() {
@@ -51,18 +51,20 @@ fun main() {
 
     val handler = QueryHandler()
 
-    DatabaseManager.initRootCollections(mutableMapOf(Pair("friends", CollectionModel("friends", ObjectSchema(mapOf(Pair("language", DataType.String), Pair("height", DataType.Int))))), Pair("animals", CollectionModel("animals",
-        ObjectSchema(mapOf(Pair("name", DataType.String), Pair("age", DataType.Int))),
+    DatabaseManager.initRootCollections(mutableMapOf(Pair("friends", CollectionModel("friends", ObjectSchema(mapOf(Pair("language", DataType.STRING), Pair("height", DataType.INT))))), Pair("animals", CollectionModel("animals",
+        ObjectSchema(mapOf(Pair("name", DataType.STRING), Pair("age", DataType.INT))),
         mutableMapOf(Pair("toys", CollectionModel("toys",
-            ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int))))), Pair("meals", CollectionModel("meals",
-            ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int))), mutableMapOf(Pair("toys", CollectionModel("toys",
-                ObjectSchema(mapOf(Pair("kind", DataType.String), Pair("size", DataType.Int))))), Pair("meals", CollectionModel("meals",
-                ObjectSchema(mapOf(Pair("type", DataType.String), Pair("smell", DataType.Int)))))))))))))
+            ObjectSchema(mapOf(Pair("kind", DataType.STRING), Pair("size", DataType.INT))))), Pair("meals", CollectionModel("meals",
+            ObjectSchema(mapOf(Pair("type", DataType.STRING), Pair("smell", DataType.INT))), mutableMapOf(Pair("toys", CollectionModel("toys",
+                ObjectSchema(mapOf(Pair("kind", DataType.STRING), Pair("size", DataType.INT))))), Pair("meals", CollectionModel("meals",
+                ObjectSchema(mapOf(Pair("type", DataType.STRING), Pair("smell", DataType.INT)))))))))))))
 
 
-    handler.query(CreateConnectionQuery(CollectionConnection("toy_friends", CollectionRef("animals.toys"),
-        CollectionRef("friends"), ObjectSchema(mapOf(Pair("since", DataType.Int), Pair("strength", DataType.Int)))
-    )))
+    DatabaseManager.initConnections(mutableMapOf(Pair("toy_friends", CollectionConnection("toy_friends", CollectionRef("animals.toys"),
+        CollectionRef("friends"), ObjectSchema(mapOf(Pair("since", DataType.INT), Pair("strength", DataType.INT)))
+    ))))
+
+    handler.query(InsertRootObjectQuery(CollectionRef("animals"), DataObject(mapOf(Pair("name", "Jim"), Pair("age", 11)))))
 
     manager.disconnectAll()
 }

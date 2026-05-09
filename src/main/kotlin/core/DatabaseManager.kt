@@ -1,6 +1,7 @@
 package ch.flavianz.core
 
 import ch.flavianz.data.CollectionRef
+import ch.flavianz.data.DataObject
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.exceptions.CollectionAlreadyExistsException
 import ch.flavianz.model.CollectionModel
@@ -8,7 +9,13 @@ import ch.flavianz.exceptions.CollectionNotFoundException
 import ch.flavianz.query.CreateCollectionQuery
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.exceptions.ConnectionAlreadyExistsException
+import ch.flavianz.exceptions.ObjectSchemaMismatch
 import ch.flavianz.model.CollectionConnection
+import ch.flavianz.model.ObjectSchema
+import ch.flavianz.query.InsertRootObjectQuery
+import java.security.InvalidParameterException
+import java.util.UUID
+import kotlin.collections.iterator
 
 object DatabaseManager {
     private var rootCollections = mutableMapOf<String, CollectionModel>()
@@ -16,6 +23,10 @@ object DatabaseManager {
 
     fun initRootCollections(rootCollections: MutableMap<String, CollectionModel>) {
         this.rootCollections = rootCollections
+    }
+
+    fun initConnections(connections: MutableMap<String, CollectionConnection>) {
+        this.connections = connections
     }
 
     fun createCollection(createCollectionQuery: CreateCollectionQuery) {
@@ -43,6 +54,8 @@ object DatabaseManager {
         }
 
         DriverManager.getInstance().execute { (DatabaseDriver::createConnection)(connection) }
+
+        registerConnection(connection)
     }
 
     fun registerCollection(collectionModel: CollectionModel, parentCollectionRef: CollectionRef) {
@@ -66,15 +79,41 @@ object DatabaseManager {
         return true
     }
 
-    /*fun insertObject(collection: String, data: DataObject) {
-        val collectionPath = collection.split(".")
-
-        println(collectionPath)
-
-        var availableCollections = rootCollections.values
-
-        for(pathSegment in collectionPath) {
-            if()
+    fun insertRootObject(insertRootObjectQuery: InsertRootObjectQuery) {
+        if(insertRootObjectQuery.collection.path.size != 1) {
+            throw InvalidParameterException("Expected root collection")
         }
-    }*/
+        if(!existsCollection(insertRootObjectQuery.collection)) {
+            throw CollectionNotFoundException(insertRootObjectQuery.collection)
+        }
+        val schema = getCollectionModel(insertRootObjectQuery.collection).schema
+        if(!dataMatchesSchema(insertRootObjectQuery.data, schema)) {
+            throw ObjectSchemaMismatch(insertRootObjectQuery.data, schema)
+        }
+
+        val objectUuid = UUID.randomUUID()
+
+        DriverManager.getInstance().execute { (DatabaseDriver::insertRootObject)(objectUuid, insertRootObjectQuery) }
+    }
+
+    private fun getCollectionModel(collection: CollectionRef): CollectionModel {
+        if(collection.isRoot()) {
+            throw InvalidParameterException("Cannot get Collection Model of Root")
+        }
+        val pathIterator = collection.path.iterator()
+        var currentCollectionModel = rootCollections[pathIterator.next()] ?: throw CollectionNotFoundException(collection)
+        for(collectionName in pathIterator) {
+            currentCollectionModel = (currentCollectionModel.subCollections[collectionName] ?: throw CollectionNotFoundException(collection))
+        }
+        return currentCollectionModel
+    }
+
+    private fun dataMatchesSchema(dataObject: DataObject, schema: ObjectSchema): Boolean {
+        for(entry in schema.fields) {
+            if(!entry.value.matchesType(dataObject.fields[entry.key])) {
+                return false
+            }
+        }
+        return dataObject.fields.size == schema.fields.size
+    }
 }
