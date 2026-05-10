@@ -12,9 +12,8 @@ import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
-import ch.flavianz.query.InsertObjectQuery
-import ch.flavianz.query.QueryHandler
-import ch.flavianz.query.UpdateObjectQuery
+import ch.flavianz.instructions.InstructionHandler
+import ch.flavianz.instructions.UpdateObjectInstruction
 import java.util.UUID
 
 fun main() {
@@ -52,7 +51,7 @@ fun main() {
         initPostgres(pg.jdbcConnection)
     }
 
-    val handler = QueryHandler()
+    val handler = InstructionHandler()
 
     DatabaseManager.initRootCollections(mutableMapOf(Pair("friends", CollectionModel("friends", ObjectSchema(mapOf(Pair("language", DataType.STRING), Pair("height", DataType.INT))))), Pair("animals", CollectionModel("animals",
         ObjectSchema(mapOf(Pair("name", DataType.STRING), Pair("age", DataType.INT))),
@@ -67,7 +66,7 @@ fun main() {
         CollectionRef("friends"), ObjectSchema(mapOf(Pair("since", DataType.INT), Pair("strength", DataType.INT)))
     ))))
 
-    handler.query(UpdateObjectQuery(CollectionPathRef("animals").doc(UUID.fromString("131ea425-4e7a-4e94-95a9-0cf8d0c40af3")).sub("meals").doc("278b87e7-1b75-4552-acfb-a2ef7a8357ff"), DataObject(mapOf(Pair("type", "Tomato Spaghetti"), Pair("smell", 10)))))
+    handler.handle(UpdateObjectInstruction(CollectionPathRef("animals").doc(UUID.fromString("131ea425-4e7a-4e94-95a9-0cf8d0c40af3")).sub("meals").doc("278b87e7-1b75-4552-acfb-a2ef7a8357ff"), DataObject(mapOf(Pair("type", "Tomato Spaghetti"), Pair("smell", 10)))))
 
     manager.disconnectAll()
 }

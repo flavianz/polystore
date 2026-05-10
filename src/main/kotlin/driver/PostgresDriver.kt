@@ -2,9 +2,9 @@ package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.CollectionConnection
-import ch.flavianz.query.CreateCollectionQuery
-import ch.flavianz.query.InsertObjectQuery
-import ch.flavianz.query.UpdateObjectQuery
+import ch.flavianz.instructions.CreateCollectionInstruction
+import ch.flavianz.instructions.InsertObjectInstruction
+import ch.flavianz.instructions.UpdateObjectInstruction
 import java.security.InvalidParameterException
 import java.sql.Connection
 import java.util.UUID
@@ -13,9 +13,9 @@ import kotlin.collections.component2
 import kotlin.collections.iterator
 
 class PostgresDriver(val connection: Connection) : DatabaseDriver {
-    override fun createCollection(createCollectionQuery: CreateCollectionQuery) {
-        val collectionModel = createCollectionQuery.collectionModel
-        val collectionName = createCollectionQuery.parentCollection.sub(collectionModel.name).toPostgresPath()
+    override fun createCollection(createCollectionInstruction: CreateCollectionInstruction) {
+        val collectionModel = createCollectionInstruction.collectionModel
+        val collectionName = createCollectionInstruction.parentCollection.sub(collectionModel.name).toPostgresPath()
 
         val sql = StringBuilder()
 
@@ -26,8 +26,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         // ps_pk = polystore_primarykey
         sql.append(" (").append(quoteIdentifier("ps_pk_$collectionName")).append(" UUID PRIMARY KEY")
 
-        if(!createCollectionQuery.parentCollection.isRoot()) {
-            val parentCollectionName = createCollectionQuery.parentCollection.toPostgresPath()
+        if(!createCollectionInstruction.parentCollection.isRoot()) {
+            val parentCollectionName = createCollectionInstruction.parentCollection.toPostgresPath()
             // ps_pfk = polystore_parentforeignkey
             sql.append(", ").append(quoteIdentifier("ps_pfk_$parentCollectionName")).append(" UUID CONSTRAINT ")
                 .append(quoteIdentifier("${collectionName}_parent_${parentCollectionName}_fk"))
@@ -45,12 +45,12 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         connection.prepareStatement(sql.toString()).execute()
 
         // TODO: move this out of specific driver
-        DatabaseManager.registerCollection(createCollectionQuery.collectionModel, createCollectionQuery.parentCollection)
+        DatabaseManager.registerCollection(createCollectionInstruction.collectionModel, createCollectionInstruction.parentCollection)
 
         if(collectionModel.subCollections.isNotEmpty()) {
             for (model in ArrayList(collectionModel.subCollections.values)) {
-                createCollection(CreateCollectionQuery(
-                    createCollectionQuery.parentCollection.sub(createCollectionQuery.collectionModel.name), model))
+                createCollection(CreateCollectionInstruction(
+                    createCollectionInstruction.parentCollection.sub(createCollectionInstruction.collectionModel.name), model))
             }
         }
     }
@@ -86,16 +86,16 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun insertObject(uuid: UUID, insertObjectQuery: InsertObjectQuery) {
+    override fun insertObject(uuid: UUID, insertObjectInstruction: InsertObjectInstruction) {
         val sql = StringBuilder()
-        val collectionRef = insertObjectQuery.collectionPathRef.toCollectionRef()
+        val collectionRef = insertObjectInstruction.collectionPathRef.toCollectionRef()
         sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" (")
         sql.append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}"))
         if(collectionRef.path.size > 1) {
             sql.append(", ").append(quoteIdentifier("ps_pfk_${collectionRef.parent().toPostgresPath()}"))
         }
 
-        val entries = ArrayList(insertObjectQuery.data.fields.entries)
+        val entries = ArrayList(insertObjectInstruction.data.fields.entries)
 
         for(entry in entries) {
             sql.append(", ").append(quoteIdentifier("f_${entry.key}"))
@@ -103,7 +103,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(") VALUES (").append(prepareValue(uuid))
 
         if(collectionRef.path.size > 1) {
-            sql.append(", ").append(prepareValue(insertObjectQuery.collectionPathRef.parentDoc().uuid))
+            sql.append(", ").append(prepareValue(insertObjectInstruction.collectionPathRef.parentDoc().uuid))
         }
 
         for(entry in entries) {
@@ -114,17 +114,17 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun updateObject(updateObjectQuery: UpdateObjectQuery) {
+    override fun updateObject(updateObjectInstruction: UpdateObjectInstruction) {
         val sql = StringBuilder()
-        val collectionRef = updateObjectQuery.documentPathRef.parentCollection().toCollectionRef()
+        val collectionRef = updateObjectInstruction.documentPathRef.parentCollection().toCollectionRef()
         sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" SET ")
 
-        for(entry in updateObjectQuery.data.fields) {
+        for(entry in updateObjectInstruction.data.fields) {
             sql.append(quoteIdentifier("f_${entry.key}")).append(" = ").append(prepareValue(entry.value)).append(", ")
         }
         sql.deleteRange(sql.length - 2, sql.length)
 
-        sql.append(" WHERE ").append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}")).append(" = ").append(prepareValue(updateObjectQuery.documentPathRef.uuid))
+        sql.append(" WHERE ").append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}")).append(" = ").append(prepareValue(updateObjectInstruction.documentPathRef.uuid))
 
         this.connection.prepareStatement(sql.toString()).execute()
     }

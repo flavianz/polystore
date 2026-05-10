@@ -6,14 +6,14 @@ import ch.flavianz.driver.DriverManager
 import ch.flavianz.exceptions.CollectionAlreadyExistsException
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.exceptions.CollectionNotFoundException
-import ch.flavianz.query.CreateCollectionQuery
+import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.exceptions.ConnectionAlreadyExistsException
 import ch.flavianz.exceptions.ObjectSchemaMismatch
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.ObjectSchema
-import ch.flavianz.query.InsertObjectQuery
-import ch.flavianz.query.UpdateObjectQuery
+import ch.flavianz.instructions.InsertObjectInstruction
+import ch.flavianz.instructions.UpdateObjectInstruction
 import java.security.InvalidParameterException
 import java.util.UUID
 import kotlin.collections.iterator
@@ -30,17 +30,17 @@ object DatabaseManager {
         this.connections = connections
     }
 
-    fun createCollection(createCollectionQuery: CreateCollectionQuery) {
-        if(!existsCollection(createCollectionQuery.parentCollection)) {
+    fun createCollection(createCollectionInstruction: CreateCollectionInstruction) {
+        if(!existsCollection(createCollectionInstruction.parentCollection)) {
             // parent collection does not exist
-            throw CollectionNotFoundException(createCollectionQuery.parentCollection)
+            throw CollectionNotFoundException(createCollectionInstruction.parentCollection)
         }
-        if(existsCollection(createCollectionQuery.parentCollection.sub(createCollectionQuery.collectionModel.name))) {
+        if(existsCollection(createCollectionInstruction.parentCollection.sub(createCollectionInstruction.collectionModel.name))) {
             // collection to be created already exists
-            throw CollectionAlreadyExistsException(createCollectionQuery.parentCollection.sub(createCollectionQuery.collectionModel.name))
+            throw CollectionAlreadyExistsException(createCollectionInstruction.parentCollection.sub(createCollectionInstruction.collectionModel.name))
         }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(createCollectionQuery) }
+        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(createCollectionInstruction) }
     }
 
     fun createConnection(connection: CollectionConnection){
@@ -80,34 +80,34 @@ object DatabaseManager {
         return true
     }
 
-    fun insertObject(insertObjectQuery: InsertObjectQuery) {
-        val collectionRef = insertObjectQuery.collectionPathRef.toCollectionRef()
+    fun insertObject(insertObjectInstruction: InsertObjectInstruction) {
+        val collectionRef = insertObjectInstruction.collectionPathRef.toCollectionRef()
 
         if(!existsCollection(collectionRef)) {
             throw CollectionNotFoundException(collectionRef)
         }
         val schema = getCollectionModel(collectionRef).schema
-        if(!dataMatchesSchema(insertObjectQuery.data, schema)) {
-            throw ObjectSchemaMismatch(insertObjectQuery.data, schema)
+        if(!dataMatchesSchema(insertObjectInstruction.data, schema)) {
+            throw ObjectSchemaMismatch(insertObjectInstruction.data, schema)
         }
 
         val objectUuid = UUID.randomUUID()
 
-        DriverManager.getInstance().execute { (DatabaseDriver::insertObject)(objectUuid, insertObjectQuery) }
+        DriverManager.getInstance().execute { (DatabaseDriver::insertObject)(objectUuid, insertObjectInstruction) }
     }
 
-    fun updateObject(updateObjectQuery: UpdateObjectQuery) {
-        val collectionRef = updateObjectQuery.documentPathRef.parentCollection().toCollectionRef()
+    fun updateObject(updateObjectInstruction: UpdateObjectInstruction) {
+        val collectionRef = updateObjectInstruction.documentPathRef.parentCollection().toCollectionRef()
 
         if(!existsCollection(collectionRef)) {
             throw CollectionNotFoundException(collectionRef)
         }
         val schema = getCollectionModel(collectionRef).schema
-        if(!schemaContainsFields(updateObjectQuery.data, schema)) {
-            throw ObjectSchemaMismatch(updateObjectQuery.data, schema)
+        if(!schemaContainsFields(updateObjectInstruction.data, schema)) {
+            throw ObjectSchemaMismatch(updateObjectInstruction.data, schema)
         }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectQuery) }
+        DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectInstruction) }
     }
 
     private fun getCollectionModel(collection: CollectionRef): CollectionModel {
