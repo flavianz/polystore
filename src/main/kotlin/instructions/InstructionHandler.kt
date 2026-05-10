@@ -17,6 +17,9 @@ class InstructionHandler {
             is UpdateObjectInstruction -> {
                 DatabaseManager.updateObject(instruction)
             }
+            is QueryInstruction -> {
+                DatabaseManager.query(instruction.query)
+            }
         }
     }
 }

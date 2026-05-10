@@ -14,7 +14,9 @@ import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.query.Query
 import java.security.InvalidParameterException
+import java.util.LinkedList
 import java.util.UUID
 import kotlin.collections.iterator
 
@@ -72,14 +74,6 @@ object DatabaseManager {
         connections[connection.name] = connection
     }
 
-    private fun existsCollection(collectionRef: CollectionRef): Boolean {
-        var currentCollections = rootCollections
-        for(collectionName in collectionRef.path.iterator()) {
-            currentCollections = (currentCollections[collectionName] ?: return false).subCollections
-        }
-        return true
-    }
-
     fun insertObject(insertObjectInstruction: InsertObjectInstruction) {
         val collectionRef = insertObjectInstruction.collectionPathRef.toCollectionRef()
 
@@ -108,6 +102,33 @@ object DatabaseManager {
         }
 
         DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectInstruction) }
+    }
+
+    fun query(query: Query) {
+        var currentCollections = rootCollections
+        for(selector in query.selectors.iterator()) {
+            val currentModel = currentCollections[selector.collectionName] ?:
+            throw CollectionNotFoundException(CollectionRef(LinkedList(query.selectors.map { it.collectionName })))
+
+            for(filter in selector.filters) {
+                val fieldDataType = currentModel.schema.fields[filter.propertyName] ?: throw IllegalStateException("field ${filter.propertyName} does not exists")
+                if(!filter.operand.isDataTypeApplicable(fieldDataType)) {
+                    throw IllegalStateException("Operand ${filter.operand} does not allow type \"$fieldDataType\"")
+                }
+            }
+
+            currentCollections = currentModel.subCollections
+        }
+
+
+    }
+
+    private fun existsCollection(collectionRef: CollectionRef): Boolean {
+        var currentCollections = rootCollections
+        for(collectionName in collectionRef.path.iterator()) {
+            currentCollections = (currentCollections[collectionName] ?: return false).subCollections
+        }
+        return true
     }
 
     private fun getCollectionModel(collection: CollectionRef): CollectionModel {

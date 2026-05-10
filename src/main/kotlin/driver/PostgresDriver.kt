@@ -1,10 +1,13 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
+import ch.flavianz.data.DataObject
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.query.Collector
+import ch.flavianz.query.Query
 import java.security.InvalidParameterException
 import java.sql.Connection
 import java.util.UUID
@@ -127,6 +130,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(" WHERE ").append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}")).append(" = ").append(prepareValue(updateObjectInstruction.documentPathRef.uuid))
 
         this.connection.prepareStatement(sql.toString()).execute()
+    }
+
+    override fun query(query: Query): List<DataObject> {
+        val sql = StringBuilder()
+        sql.append("SELECT ")
+        if(query.collector is Collector.TakeCollector) {
+
+        }
+        return emptyList()
     }
 
     private fun quoteIdentifier(name: String): String {
