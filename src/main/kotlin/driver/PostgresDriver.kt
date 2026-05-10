@@ -125,7 +125,10 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         for(entry in updateObjectInstruction.data.fields) {
             sql.append(quoteIdentifier("f_${entry.key}")).append(" = ").append(prepareValue(entry.value)).append(", ")
         }
-        sql.deleteRange(sql.length - 2, sql.length)
+        if(updateObjectInstruction.data.fields.isNotEmpty()) {
+            // remove last comma
+            sql.deleteRange(sql.length - 2, sql.length)
+        }
 
         sql.append(" WHERE ").append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}")).append(" = ").append(prepareValue(updateObjectInstruction.documentPathRef.uuid))
 
@@ -135,9 +138,23 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     override fun query(query: Query): List<DataObject> {
         val sql = StringBuilder()
         sql.append("SELECT ")
-        if(query.collector is Collector.TakeCollector) {
-
+        when(query.collector) {
+            is Collector.TakeCollector -> {
+                for(collectionReference in query.collector.properties) {
+                    for(field in collectionReference.value) {
+                        sql.append(quoteIdentifier(collectionReference.key)).append(".").append(quoteIdentifier(field)).append(", ")
+                    }
+                }
+                if(query.collector.properties.isNotEmpty()) {
+                    // remove last comma
+                    sql.deleteRange(sql.length - 2, sql.length)
+                }
+            }
+            is Collector.CollectCollector -> {
+                sql.append(quoteIdentifier(query.collector.propertyName)).append(".*")
+            }
         }
+        sql.append(" FROM ")
         return emptyList()
     }
 
