@@ -4,6 +4,7 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.query.CreateCollectionQuery
 import ch.flavianz.query.InsertObjectQuery
+import ch.flavianz.query.UpdateObjectQuery
 import java.security.InvalidParameterException
 import java.sql.Connection
 import java.util.UUID
@@ -15,7 +16,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     override fun createCollection(createCollectionQuery: CreateCollectionQuery) {
         val collectionModel = createCollectionQuery.collectionModel
         val collectionName = createCollectionQuery.parentCollection.sub(collectionModel.name).toPostgresPath()
-        println("parent ${createCollectionQuery.parentCollection}")
 
         val sql = StringBuilder()
 
@@ -42,7 +42,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         sql.append(")")
 
-        println(sql)
         connection.prepareStatement(sql.toString()).execute()
 
         // TODO: move this out of specific driver
@@ -112,7 +111,20 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
         sql.append(")")
 
-        println(sql)
+        this.connection.prepareStatement(sql.toString()).execute()
+    }
+
+    override fun updateObject(updateObjectQuery: UpdateObjectQuery) {
+        val sql = StringBuilder()
+        val collectionRef = updateObjectQuery.documentPathRef.parentCollection().toCollectionRef()
+        sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" SET ")
+
+        for(entry in updateObjectQuery.data.fields) {
+            sql.append(quoteIdentifier("f_${entry.key}")).append(" = ").append(prepareValue(entry.value)).append(", ")
+        }
+        sql.deleteRange(sql.length - 2, sql.length)
+
+        sql.append(" WHERE ").append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}")).append(" = ").append(prepareValue(updateObjectQuery.documentPathRef.uuid))
 
         this.connection.prepareStatement(sql.toString()).execute()
     }

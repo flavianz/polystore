@@ -73,4 +73,10 @@ class DocumentPathRef(val segments: LinkedList<PathSegment>) {
     fun sub(name: String): CollectionPathRef {
         return CollectionPathRef(LinkedList(segments + PathSegment.Collection(name)))
     }
+
+    fun parentCollection(): CollectionPathRef {
+        val newPath = LinkedList(segments)
+        newPath.removeLast()
+        return CollectionPathRef(newPath)
+    }
 }

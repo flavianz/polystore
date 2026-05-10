@@ -13,6 +13,7 @@ import ch.flavianz.exceptions.ObjectSchemaMismatch
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.query.InsertObjectQuery
+import ch.flavianz.query.UpdateObjectQuery
 import java.security.InvalidParameterException
 import java.util.UUID
 import kotlin.collections.iterator
@@ -95,6 +96,20 @@ object DatabaseManager {
         DriverManager.getInstance().execute { (DatabaseDriver::insertObject)(objectUuid, insertObjectQuery) }
     }
 
+    fun updateObject(updateObjectQuery: UpdateObjectQuery) {
+        val collectionRef = updateObjectQuery.documentPathRef.parentCollection().toCollectionRef()
+
+        if(!existsCollection(collectionRef)) {
+            throw CollectionNotFoundException(collectionRef)
+        }
+        val schema = getCollectionModel(collectionRef).schema
+        if(!schemaContainsFields(updateObjectQuery.data, schema)) {
+            throw ObjectSchemaMismatch(updateObjectQuery.data, schema)
+        }
+
+        DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectQuery) }
+    }
+
     private fun getCollectionModel(collection: CollectionRef): CollectionModel {
         if(collection.isRoot()) {
             throw InvalidParameterException("Cannot get Collection Model of Root")
@@ -114,5 +129,14 @@ object DatabaseManager {
             }
         }
         return dataObject.fields.size == schema.fields.size
+    }
+
+    private fun schemaContainsFields(dataObject: DataObject, schema: ObjectSchema): Boolean {
+        for(entry in dataObject.fields) {
+            if(!(schema.fields[entry.key]?.matchesType(entry.value) ?: return false)) {
+                return false
+            }
+        }
+        return true
     }
 }
