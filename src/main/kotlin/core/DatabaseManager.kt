@@ -12,7 +12,7 @@ import ch.flavianz.exceptions.ConnectionAlreadyExistsException
 import ch.flavianz.exceptions.ObjectSchemaMismatch
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.ObjectSchema
-import ch.flavianz.query.InsertRootObjectQuery
+import ch.flavianz.query.InsertObjectQuery
 import java.security.InvalidParameterException
 import java.util.UUID
 import kotlin.collections.iterator
@@ -79,21 +79,20 @@ object DatabaseManager {
         return true
     }
 
-    fun insertRootObject(insertRootObjectQuery: InsertRootObjectQuery) {
-        if(insertRootObjectQuery.collection.path.size != 1) {
-            throw InvalidParameterException("Expected root collection")
+    fun insertObject(insertObjectQuery: InsertObjectQuery) {
+        val collectionRef = insertObjectQuery.collectionPathRef.toCollectionRef()
+
+        if(!existsCollection(collectionRef)) {
+            throw CollectionNotFoundException(collectionRef)
         }
-        if(!existsCollection(insertRootObjectQuery.collection)) {
-            throw CollectionNotFoundException(insertRootObjectQuery.collection)
-        }
-        val schema = getCollectionModel(insertRootObjectQuery.collection).schema
-        if(!dataMatchesSchema(insertRootObjectQuery.data, schema)) {
-            throw ObjectSchemaMismatch(insertRootObjectQuery.data, schema)
+        val schema = getCollectionModel(collectionRef).schema
+        if(!dataMatchesSchema(insertObjectQuery.data, schema)) {
+            throw ObjectSchemaMismatch(insertObjectQuery.data, schema)
         }
 
         val objectUuid = UUID.randomUUID()
 
-        DriverManager.getInstance().execute { (DatabaseDriver::insertRootObject)(objectUuid, insertRootObjectQuery) }
+        DriverManager.getInstance().execute { (DatabaseDriver::insertObject)(objectUuid, insertObjectQuery) }
     }
 
     private fun getCollectionModel(collection: CollectionRef): CollectionModel {

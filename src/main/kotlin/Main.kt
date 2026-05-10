@@ -4,6 +4,7 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.PostgresConnection
+import ch.flavianz.data.CollectionPathRef
 import ch.flavianz.data.CollectionRef
 import ch.flavianz.data.DataObject
 import ch.flavianz.driver.DriverManager
@@ -11,8 +12,9 @@ import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
-import ch.flavianz.query.InsertRootObjectQuery
+import ch.flavianz.query.InsertObjectQuery
 import ch.flavianz.query.QueryHandler
+import java.util.UUID
 
 fun main() {
     val manager = ConnectionManager()
@@ -64,7 +66,7 @@ fun main() {
         CollectionRef("friends"), ObjectSchema(mapOf(Pair("since", DataType.INT), Pair("strength", DataType.INT)))
     ))))
 
-    handler.query(InsertRootObjectQuery(CollectionRef("animals"), DataObject(mapOf(Pair("name", "Jim"), Pair("age", 11)))))
+    handler.query(InsertObjectQuery(CollectionPathRef("animals").doc(UUID.fromString("131ea425-4e7a-4e94-95a9-0cf8d0c40af3")).sub("meals"), DataObject(mapOf(Pair("type", "Spaghetti"), Pair("smell", 7)))))
 
     manager.disconnectAll()
 }

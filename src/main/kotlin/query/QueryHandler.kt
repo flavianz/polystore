@@ -8,8 +8,8 @@ class QueryHandler {
             DatabaseManager.createCollection(query)
         } else if (query is CreateConnectionQuery) {
             DatabaseManager.createConnection(query.connection)
-        }else if (query is InsertRootObjectQuery) {
-            DatabaseManager.insertRootObject(query)
+        }else if (query is InsertObjectQuery) {
+            DatabaseManager.insertObject(query)
         }
     }
 }

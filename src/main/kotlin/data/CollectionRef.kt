@@ -14,12 +14,12 @@ class CollectionRef(private val collectionPath: LinkedList<String>) {
 
     fun parent(): CollectionRef {
         val newPath = LinkedList(collectionPath)
-        newPath.pop()
+        newPath.removeLast()
         return CollectionRef(newPath)
     }
 
     fun goToParent() {
-        collectionPath.pop()
+        collectionPath.removeLast()
     }
 
     fun goToSub(name: String) {

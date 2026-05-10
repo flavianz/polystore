@@ -3,7 +3,7 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.query.CreateCollectionQuery
-import ch.flavianz.query.InsertRootObjectQuery
+import ch.flavianz.query.InsertObjectQuery
 import java.security.InvalidParameterException
 import java.sql.Connection
 import java.util.UUID
@@ -87,17 +87,26 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun insertRootObject(uuid: UUID, insertRootObjectQuery: InsertRootObjectQuery) {
+    override fun insertObject(uuid: UUID, insertObjectQuery: InsertObjectQuery) {
         val sql = StringBuilder()
-        sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${insertRootObjectQuery.collection.toPostgresPath()}")).append(" (")
-        sql.append(quoteIdentifier("ps_pk_${insertRootObjectQuery.collection.toPostgresPath()}"))
+        val collectionRef = insertObjectQuery.collectionPathRef.toCollectionRef()
+        sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" (")
+        sql.append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}"))
+        if(collectionRef.path.size > 1) {
+            sql.append(", ").append(quoteIdentifier("ps_pfk_${collectionRef.parent().toPostgresPath()}"))
+        }
 
-        val entries = ArrayList(insertRootObjectQuery.data.fields.entries)
+        val entries = ArrayList(insertObjectQuery.data.fields.entries)
 
         for(entry in entries) {
             sql.append(", ").append(quoteIdentifier("f_${entry.key}"))
         }
         sql.append(") VALUES (").append(prepareValue(uuid))
+
+        if(collectionRef.path.size > 1) {
+            sql.append(", ").append(prepareValue(insertObjectQuery.collectionPathRef.parentDoc().uuid))
+        }
+
         for(entry in entries) {
             sql.append(", ").append(prepareValue(entry.value))
         }
