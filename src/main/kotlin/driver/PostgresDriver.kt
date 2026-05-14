@@ -1,14 +1,13 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.DataObject
+import ch.flavianz.data.PolyDocument
+import ch.flavianz.data.PolyValue
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
-import ch.flavianz.query.Collector
-import ch.flavianz.query.Query
-import java.security.InvalidParameterException
+import ch.flavianz.query.PolyQuery
 import java.sql.Connection
 import java.util.UUID
 import kotlin.collections.component1
@@ -103,10 +102,10 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         for(entry in entries) {
             sql.append(", ").append(quoteIdentifier("f_${entry.key}"))
         }
-        sql.append(") VALUES (").append(prepareValue(uuid))
+        sql.append(") VALUES (").append(prepareValue(PolyValue.of(uuid)))
 
         if(collectionRef.path.size > 1) {
-            sql.append(", ").append(prepareValue(insertObjectInstruction.collectionPathRef.parentDoc().uuid))
+            sql.append(", ").append(prepareValue(PolyValue.of(insertObjectInstruction.collectionPathRef.parentDoc().uuid)))
         }
 
         for(entry in entries) {
@@ -130,15 +129,16 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             sql.deleteRange(sql.length - 2, sql.length)
         }
 
-        sql.append(" WHERE ").append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}")).append(" = ").append(prepareValue(updateObjectInstruction.documentPathRef.uuid))
+        sql.append(" WHERE ").append(quoteIdentifier("ps_pk_${collectionRef.toPostgresPath()}")).append(" = ").append(prepareValue(
+            PolyValue.of(updateObjectInstruction.documentPathRef.uuid)))
 
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun query(query: Query): List<DataObject> {
+    override fun query(query: PolyQuery): List<PolyDocument> {
         val sql = StringBuilder()
         sql.append("SELECT ")
-        when(query.collector) {
+        /*when(query.collector) {
             is Collector.TakeCollector -> {
                 for(collectionReference in query.collector.properties) {
                     for(field in collectionReference.value) {
@@ -151,10 +151,17 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 }
             }
             is Collector.CollectCollector -> {
-                sql.append(quoteIdentifier(query.collector.propertyName)).append(".*")
+                sql.append(quoteIdentifier(query.collector.collectionName)).append(".*")
             }
         }
         sql.append(" FROM ")
+
+        when
+
+        val
+
+        val selectors = query.selectors.indexOfFirst { it.filters.isNotEmpty() || it. }*/
+
         return emptyList()
     }
 
@@ -164,16 +171,16 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         return "\"${name}\""
     }
 
-    private fun prepareValue(value: Any): String {
+    private fun prepareValue(value: PolyValue): String {
         return when (value) {
-            is String, is UUID -> {
+            is PolyValue.StringValue, is PolyValue.UUIDValue -> {
                 "'${value}'"
             }
-            is Int -> {
+            is PolyValue.IntValue -> {
                 value.toString()
             }
-            else -> {
-                throw InvalidParameterException("Unknown value type ${value.javaClass}")
+            is PolyValue.NullValue -> {
+                "null"
             }
         }
     }

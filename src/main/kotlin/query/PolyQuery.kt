@@ -1,0 +1,44 @@
+package ch.flavianz.query
+
+import ch.flavianz.data.PolyDocument
+import ch.flavianz.data.PolyValue
+
+// --- The full query ---
+data class PolyQuery(
+    val path: List<PathNode>,
+    val terminal: PolyTerminal
+)
+
+
+sealed class Condition {
+    data class Equals(val field: String, val value: PolyValue) : Condition()
+    data class GreaterThan(val field: String, val value: PolyValue.Number) : Condition()
+    data class LessThan(val field: String, val value: PolyValue.Number) : Condition()
+    data class And(val left: Condition, val right: Condition) : Condition()
+    data class Or(val left: Condition, val right: Condition) : Condition()
+    data class Not(val condition: Condition) : Condition()
+}
+
+
+data class PathNode(
+    val collection: String,
+    val alias: String? = null,
+    val condition: Condition? = null
+)
+
+
+sealed class FieldRef {
+    data class Wildcard(val alias: String) : FieldRef()        // example.*
+    data class Named(val alias: String, val field: String) : FieldRef()  // example.name
+}
+
+
+sealed class PolyTerminal {
+    data class Take(val fields: List<FieldRef>) : PolyTerminal()
+    data class Count(val alias: String? = null) : PolyTerminal()
+}
+
+sealed class PolyResult {
+    data class Documents(val polyDocuments: List<PolyDocument>) : PolyResult()
+    data class Count(val count: Int) : PolyResult()
+}

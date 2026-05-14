@@ -1,7 +1,7 @@
 package ch.flavianz.core
 
 import ch.flavianz.data.CollectionRef
-import ch.flavianz.data.DataObject
+import ch.flavianz.data.PolyDocument
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.exceptions.CollectionAlreadyExistsException
 import ch.flavianz.model.CollectionModel
@@ -14,9 +14,8 @@ import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
-import ch.flavianz.query.Query
+import ch.flavianz.query.PolyQuery
 import java.security.InvalidParameterException
-import java.util.LinkedList
 import java.util.UUID
 import kotlin.collections.iterator
 
@@ -104,8 +103,8 @@ object DatabaseManager {
         DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectInstruction) }
     }
 
-    fun query(query: Query) {
-        var currentCollections = rootCollections
+    fun query(query: PolyQuery) {
+        /*var currentCollections = rootCollections
         for(selector in query.selectors.iterator()) {
             val currentModel = currentCollections[selector.collectionName] ?:
             throw CollectionNotFoundException(CollectionRef(LinkedList(query.selectors.map { it.collectionName })))
@@ -118,7 +117,7 @@ object DatabaseManager {
             }
 
             currentCollections = currentModel.subCollections
-        }
+        }*/
 
 
     }
@@ -143,18 +142,18 @@ object DatabaseManager {
         return currentCollectionModel
     }
 
-    private fun dataMatchesSchema(dataObject: DataObject, schema: ObjectSchema): Boolean {
+    private fun dataMatchesSchema(polyDocument: PolyDocument, schema: ObjectSchema): Boolean {
         for(entry in schema.fields) {
-            if(!entry.value.matchesType(dataObject.fields[entry.key])) {
+            if(!(polyDocument.fields[entry.key] ?: return false).isType(entry.value)) {
                 return false
             }
         }
-        return dataObject.fields.size == schema.fields.size
+        return polyDocument.fields.size == schema.fields.size
     }
 
-    private fun schemaContainsFields(dataObject: DataObject, schema: ObjectSchema): Boolean {
-        for(entry in dataObject.fields) {
-            if(!(schema.fields[entry.key]?.matchesType(entry.value) ?: return false)) {
+    private fun schemaContainsFields(polyDocument: PolyDocument, schema: ObjectSchema): Boolean {
+        for(entry in polyDocument.fields) {
+            if(!entry.value.isType(schema.fields[entry.key] ?: return false)) {
                 return false
             }
         }

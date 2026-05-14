@@ -1,6 +1,6 @@
 package ch.flavianz.instructions
 
-import ch.flavianz.query.Query
+import ch.flavianz.query.PolyQuery
 
-data class QueryInstruction(val query: Query) : Instruction
+data class QueryInstruction(val query: PolyQuery) : Instruction
 
