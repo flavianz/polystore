@@ -2,13 +2,11 @@ package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.CollectionRef
-import ch.flavianz.data.PolyDocument
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.CollectionConnection
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
-import ch.flavianz.model.DataType
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyQuery
@@ -146,21 +144,20 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         val sql = StringBuilder()
 
         val selectClauses = terminal.fields.flatMap { fieldRef ->
-            val node = query.path.first { (it.alias ?: it.collection) == fieldRef.alias }
-            val col = CollectionRef(node.collection)
+            val nodeIndex = query.path.indexOfFirst { it.collection == fieldRef.collection }
+            val col = CollectionRef(LinkedList(query.path.take(nodeIndex + 1).map { it.collection }))
             val pgTable = "ps_col_${col.toPostgresPath()}"
-            val tableAlias = node.alias ?: pgTable
             when (fieldRef) {
                 is FieldRef.Wildcard -> {
                     val schema = DatabaseManager.getCollectionModel(col).schema
-                    val pkCol = "${quoteIdentifier(tableAlias)}.${quoteIdentifier("ps_pk")} AS ${quoteIdentifier("${fieldRef.alias}__id")}"
+                    val pkCol = "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_pk")} AS ${quoteIdentifier("${pgTable}__id")}"
                     val fieldCols = schema.fields.keys.map { f ->
-                        "${quoteIdentifier(tableAlias)}.${quoteIdentifier("f_$f")} AS ${quoteIdentifier("${fieldRef.alias}__$f")}"
+                        "${quoteIdentifier(pgTable)}.${quoteIdentifier("f_$f")} AS ${quoteIdentifier("${pgTable}__$f")}"
                     }
                     listOf(pkCol) + fieldCols
                 }
                 is FieldRef.Named -> listOf(
-                    "${quoteIdentifier(tableAlias)}.${quoteIdentifier("f_${fieldRef.field}")} AS ${quoteIdentifier("${fieldRef.alias}__${fieldRef.field}")}"
+                    "${quoteIdentifier(pgTable)}.${quoteIdentifier("f_${fieldRef.field}")} AS ${quoteIdentifier("${pgTable}__${fieldRef.field}")}"
                 )
             }
         }
@@ -172,22 +169,22 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         println(sql)
 
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
-        val targetNode = query.path.last()
-        val targetCol = CollectionRef(LinkedList(query.path.map { it.collection }))
-        val targetAlias = targetNode.alias ?: "ps_col_${targetCol.toPostgresPath()}"
-        val schema = DatabaseManager.getCollectionModel(targetCol).schema
 
         return PolyResult.Documents(buildList {
+            val metaData = rs.metaData
+            val columnNames = (1..metaData.columnCount).map { metaData.getColumnName(it) }
+
             while (rs.next()) {
-                val fields = schema.fields.entries.associate { (name, dataType) ->
-                    name to when (dataType) {
-                        DataType.STRING -> PolyValue.of(rs.getString("${targetAlias}__$name"))
-                        DataType.INT    -> PolyValue.of(rs.getInt("${targetAlias}__$name"))
-                        DataType.UUID   -> PolyValue.of(rs.getObject("${targetAlias}__$name") as UUID)
-                        DataType.NULL   -> PolyValue.NullValue
+                val fields = columnNames.associateWith { col ->
+                    when (val obj = rs.getObject(col)) {
+                        null -> PolyValue.NullValue
+                        is String -> PolyValue.of(obj)
+                        is Int -> PolyValue.of(obj)
+                        is UUID -> PolyValue.of(obj)
+                        else -> throw IllegalStateException("Unexpected type ${obj::class} for column $col")
                     }
                 }
-                add(PolyDocument(fields))
+                add(fields)
             }
         })
     }
@@ -207,26 +204,19 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         val firstNode = query.path.first()
         val firstCol = CollectionRef(firstNode.collection)
         val firstTable = "ps_col_${firstCol.toPostgresPath()}"
-        val firstAlias = firstNode.alias ?: firstTable
         sql.append(" FROM ").append(quoteIdentifier(firstTable))
-            .append(" AS ").append(quoteIdentifier(firstAlias))
 
         for (i in 1 until query.path.size) {
-            val prevNode = query.path[i - 1]
-            val currNode = query.path[i]
-            val currCol = CollectionRef(LinkedList(query.path.map { it.collection }))
-            val prevCol = currCol.parent()
+            val prevCol = CollectionRef(LinkedList(query.path.take(i).map { it.collection }))
+            val currCol = CollectionRef(LinkedList(query.path.take(i + 1).map { it.collection }))
             val prevTable = "ps_col_${prevCol.toPostgresPath()}"
             val currTable = "ps_col_${currCol.toPostgresPath()}"
-            val prevAlias = prevNode.alias ?: prevTable
-            val currAlias = currNode.alias ?: currTable
 
             sql.append(" JOIN ").append(quoteIdentifier(currTable))
-                .append(" AS ").append(quoteIdentifier(currAlias))
                 .append(" ON ")
-                .append(quoteIdentifier(currAlias)).append(".").append(quoteIdentifier("ps_parent_fk"))
+                .append(quoteIdentifier(currTable)).append(".").append(quoteIdentifier("ps_parent_fk"))
                 .append(" = ")
-                .append(quoteIdentifier(prevAlias)).append(".").append(quoteIdentifier("ps_pk"))
+                .append(quoteIdentifier(prevTable)).append(".").append(quoteIdentifier("ps_pk"))
         }
     }
 
@@ -234,8 +224,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         val conditions = query.path.mapNotNull { node ->
             node.condition?.let {
                 val col = CollectionRef(node.collection)
-                val tableAlias = node.alias ?: "ps_col_${col.toPostgresPath()}"
-                translateCondition(it, tableAlias)
+                val pgTable = "ps_col_${col.toPostgresPath()}"
+                translateCondition(it, pgTable)
             }
         }
         if (conditions.isNotEmpty()) {
