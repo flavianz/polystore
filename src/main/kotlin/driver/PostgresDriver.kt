@@ -166,8 +166,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         appendFromAndJoins(sql, query)
         appendWhere(sql, query)
 
-        println(sql)
-
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
 
         return PolyResult.Documents(buildList {
@@ -194,6 +192,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append("SELECT COUNT(*) AS ps_count")
         appendFromAndJoins(sql, query)
         appendWhere(sql, query)
+
+        println(sql)
 
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
         rs.next()
@@ -223,7 +223,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     private fun appendWhere(sql: StringBuilder, query: PolyQuery) {
         val conditions = query.path.mapNotNull { node ->
             node.condition?.let {
-                val col = CollectionRef(node.collection)
+                val nodeIndex = query.path.indexOfFirst { it -> it.collection == node.collection }
+                val col = CollectionRef(LinkedList(query.path.take(nodeIndex + 1).map { it -> it.collection }))
                 val pgTable = "ps_col_${col.toPostgresPath()}"
                 translateCondition(it, pgTable)
             }
