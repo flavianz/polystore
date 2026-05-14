@@ -7,6 +7,7 @@ class QueryParser(input: String) {
 
     private val tokens = tokenize(input)
     private var pos = 0
+    private val aliasMap = mutableMapOf<String, String>()
 
     fun parse(): PolyQuery {
         val path = parsePath()
@@ -31,14 +32,21 @@ class QueryParser(input: String) {
         if (parenthesized) consume()
 
         val name = consumeIdentifier()
-        val alias = if (isIdentifier(peek())) consumeIdentifier() else null
+
+        // if next token is an identifier (not "where", ".", ")"), it's an alias
+        val nextIsAlias = isIdentifier(peek()) && peek() != "where"
+        if (nextIsAlias) {
+            val alias = consumeIdentifier()
+            aliasMap[alias] = name  // register alias → real name, then discard alias
+        }
+
         val condition = if (peek() == "where") {
             consume()
             parseCondition()
         } else null
 
         if (parenthesized) consume(")")
-        return PathNode(name, alias, condition)
+        return PathNode(name, condition)
     }
 
     // "take ..." or "count"
@@ -68,11 +76,12 @@ class QueryParser(input: String) {
 
     // "h.name" or "doc.*"
     private fun parseFieldRef(): FieldRef {
-        val alias = consumeIdentifier()
+        val aliasOrName = consumeIdentifier()
+        val resolvedName = aliasMap[aliasOrName] ?: aliasOrName  // resolve, fall back to name itself
         consume(".")
         val field = consume()
-        return if (field == "*") FieldRef.Wildcard(alias)
-        else FieldRef.Named(alias, field)
+        return if (field == "*") FieldRef.Wildcard(resolvedName)
+        else FieldRef.Named(resolvedName, field)
     }
 
     private fun consumeValue(): PolyValue {

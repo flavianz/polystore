@@ -1,6 +1,6 @@
 package ch.flavianz.query
 
-import ch.flavianz.data.PolyDocument
+import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 
 // --- The full query ---
@@ -22,16 +22,15 @@ sealed class Condition {
 
 data class PathNode(
     val collection: String,
-    val alias: String? = null,
     val condition: Condition? = null
 )
 
 
 sealed class FieldRef {
-    abstract val alias: String
+    abstract val collection: String
 
-    data class Wildcard(override val alias: String) : FieldRef()
-    data class Named(override val alias: String, val field: String) : FieldRef()
+    data class Wildcard(override val collection: String) : FieldRef()
+    data class Named(override val collection: String, val field: String) : FieldRef()
 }
 
 
@@ -41,6 +40,6 @@ sealed class PolyTerminal {
 }
 
 sealed class PolyResult {
-    data class Documents(val polyDocuments: List<PolyDocument>) : PolyResult()
+    data class Documents(val polyData: List<PolyData>) : PolyResult()
     data class Count(val count: Int) : PolyResult()
 }
