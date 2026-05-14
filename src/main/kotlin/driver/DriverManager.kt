@@ -1,5 +1,8 @@
 package ch.flavianz.driver
 
+import ch.flavianz.query.PolyQuery
+import ch.flavianz.query.PolyResult
+import ch.flavianz.query.PolyTerminal
 import java.sql.Connection
 
 class DriverManager private constructor(){
@@ -14,7 +17,13 @@ class DriverManager private constructor(){
         return this
     }
 
+    fun take(query: PolyQuery, terminal: PolyTerminal.Take): PolyResult.Documents {
+        return (this.postgresDriver ?: throw NotImplementedError("postgres not conencted")).take(query, terminal)
+    }
 
+    fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResult.Count {
+        return (this.postgresDriver ?: throw NotImplementedError("postgres not conencted")).count(query, terminal)
+    }
 
     companion object {
         @Volatile

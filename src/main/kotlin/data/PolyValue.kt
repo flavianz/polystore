@@ -5,20 +5,22 @@ import java.util.UUID
 
 sealed class PolyValue {
     abstract val type: DataType
+    abstract val value: Any?
 
     sealed class Number : PolyValue()
 
-    data class IntValue(val value: Int) : Number() {
+    data class IntValue(override val value: Int) : Number() {
         override val type = DataType.INT
     }
 
-    data class StringValue(val value: String) : PolyValue() {
+    data class StringValue(override val value: String) : PolyValue() {
         override val type = DataType.STRING
     }
-    data class UUIDValue(val value: UUID) : PolyValue() {
+    data class UUIDValue(override val value: UUID) : PolyValue() {
         override val type = DataType.UUID
     }
     object NullValue : PolyValue() {
+        override val value = null
         override val type = DataType.NULL
     }
 

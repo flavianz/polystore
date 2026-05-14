@@ -11,7 +11,9 @@ import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InstructionHandler
+import ch.flavianz.instructions.QueryInstruction
 import ch.flavianz.query.QueryParser
+import ch.flavianz.query.query
 
 fun main() {
     val manager = ConnectionManager()
@@ -64,12 +66,11 @@ fun main() {
     ))))
 
     val parser = QueryParser("""
-    from (hospitals h where count < 10).departments.doctors doc
-    take h.name, d.name, doc.*
+    from (animals a where name = Tim).(meals m)
+    take a.name, m.type
 """)
 
-    println(parser.parse())
-
+    handler.handle(QueryInstruction(parser.parse()))
 
     manager.disconnectAll()
 }

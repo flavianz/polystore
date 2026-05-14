@@ -14,7 +14,10 @@ import ch.flavianz.model.CollectionConnection
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.query.Condition
 import ch.flavianz.query.PolyQuery
+import ch.flavianz.query.PolyResult
+import ch.flavianz.query.PolyTerminal
 import java.security.InvalidParameterException
 import java.util.UUID
 import kotlin.collections.iterator
@@ -103,26 +106,28 @@ object DatabaseManager {
         DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectInstruction) }
     }
 
-    fun query(query: PolyQuery) {
-        /*var currentCollections = rootCollections
-        for(selector in query.selectors.iterator()) {
-            val currentModel = currentCollections[selector.collectionName] ?:
-            throw CollectionNotFoundException(CollectionRef(LinkedList(query.selectors.map { it.collectionName })))
+    fun query(query: PolyQuery): PolyResult {
+        // validate the path against the schema registry
+        var currentCollections = rootCollections
+        for (node in query.path) {
+            val model = currentCollections[node.collection]
+                ?: throw CollectionNotFoundException(CollectionRef(node.collection))
 
-            for(filter in selector.filters) {
-                val fieldDataType = currentModel.schema.fields[filter.propertyName] ?: throw IllegalStateException("field ${filter.propertyName} does not exists")
-                if(!filter.operand.isDataTypeApplicable(fieldDataType)) {
-                    throw IllegalStateException("Operand ${filter.operand} does not allow type \"$fieldDataType\"")
-                }
+            // validate condition fields exist in schema
+            node.condition?.let { condition ->
+                validateConditionFields(condition, model.schema)
             }
 
-            currentCollections = currentModel.subCollections
-        }*/
+            currentCollections = model.subCollections
+        }
 
-
+        return when (val terminal = query.terminal) {
+            is PolyTerminal.Take  -> DriverManager.getInstance().take(query, terminal)
+            is PolyTerminal.Count -> DriverManager.getInstance().count(query, terminal)
+        }
     }
 
-    private fun existsCollection(collectionRef: CollectionRef): Boolean {
+    fun existsCollection(collectionRef: CollectionRef): Boolean {
         var currentCollections = rootCollections
         for(collectionName in collectionRef.path.iterator()) {
             currentCollections = (currentCollections[collectionName] ?: return false).subCollections
@@ -130,7 +135,7 @@ object DatabaseManager {
         return true
     }
 
-    private fun getCollectionModel(collection: CollectionRef): CollectionModel {
+    fun getCollectionModel(collection: CollectionRef): CollectionModel {
         if(collection.isRoot()) {
             throw InvalidParameterException("Cannot get Collection Model of Root")
         }
@@ -158,5 +163,16 @@ object DatabaseManager {
             }
         }
         return true
+    }
+
+    private fun validateConditionFields(condition: Condition, schema: ObjectSchema) {
+        when (condition) {
+            is Condition.Equals      -> require(schema.fields.containsKey(condition.field)) { "Unknown field: ${condition.field}" }
+            is Condition.GreaterThan -> require(schema.fields.containsKey(condition.field)) { "Unknown field: ${condition.field}" }
+            is Condition.LessThan    -> require(schema.fields.containsKey(condition.field)) { "Unknown field: ${condition.field}" }
+            is Condition.And -> { validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema) }
+            is Condition.Or  -> { validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema) }
+            is Condition.Not -> validateConditionFields(condition.condition, schema)
+        }
     }
 }

@@ -28,8 +28,10 @@ data class PathNode(
 
 
 sealed class FieldRef {
-    data class Wildcard(val alias: String) : FieldRef()        // example.*
-    data class Named(val alias: String, val field: String) : FieldRef()  // example.name
+    abstract val alias: String
+
+    data class Wildcard(override val alias: String) : FieldRef()
+    data class Named(override val alias: String, val field: String) : FieldRef()
 }
 
 
