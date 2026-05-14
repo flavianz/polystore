@@ -13,9 +13,9 @@ class QueryBuilder {
         terminal = PolyTerminal.Take(fields.toList())
     }
 
-    fun count(alias: String? = null) {
+    fun count() {
         check(terminal == null) { "Terminal already set" }
-        terminal = PolyTerminal.Count(alias)
+        terminal = PolyTerminal.Count
     }
 
     fun build(): PolyQuery {

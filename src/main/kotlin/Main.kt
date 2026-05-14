@@ -13,7 +13,6 @@ import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InstructionHandler
 import ch.flavianz.instructions.QueryInstruction
 import ch.flavianz.query.QueryParser
-import ch.flavianz.query.query
 
 fun main() {
     val manager = ConnectionManager()
@@ -66,8 +65,7 @@ fun main() {
     ))))
 
     val parser = QueryParser("""
-    from (animals a where name = Tim).(meals m)
-    take a.name, m.type
+    from animals.(meals m where smell < 11) count
 """)
 
     handler.handle(QueryInstruction(parser.parse()))

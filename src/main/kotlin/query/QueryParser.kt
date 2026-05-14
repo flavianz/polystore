@@ -34,7 +34,7 @@ class QueryParser(input: String) {
         val name = consumeIdentifier()
 
         // if next token is an identifier (not "where", ".", ")"), it's an alias
-        val nextIsAlias = isIdentifier(peek()) && peek() != "where"
+        val nextIsAlias = isIdentifier(peek()) && peek() !in arrayOf("where", "count", "take")
         if (nextIsAlias) {
             val alias = consumeIdentifier()
             aliasMap[alias] = name  // register alias → real name, then discard alias
@@ -51,9 +51,12 @@ class QueryParser(input: String) {
 
     // "take ..." or "count"
     private fun parseTerminal(): PolyTerminal {
+        println(tokens)
+        println(pos)
+        println(aliasMap)
         return when (val keyword = consume()) {
             "take"  -> parseTake()
-            "count" -> parseCount()
+            "count" -> PolyTerminal.Count
             else    -> throw IllegalArgumentException("Expected take or count, got $keyword")
         }
     }
@@ -66,12 +69,6 @@ class QueryParser(input: String) {
             fields.add(parseFieldRef())
         } while (peek() == ",")
         return PolyTerminal.Take(fields)
-    }
-
-    // "count" or "count d"
-    private fun parseCount(): PolyTerminal.Count {
-        val alias = if (isIdentifier(peek())) consumeIdentifier() else null
-        return PolyTerminal.Count(alias)
     }
 
     // "h.name" or "doc.*"

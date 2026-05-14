@@ -36,7 +36,7 @@ sealed class FieldRef {
 
 sealed class PolyTerminal {
     data class Take(val fields: List<FieldRef>) : PolyTerminal()
-    data class Count(val alias: String? = null) : PolyTerminal()
+    object Count : PolyTerminal()
 }
 
 sealed class PolyResult {
