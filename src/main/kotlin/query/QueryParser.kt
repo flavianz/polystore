@@ -1,6 +1,7 @@
 package ch.flavianz.query
 
 import ch.flavianz.data.PolyValue
+import ch.flavianz.model.QueryPath
 import java.util.UUID
 
 class QueryParser(input: String) {

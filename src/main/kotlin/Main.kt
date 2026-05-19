@@ -6,7 +6,7 @@ import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.data.CollectionRef
 import ch.flavianz.driver.DriverManager
-import ch.flavianz.model.CollectionConnection
+import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
@@ -60,7 +60,7 @@ fun main() {
                 ObjectSchema(mapOf(Pair("type", DataType.STRING), Pair("smell", DataType.INT)))))))))))))
 
 
-    DatabaseManager.initConnections(mutableMapOf(Pair("toy_friends", CollectionConnection("toy_friends", CollectionRef("animals.toys"),
+    DatabaseManager.initConnections(mutableMapOf(Pair("toy_friends", ConnectionModel("toy_friends", CollectionRef("animals.toys"),
         CollectionRef("friends"), ObjectSchema(mapOf(Pair("since", DataType.INT), Pair("strength", DataType.INT)))
     ))))
 

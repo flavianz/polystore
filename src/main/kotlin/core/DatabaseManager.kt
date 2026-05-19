@@ -10,7 +10,7 @@ import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.exceptions.ConnectionAlreadyExistsException
 import ch.flavianz.exceptions.ObjectSchemaMismatch
-import ch.flavianz.model.CollectionConnection
+import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
@@ -24,13 +24,13 @@ import kotlin.collections.iterator
 
 object DatabaseManager {
     private var rootCollections = mutableMapOf<String, CollectionModel>()
-    private var connections = mutableMapOf<String, CollectionConnection>()
+    private var connections = mutableMapOf<String, ConnectionModel>()
 
     fun initRootCollections(rootCollections: MutableMap<String, CollectionModel>) {
         this.rootCollections = rootCollections
     }
 
-    fun initConnections(connections: MutableMap<String, CollectionConnection>) {
+    fun initConnections(connections: MutableMap<String, ConnectionModel>) {
         this.connections = connections
     }
 
@@ -47,7 +47,7 @@ object DatabaseManager {
         DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(createCollectionInstruction) }
     }
 
-    fun createConnection(connection: CollectionConnection){
+    fun createConnection(connection: ConnectionModel){
         if(connections.containsKey(connection.name)) {
             throw ConnectionAlreadyExistsException(connection.name)
         }
@@ -72,7 +72,7 @@ object DatabaseManager {
         currentCollections[collectionModel.name] = collectionModel
     }
 
-    fun registerConnection(connection: CollectionConnection) {
+    fun registerConnection(connection: ConnectionModel) {
         connections[connection.name] = connection
     }
 

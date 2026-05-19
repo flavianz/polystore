@@ -3,7 +3,7 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.CollectionRef
 import ch.flavianz.data.PolyValue
-import ch.flavianz.model.CollectionConnection
+import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
@@ -62,7 +62,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
     }
 
-    override fun createConnection(connection: CollectionConnection) {
+    override fun createConnection(connection: ConnectionModel) {
         val sql = StringBuilder()
         val collection1Name = connection.collection1.toPostgresPath()
         val collection2Name = connection.collection2.toPostgresPath()
