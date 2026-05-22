@@ -1,10 +1,9 @@
 package ch.flavianz.model
 
-import java.util.LinkedList
 import java.util.UUID
 import kotlin.collections.plus
 
-class QueryPath(val segments: List<QuerySegment>){
+data class QueryPath(val segments: List<QuerySegment>){
 
     constructor(collection: QuerySegment.Collection) : this(listOf(collection))
     constructor(connection: QuerySegment.Connection) : this(listOf(connection))
@@ -26,18 +25,13 @@ class QueryPath(val segments: List<QuerySegment>){
     override fun toString(): String {
         return segments.joinToString(".")
     }
-
-    override fun equals(other: Any?): Boolean {
-        if(other !is QueryPath) return false
-        return segments == other.segments
-    }
-
-    override fun hashCode(): Int {
-        return segments.hashCode()
-    }
 }
 
-class CollectionRef(val segments: List<PathSegment.Collection> = listOf()){
+data class CollectionRef(val segments: List<PathSegment.Collection>){
+
+    init {
+        require(segments.isNotEmpty()) {"collection ref cannot be empty"}
+    }
 
     fun sub(name: String): CollectionRef {
         return CollectionRef(segments + PathSegment.Collection(name))
@@ -53,30 +47,18 @@ class CollectionRef(val segments: List<PathSegment.Collection> = listOf()){
         return segments.joinToString(".")
     }
 
-    override fun equals(other: Any?): Boolean {
-        if(other !is CollectionRef) return false
-        return segments == other.segments
-    }
-
-    override fun hashCode(): Int {
-        return segments.hashCode()
-    }
 }
 
-class CollectionPath(val segments: List<PathSegment>) {
+data class CollectionPath(val segments: List<PathSegment>) {
 
     init {
-        if(segments.isEmpty()) {
-            throw IllegalStateException("collection path can't be empty")
-        }
-        if(segments.last() !is PathSegment.Collection) {
-            throw IllegalStateException("collection path must end with a Collection Segment")
-        }
+        require(segments.isNotEmpty()) {"collection path can't be empty"}
+        require(segments.last() is PathSegment.Collection) {"collection path must end with a Collection Segment"}
+
         var wasLastCollection = false
         for(segment in segments) {
-            if((segment is PathSegment.Collection && wasLastCollection) || (segment is PathSegment.Document && !wasLastCollection)) {
-                throw IllegalStateException("Paths need to be collection and object alternating")
-            }
+            require(!(segment is PathSegment.Collection && wasLastCollection)
+                    && !(segment is PathSegment.Document && !wasLastCollection)) {"Paths need to be collection and object alternating"}
             wasLastCollection = segment is PathSegment.Collection
         }
     }
@@ -104,31 +86,16 @@ class CollectionPath(val segments: List<PathSegment>) {
     override fun toString(): String {
         return segments.joinToString(".")
     }
-
-
-    override fun equals(other: Any?): Boolean {
-        if(other !is CollectionPath) return false
-        return segments == other.segments
-    }
-
-    override fun hashCode(): Int {
-        return segments.hashCode()
-    }
 }
 
-class DocumentPath(val segments: List<PathSegment>) {
+data class DocumentPath(val segments: List<PathSegment>) {
     init {
-        if(segments.isEmpty()) {
-            throw IllegalStateException("object path can't be empty")
-        }
-        if(segments.last() !is PathSegment.Document) {
-            throw IllegalStateException("object path must end with a Object Segment")
-        }
+        require(segments.isNotEmpty()) {"object path can't be empty"}
+        require(segments.last() is PathSegment.Document) {"object path must end with a Object Segment"}
         var wasLastCollection = false
         for(segment in segments) {
-            if((segment is PathSegment.Collection && wasLastCollection) || (segment is PathSegment.Document && !wasLastCollection)) {
-                throw IllegalStateException("Paths need to be collection and object alternating")
-            }
+            require(!(segment is PathSegment.Collection && wasLastCollection)
+                    && !(segment is PathSegment.Document && !wasLastCollection)) {"Paths need to be collection and object alternating"}
             wasLastCollection = segment is PathSegment.Collection
         }
     }
@@ -140,21 +107,12 @@ class DocumentPath(val segments: List<PathSegment>) {
     }
 
     fun parentCollection(): CollectionPath {
-        val newPath = LinkedList(segments)
+        val newPath = segments.toMutableList()
         newPath.removeLast()
         return CollectionPath(newPath)
     }
 
     override fun toString(): String {
         return segments.joinToString(".")
-    }
-
-    override fun equals(other: Any?): Boolean {
-        if(other !is DocumentPath) return false
-        return segments == other.segments
-    }
-
-    override fun hashCode(): Int {
-        return segments.hashCode()
     }
 }

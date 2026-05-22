@@ -12,15 +12,20 @@ data class PolyQuery(
 
 
 sealed class Condition {
-    data class Equals(val field: String, val value: PolyValue) : Condition()
-    data class GreaterThan(val field: String, val value: PolyValue.Number) : Condition()
-    data class LessThan(val field: String, val value: PolyValue.Number) : Condition()
+    sealed class Comparison : Condition() {
+        abstract val field: String
+        abstract val value: PolyValue
+        data class Equals(override val field: String, override val value: PolyValue) : Comparison()
+        data class GreaterThan(override val field: String, override val value: PolyValue.Number) : Comparison()
+        data class LessThan(override val field: String, override val value: PolyValue.Number) : Comparison()
+    }
+
     data class And(val left: Condition, val right: Condition) : Condition()
     data class Or(val left: Condition, val right: Condition) : Condition()
     data class Not(val condition: Condition) : Condition()
 }
 
-sealed data class FieldRef {
+sealed class FieldRef {
     abstract val collection: String
 
     data class Wildcard(override val collection: String) : FieldRef()

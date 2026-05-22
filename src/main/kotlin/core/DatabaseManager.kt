@@ -13,14 +13,12 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
-import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
-import java.security.InvalidParameterException
 import java.util.UUID
 import kotlin.collections.iterator
 
@@ -112,22 +110,36 @@ object DatabaseManager {
     }
 
     fun query(query: PolyQuery): PolyResult {
-
+        require(query.path.segments.isNotEmpty()) {"query path cannot be empty"}
+        require(query.path.segments[0] is QuerySegment.Collection) {"query path must start with a collection"}
+        var currentPath = CollectionRef((query.path.segments[0] as QuerySegment.Collection).name)
         // validate the path against the schema registry
         for (segment in query.path.segments) {
-            if(segment is QuerySegment.Connection) {
-                val connectionModel = connections[segment.name] ?: throw IllegalStateException("Connection ${segment.name} not found")
-                if(connectionModel.collection1 != )
-            }
-            val model = currentCollections[segment.collection]
-                ?: throw CollectionNotFoundException(CollectionRef(segment.collection))
+            when(segment) {
+                is QuerySegment.Connection -> {
+                    val connectionModel = getConnectionModel(segment.name)
+                    check(
+                        connectionModel.collection1 == currentPath
+                                || connectionModel.collection2 == currentPath
+                    )
+                    { "connection ${segment.name} does not exist on collection $currentPath" }
 
-            // validate condition fields exist in schema
-            segment.condition?.let { condition ->
-                validateConditionFields(condition, model.schema)
-            }
+                    segment.condition?.let { condition ->
+                        validateConditionFields(condition, connectionModel.connectionData)
+                    }
 
-            currentCollections = model.subCollections
+                    currentPath =
+                        if (connectionModel.collection1 == currentPath) connectionModel.collection2 else connectionModel.collection1
+                }
+                is QuerySegment.Collection -> {
+                    val collectionModel = getCollectionModel(currentPath)
+                    segment.condition?.let { condition ->
+                        validateConditionFields(condition, collectionModel.schema)
+                    }
+
+                    currentPath = currentPath.sub(segment.name)
+                }
+            }
         }
 
         return when (val terminal = query.terminal) {
@@ -137,23 +149,15 @@ object DatabaseManager {
     }
 
     fun existsCollection(collectionRef: CollectionRef): Boolean {
-        var currentCollections = rootCollections
-        for(collectionName in collectionRef.path.iterator()) {
-            currentCollections = (currentCollections[collectionName] ?: return false).subCollections
-        }
-        return true
+        return collections[collectionRef] != null
     }
 
-    fun getCollectionModel(collection: CollectionRef): CollectionModel {
-        if(collection.isRoot()) {
-            throw InvalidParameterException("Cannot get Collection Model of Root")
-        }
-        val pathIterator = collection.path.iterator()
-        var currentCollectionModel = rootCollections[pathIterator.next()] ?: throw CollectionNotFoundException(collection)
-        for(collectionName in pathIterator) {
-            currentCollectionModel = (currentCollectionModel.subCollections[collectionName] ?: throw CollectionNotFoundException(collection))
-        }
-        return currentCollectionModel
+    fun getCollectionModel(collectionRef: CollectionRef): CollectionModel {
+        return collections[collectionRef] ?: throw IllegalStateException("collection $collectionRef does not exist")
+    }
+
+    fun getConnectionModel(connectionName: String): ConnectionModel {
+        return connections[connectionName] ?: throw IllegalStateException("connection $connectionName does not exist")
     }
 
     private fun dataMatchesSchema(polyDocument: PolyDocument, schema: ObjectSchema): Boolean {
@@ -176,9 +180,11 @@ object DatabaseManager {
 
     private fun validateConditionFields(condition: Condition, schema: ObjectSchema) {
         when (condition) {
-            is Condition.Equals      -> require(schema.fields.containsKey(condition.field)) { "Unknown field: ${condition.field}" }
-            is Condition.GreaterThan -> require(schema.fields.containsKey(condition.field)) { "Unknown field: ${condition.field}" }
-            is Condition.LessThan    -> require(schema.fields.containsKey(condition.field)) { "Unknown field: ${condition.field}" }
+            is Condition.Comparison.Equals, is Condition.Comparison.GreaterThan, is Condition.Comparison.LessThan -> {
+                val fieldType = schema.fields[condition.field]
+                require(fieldType != null) { "Unknown field: ${condition.field}" }
+                check(condition.value.isType(fieldType)) {"condition value ${condition.value} does not match field type $fieldType"}
+            }
             is Condition.And -> { validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema) }
             is Condition.Or  -> { validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema) }
             is Condition.Not -> validateConditionFields(condition.condition, schema)

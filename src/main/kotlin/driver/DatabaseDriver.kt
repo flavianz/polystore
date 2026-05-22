@@ -10,11 +10,11 @@ import ch.flavianz.query.PolyTerminal
 import java.util.UUID
 
 interface DatabaseDriver {
-    fun createCollection(createCollectionInstruction: CreateCollectionInstruction)
+    fun createCollection(instruction: CreateCollectionInstruction)
     fun createConnection(connection: ConnectionModel)
 
-    fun insertObject(uuid: UUID, insertObjectInstruction: InsertObjectInstruction)
-    fun updateObject(updateObjectInstruction: UpdateObjectInstruction)
+    fun insertObject(uuid: UUID, instruction: InsertObjectInstruction)
+    fun updateObject(instruction: UpdateObjectInstruction)
 
     fun take(query: PolyQuery, terminal: PolyTerminal.Take): PolyResult.Documents
     fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResult.Count

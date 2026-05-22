@@ -6,6 +6,7 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.model.CollectionRef
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyQuery
@@ -19,9 +20,11 @@ import kotlin.collections.component2
 import kotlin.collections.iterator
 
 class PostgresDriver(val connection: Connection) : DatabaseDriver {
-    override fun createCollection(createCollectionInstruction: CreateCollectionInstruction) {
-        val collectionModel = createCollectionInstruction.collectionModel
-        val collectionName = createCollectionInstruction.parentCollection.sub(collectionModel.name).toPostgresPath()
+    override fun createCollection(instruction: CreateCollectionInstruction) {
+        val collectionModel = instruction.collectionModel
+        val collectionName = if(instruction.parentCollection == null)
+            CollectionRef(collectionModel.name).toPostgresPath()
+            else instruction.parentCollection.sub(collectionModel.name).toPostgresPath()
 
         val sql = StringBuilder()
 
@@ -32,8 +35,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         // ps_pk = polystore_primarykey
         sql.append(" (").append(quoteIdentifier("ps_pk")).append(" UUID PRIMARY KEY")
 
-        if(!createCollectionInstruction.parentCollection.isRoot()) {
-            val parentCollectionName = createCollectionInstruction.parentCollection.toPostgresPath()
+        if(instruction.parentCollection != null) {
+            val parentCollectionName = instruction.parentCollection.toPostgresPath()
             // ps_pfk = polystore_parentforeignkey
             sql.append(", ").append(quoteIdentifier("ps_parent_fk")).append(" UUID CONSTRAINT ")
                 .append(quoteIdentifier("${collectionName}_parent_${parentCollectionName}_fk"))
@@ -49,13 +52,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(")")
 
         connection.prepareStatement(sql.toString()).execute()
-
-        if(collectionModel.subCollections.isNotEmpty()) {
-            for (model in ArrayList(collectionModel.subCollections.values)) {
-                createCollection(CreateCollectionInstruction(
-                    createCollectionInstruction.parentCollection.sub(createCollectionInstruction.collectionModel.name), model))
-            }
-        }
     }
 
     override fun createConnection(connection: ConnectionModel) {
@@ -89,24 +85,24 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun insertObject(uuid: UUID, insertObjectInstruction: InsertObjectInstruction) {
+    override fun insertObject(uuid: UUID, instruction: InsertObjectInstruction) {
         val sql = StringBuilder()
-        val collectionRef = insertObjectInstruction.collectionPathRef.toCollectionRef()
+        val collectionRef = instruction.collectionPath.toCollectionRef()
         sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" (")
         sql.append(quoteIdentifier("ps_pk"))
-        if(collectionRef.path.size > 1) {
+        if(collectionRef.segments.size > 1) {
             sql.append(", ").append(quoteIdentifier("ps_parent_fk"))
         }
 
-        val entries = ArrayList(insertObjectInstruction.data.fields.entries)
+        val entries = ArrayList(instruction.data.fields.entries)
 
         for(entry in entries) {
             sql.append(", ").append(quoteIdentifier("f_${entry.key}"))
         }
         sql.append(") VALUES (").append(prepareValue(PolyValue.of(uuid)))
 
-        if(collectionRef.path.size > 1) {
-            sql.append(", ").append(prepareValue(PolyValue.of(insertObjectInstruction.collectionPathRef.parentDoc().uuid)))
+        if(collectionRef.segments.size > 1) {
+            sql.append(", ").append(prepareValue(PolyValue.of(instruction.collectionPath.parentDoc().uuid)))
         }
 
         for(entry in entries) {
@@ -117,21 +113,21 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun updateObject(updateObjectInstruction: UpdateObjectInstruction) {
+    override fun updateObject(instruction: UpdateObjectInstruction) {
         val sql = StringBuilder()
-        val collectionRef = updateObjectInstruction.documentPathRef.parentCollection().toCollectionRef()
+        val collectionRef = instruction.documentPath.parentCollection().toCollectionRef()
         sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" SET ")
 
-        for(entry in updateObjectInstruction.data.fields) {
+        for(entry in instruction.data.fields) {
             sql.append(quoteIdentifier("f_${entry.key}")).append(" = ").append(prepareValue(entry.value)).append(", ")
         }
-        if(updateObjectInstruction.data.fields.isNotEmpty()) {
+        if(instruction.data.fields.isNotEmpty()) {
             // remove last comma
             sql.deleteRange(sql.length - 2, sql.length)
         }
 
         sql.append(" WHERE ").append(quoteIdentifier("ps_pk")).append(" = ").append(prepareValue(
-            PolyValue.of(updateObjectInstruction.documentPathRef.uuid)))
+            PolyValue.of(instruction.documentPath.uuid)))
 
         this.connection.prepareStatement(sql.toString()).execute()
     }
@@ -140,7 +136,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         val sql = StringBuilder()
 
         val selectClauses = terminal.fields.flatMap { fieldRef ->
-            val nodeIndex = query.path.indexOfFirst { it.collection == fieldRef.collection }
+            val nodeIndex = query.path.segments.indexOfFirst { it == fieldRef.collection }
             val col = CollectionRef(LinkedList(query.path.take(nodeIndex + 1).map { it.collection }))
             val pgTable = "ps_col_${col.toPostgresPath()}"
             when (fieldRef) {
