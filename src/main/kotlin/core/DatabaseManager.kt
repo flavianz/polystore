@@ -1,6 +1,5 @@
 package ch.flavianz.core
 
-import ch.flavianz.data.CollectionRef
 import ch.flavianz.data.PolyDocument
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.exceptions.CollectionAlreadyExistsException
@@ -14,6 +13,9 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.model.CollectionPath
+import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
@@ -23,11 +25,11 @@ import java.util.UUID
 import kotlin.collections.iterator
 
 object DatabaseManager {
-    private var rootCollections = mutableMapOf<String, CollectionModel>()
+    private var collections = mutableMapOf<CollectionRef, CollectionModel>()
     private var connections = mutableMapOf<String, ConnectionModel>()
 
-    fun initRootCollections(rootCollections: MutableMap<String, CollectionModel>) {
-        this.rootCollections = rootCollections
+    fun initCollections(collections: MutableMap<CollectionRef, CollectionModel>) {
+        this.collections = collections
     }
 
     fun initConnections(connections: MutableMap<String, ConnectionModel>) {
@@ -45,6 +47,8 @@ object DatabaseManager {
         }
 
         DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(createCollectionInstruction) }
+
+        registerCollection(createCollectionInstruction.collectionModel, createCollectionInstruction.parentCollection)
     }
 
     fun createConnection(connection: ConnectionModel){
@@ -63,13 +67,13 @@ object DatabaseManager {
         registerConnection(connection)
     }
 
-    fun registerCollection(collectionModel: CollectionModel, parentCollectionRef: CollectionRef) {
-        var currentCollections = rootCollections
-
-        for(collectionName in parentCollectionRef.path.iterator()) {
-            currentCollections = (currentCollections[collectionName] ?: throw CollectionNotFoundException(parentCollectionRef)).subCollections
+    fun registerCollection(collectionModel: CollectionModel, parentCollectionRef: CollectionRef? = null) {
+        if(parentCollectionRef != null) {
+            check(existsCollection(parentCollectionRef)) { "Parent Collection $parentCollectionRef does not exist" }
         }
-        currentCollections[collectionModel.name] = collectionModel
+        val newCollectionRef = parentCollectionRef?.sub(collectionModel.name) ?: CollectionRef(collectionModel.name)
+        check(!existsCollection(newCollectionRef)) { "Collection ${collectionModel.name} already exists" }
+        collections[newCollectionRef] = collectionModel
     }
 
     fun registerConnection(connection: ConnectionModel) {
@@ -77,11 +81,12 @@ object DatabaseManager {
     }
 
     fun insertObject(insertObjectInstruction: InsertObjectInstruction) {
-        val collectionRef = insertObjectInstruction.collectionPathRef.toCollectionRef()
+        val collectionRef = insertObjectInstruction.collectionPath.toCollectionRef()
 
         if(!existsCollection(collectionRef)) {
             throw CollectionNotFoundException(collectionRef)
         }
+
         val schema = getCollectionModel(collectionRef).schema
         if(!dataMatchesSchema(insertObjectInstruction.data, schema)) {
             throw ObjectSchemaMismatch(insertObjectInstruction.data, schema)
@@ -93,7 +98,7 @@ object DatabaseManager {
     }
 
     fun updateObject(updateObjectInstruction: UpdateObjectInstruction) {
-        val collectionRef = updateObjectInstruction.documentPathRef.parentCollection().toCollectionRef()
+        val collectionRef = updateObjectInstruction.documentPath.parentCollection().toCollectionRef()
 
         if(!existsCollection(collectionRef)) {
             throw CollectionNotFoundException(collectionRef)
@@ -107,14 +112,18 @@ object DatabaseManager {
     }
 
     fun query(query: PolyQuery): PolyResult {
+
         // validate the path against the schema registry
-        var currentCollections = rootCollections
-        for (node in query.path) {
-            val model = currentCollections[node.collection]
-                ?: throw CollectionNotFoundException(CollectionRef(node.collection))
+        for (segment in query.path.segments) {
+            if(segment is QuerySegment.Connection) {
+                val connectionModel = connections[segment.name] ?: throw IllegalStateException("Connection ${segment.name} not found")
+                if(connectionModel.collection1 != )
+            }
+            val model = currentCollections[segment.collection]
+                ?: throw CollectionNotFoundException(CollectionRef(segment.collection))
 
             // validate condition fields exist in schema
-            node.condition?.let { condition ->
+            segment.condition?.let { condition ->
                 validateConditionFields(condition, model.schema)
             }
 

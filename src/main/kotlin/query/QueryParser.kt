@@ -1,7 +1,9 @@
 package ch.flavianz.query
 
+import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.QueryPath
+import ch.flavianz.model.QuerySegment
 import java.util.UUID
 
 class QueryParser(input: String) {
@@ -11,24 +13,40 @@ class QueryParser(input: String) {
     private val aliasMap = mutableMapOf<String, String>()
 
     fun parse(): PolyQuery {
-        val path = parsePath()
+        val pathSegments = parsePath()
         val terminal = parseTerminal()
-        return PolyQuery(path, terminal)
+        return PolyQuery(QueryPath(pathSegments), terminal)
     }
 
     // "from a.(b where ...).c"
-    private fun parsePath(): List<PathNode> {
+    private fun parsePath(): List<QuerySegment> {
         expect("from")
-        val nodes = mutableListOf<PathNode>()
+        val nodes = mutableListOf<QuerySegment>()
         do {
-            if (peek() == ".") consume()
-            nodes.add(parsePathNode())
-        } while (peek() == ".")
+            if (peek() == "-") {
+                consume()
+                nodes.add(parseConnectionSegment())
+            } else {
+                if (peek() == ".") consume()
+                nodes.add(parseCollectionSegment())
+            }
+        } while (peek() == "." || peek() == "-")
         return nodes
     }
 
+
+    private fun parseCollectionSegment(): QuerySegment.Collection {
+        val (name, condition) = parseSegment()
+        return QuerySegment.Collection(name, condition)
+    }
+
+    private fun parseConnectionSegment(): QuerySegment.Connection {
+        val (name, condition) = parseSegment()
+        return QuerySegment.Connection(name, condition)
+    }
+
     // "(hospitals h where id = 3)" or just "doctors"
-    private fun parsePathNode(): PathNode {
+    private fun parseSegment(): Pair<String, Condition?>{
         val parenthesized = peek() == "("
         if (parenthesized) consume()
 
@@ -47,7 +65,8 @@ class QueryParser(input: String) {
         } else null
 
         if (parenthesized) consume(")")
-        return PathNode(name, condition)
+
+        return name to condition
     }
 
     // "take ..." or "count"

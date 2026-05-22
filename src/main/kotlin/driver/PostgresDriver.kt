@@ -1,7 +1,6 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.CollectionRef
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.CreateCollectionInstruction
@@ -50,9 +49,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(")")
 
         connection.prepareStatement(sql.toString()).execute()
-
-        // TODO: move this out of specific driver
-        DatabaseManager.registerCollection(createCollectionInstruction.collectionModel, createCollectionInstruction.parentCollection)
 
         if(collectionModel.subCollections.isNotEmpty()) {
             for (model in ArrayList(collectionModel.subCollections.values)) {

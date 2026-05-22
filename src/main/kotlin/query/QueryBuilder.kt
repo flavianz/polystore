@@ -1,11 +1,14 @@
 package ch.flavianz.query
 
+import ch.flavianz.model.QueryPath
+import ch.flavianz.model.QuerySegment
+
 class QueryBuilder {
-    private val path = mutableListOf<PathNode>()
+    private var path: QueryPath? = null
     private var terminal: PolyTerminal? = null
 
-    fun from(vararg steps: PathNode) {
-        path.addAll(steps)
+    fun from(vararg steps: QuerySegment) {
+        path = QueryPath(steps.toList())
     }
 
     fun take(vararg fields: FieldRef) {
@@ -20,7 +23,7 @@ class QueryBuilder {
 
     fun build(): PolyQuery {
         return PolyQuery(
-            path = path.toList(),
+            path = checkNotNull(path) {"No path set - use from()"},
             terminal = checkNotNull(terminal) { "No terminal set — use take() or count()" }
         )
     }

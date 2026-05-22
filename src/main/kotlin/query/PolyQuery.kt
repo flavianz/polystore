@@ -2,10 +2,11 @@ package ch.flavianz.query
 
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
+import ch.flavianz.model.QueryPath
 
 // --- The full query ---
 data class PolyQuery(
-    val path: List<PathNode>,
+    val path: QueryPath,
     val terminal: PolyTerminal
 )
 
@@ -19,14 +20,7 @@ sealed class Condition {
     data class Not(val condition: Condition) : Condition()
 }
 
-
-data class PathNode(
-    val collection: String,
-    val condition: Condition? = null
-)
-
-
-sealed class FieldRef {
+sealed data class FieldRef {
     abstract val collection: String
 
     data class Wildcard(override val collection: String) : FieldRef()

@@ -4,7 +4,6 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.PostgresConnection
-import ch.flavianz.data.CollectionRef
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.CollectionModel
