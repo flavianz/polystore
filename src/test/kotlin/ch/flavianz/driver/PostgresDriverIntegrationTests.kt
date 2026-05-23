@@ -21,7 +21,7 @@ class PostgresDriverIntegrationTests {
 
     private val host = System.getenv("TEST_DB_HOST") ?: "localhost"
     private val port = (System.getenv("TEST_DB_PORT") ?: "5432").toInt()
-    private val database = System.getenv("TEST_DB_DATABASE") ?: "polystore"
+    private val database = System.getenv("TEST_DB_DATABASE") ?: "polystore_test"
     private val username = System.getenv("TEST_DB_USERNAME") ?: "postgres"
     private val password = System.getenv("TEST_DB_PASSWORD") ?: "password"
 
@@ -49,18 +49,22 @@ class PostgresDriverIntegrationTests {
         driver = PostgresDriver(conn)
 
         // Reset and populate schema registry in DatabaseManager
-        DatabaseManager.initCollections(mutableMapOf(
-            CollectionRef("test_users") to CollectionModel("test_users", userSchema),
-            CollectionRef("test_users", "test_orders") to CollectionModel("test_orders", orderSchema)
-        ))
-        DatabaseManager.initConnections(mutableMapOf(
-            "test_bought" to ConnectionModel(
-                "test_bought",
-                CollectionRef("test_users"),
-                CollectionRef("test_users", "test_orders"),
-                connectionSchema
+        DatabaseManager.initCollections(
+            mutableMapOf(
+                CollectionRef("test_users") to CollectionModel("test_users", userSchema),
+                CollectionRef("test_users", "test_orders") to CollectionModel("test_orders", orderSchema)
             )
-        ))
+        )
+        DatabaseManager.initConnections(
+            mutableMapOf(
+                "test_bought" to ConnectionModel(
+                    "test_bought",
+                    CollectionRef("test_users"),
+                    CollectionRef("test_users", "test_orders"),
+                    connectionSchema
+                )
+            )
+        )
 
         // Drop any leftover tables before running the test
         cleanupTables()
@@ -88,10 +92,12 @@ class PostgresDriverIntegrationTests {
 
         // 1. Create collections
         driver.createCollection(CreateCollectionInstruction(CollectionModel("test_users", userSchema)))
-        driver.createCollection(CreateCollectionInstruction(
-            CollectionModel("test_orders", orderSchema),
-            parentCollection = CollectionRef("test_users")
-        ))
+        driver.createCollection(
+            CreateCollectionInstruction(
+                CollectionModel("test_orders", orderSchema),
+                parentCollection = CollectionRef("test_users")
+            )
+        )
 
         // 2. Create connection
         val connectionModel = ConnectionModel(
@@ -151,15 +157,21 @@ class PostgresDriverIntegrationTests {
 
         // 7. Test Join query across connection
         // path: test_users - test_bought - test_orders
-        val joinPath = QueryPath(listOf(
-            QuerySegment.Collection("test_users"),
-            QuerySegment.Connection("test_bought", "test_orders")
-        ))
-        val joinQuery = PolyQuery(joinPath, PolyTerminal.Take(listOf(
-            FieldRef.Wildcard("test_users"),
-            FieldRef.Wildcard("test_bought"),
-            FieldRef.Wildcard("test_orders")
-        )))
+        val joinPath = QueryPath(
+            listOf(
+                QuerySegment.Collection("test_users"),
+                QuerySegment.Connection("test_bought", "test_orders")
+            )
+        )
+        val joinQuery = PolyQuery(
+            joinPath, PolyTerminal.Take(
+                listOf(
+                    FieldRef.Wildcard("test_users"),
+                    FieldRef.Wildcard("test_bought"),
+                    FieldRef.Wildcard("test_orders")
+                )
+            )
+        )
         val joinResult = driver.take(joinQuery, joinQuery.terminal as PolyTerminal.Take)
 
         assertEquals(1, joinResult.polyData.size)
@@ -188,19 +200,24 @@ class PostgresDriverIntegrationTests {
         driver.createCollection(CreateCollectionInstruction(CollectionModel("test_users", userSchema)))
 
         val user1 = UUID.randomUUID()
-        driver.insertObject(user1, InsertObjectInstruction(
-            CollectionPath("test_users"),
-            PolyDocument(mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(25)))
-        ))
+        driver.insertObject(
+            user1, InsertObjectInstruction(
+                CollectionPath("test_users"),
+                PolyDocument(mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(25)))
+            )
+        )
 
         val user2 = UUID.randomUUID()
-        driver.insertObject(user2, InsertObjectInstruction(
-            CollectionPath("test_users"),
-            PolyDocument(mapOf("name" to PolyValue.of("Bob"), "age" to PolyValue.of(35)))
-        ))
+        driver.insertObject(
+            user2, InsertObjectInstruction(
+                CollectionPath("test_users"),
+                PolyDocument(mapOf("name" to PolyValue.of("Bob"), "age" to PolyValue.of(35)))
+            )
+        )
 
         // Query: from (test_users u where age > 30)
-        val pathWithCond = QueryPath(QuerySegment.Collection("test_users", Condition.Comparison.GreaterThan("age", PolyValue.of(30))))
+        val pathWithCond =
+            QueryPath(QuerySegment.Collection("test_users", Condition.Comparison.GreaterThan("age", PolyValue.of(30))))
         val query = PolyQuery(pathWithCond, PolyTerminal.Take(listOf(FieldRef.Wildcard("test_users"))))
         val result = driver.take(query, query.terminal as PolyTerminal.Take)
 
