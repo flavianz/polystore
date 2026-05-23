@@ -26,10 +26,10 @@ sealed class Condition {
 }
 
 sealed class FieldRef {
-    abstract val collection: String
+    abstract val segment: String
 
-    data class Wildcard(override val collection: String) : FieldRef()
-    data class Named(override val collection: String, val field: String) : FieldRef()
+    data class Wildcard(override val segment: String) : FieldRef()
+    data class Named(override val segment: String, val field: String) : FieldRef()
 }
 
 

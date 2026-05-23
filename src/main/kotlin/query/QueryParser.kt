@@ -1,6 +1,5 @@
 package ch.flavianz.query
 
-import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -41,12 +40,14 @@ class QueryParser(input: String) {
     }
 
     private fun parseConnectionSegment(): QuerySegment.Connection {
-        val (name, condition) = parseSegment()
-        return QuerySegment.Connection(name, condition)
+        val (connectionName, connectionCondition) = parseSegment()
+        expect("-")
+        val (collectionName, collectionCondition) = parseSegment()
+        return QuerySegment.Connection(connectionName, collectionName, connectionCondition, collectionCondition)
     }
 
     // "(hospitals h where id = 3)" or just "doctors"
-    private fun parseSegment(): Pair<String, Condition?>{
+    private fun parseSegment(): Pair<String, Condition?> {
         val parenthesized = peek() == "("
         if (parenthesized) consume()
 
@@ -71,13 +72,10 @@ class QueryParser(input: String) {
 
     // "take ..." or "count"
     private fun parseTerminal(): PolyTerminal {
-        println(tokens)
-        println(pos)
-        println(aliasMap)
         return when (val keyword = consume()) {
-            "take"  -> parseTake()
+            "take" -> parseTake()
             "count" -> PolyTerminal.Count
-            else    -> throw IllegalArgumentException("Expected take or count, got $keyword")
+            else -> throw IllegalArgumentException("Expected take or count, got $keyword")
         }
     }
 
@@ -104,10 +102,10 @@ class QueryParser(input: String) {
     private fun consumeValue(): PolyValue {
         val token = consume()
         return when {
-            token == "null"            -> PolyValue.NullValue
+            token == "null" -> PolyValue.NullValue
             token.toIntOrNull() != null -> PolyValue.IntValue(token.toInt())
-            isValidUUID(token)         -> PolyValue.UUIDValue(UUID.fromString(token))
-            else                       -> PolyValue.StringValue(token.trim('"'))
+            isValidUUID(token) -> PolyValue.UUIDValue(UUID.fromString(token))
+            else -> PolyValue.StringValue(token.trim('"'))
         }
     }
 
@@ -122,9 +120,9 @@ class QueryParser(input: String) {
     private fun parseCondition(): Condition {
         val field = consumeIdentifier()
         return when (val op = consume()) {
-            "="  -> Condition.Equals(field, consumeValue())
-            ">"  -> Condition.GreaterThan(field, consumeNumberValue())
-            "<"  -> Condition.LessThan(field, consumeNumberValue())
+            "=" -> Condition.Comparison.Equals(field, consumeValue())
+            ">" -> Condition.Comparison.GreaterThan(field, consumeNumberValue())
+            "<" -> Condition.Comparison.LessThan(field, consumeNumberValue())
             else -> throw IllegalArgumentException("Unknown operator: $op")
         }
     }
@@ -132,7 +130,7 @@ class QueryParser(input: String) {
     // --- Token helpers ---
 
     private fun tokenize(input: String): List<String> {
-        return input.trim().split(Regex("\\s+|(?=[(),.])|(?<=[(),.])")  )
+        return input.trim().split(Regex("\\s+|(?=[(),.-])|(?<=[(),.-])"))
             .filter { it.isNotBlank() }
     }
 
@@ -142,6 +140,7 @@ class QueryParser(input: String) {
         val token = consume()
         require(token == expected) { "Expected $expected, got $token" }
     }
+
     private fun expect(expected: String) = consume(expected)
     private fun isIdentifier(token: String) = token.matches(Regex("[a-zA-Z_][a-zA-Z0-9_]*"))
     private fun isValidUUID(token: String) = runCatching { UUID.fromString(token) }.isSuccess

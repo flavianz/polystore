@@ -9,11 +9,7 @@ sealed class PathSegment {
             return name
         }
     }
-    data class Connection(val name: String) : PathSegment() {
-        override fun toString(): String {
-            return "_$name"
-        }
-    }
+
     data class Document(val uuid: UUID) : PathSegment() {
         override fun toString(): String {
             return uuid.toString()
@@ -28,7 +24,9 @@ sealed class QuerySegment {
     ) : QuerySegment()
 
     data class Connection(
-        val name: String,
-        val condition: Condition? = null
+        val connectionName: String,
+        val collectionName: String,
+        val connectionCondition: Condition? = null,
+        val collectionCondition: Condition? = null
     ) : QuerySegment()
 }

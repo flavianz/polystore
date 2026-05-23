@@ -2,18 +2,15 @@ package ch.flavianz.core
 
 import ch.flavianz.data.PolyDocument
 import ch.flavianz.driver.DriverManager
-import ch.flavianz.exceptions.CollectionAlreadyExistsException
 import ch.flavianz.model.CollectionModel
-import ch.flavianz.exceptions.CollectionNotFoundException
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.driver.DatabaseDriver
-import ch.flavianz.exceptions.ConnectionAlreadyExistsException
-import ch.flavianz.exceptions.ObjectSchemaMismatch
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.PolyQuery
@@ -34,31 +31,28 @@ object DatabaseManager {
         this.connections = connections
     }
 
-    fun createCollection(createCollectionInstruction: CreateCollectionInstruction) {
-        if(!existsCollection(createCollectionInstruction.parentCollection)) {
-            // parent collection does not exist
-            throw CollectionNotFoundException(createCollectionInstruction.parentCollection)
-        }
-        if(existsCollection(createCollectionInstruction.parentCollection.sub(createCollectionInstruction.collectionModel.name))) {
-            // collection to be created already exists
-            throw CollectionAlreadyExistsException(createCollectionInstruction.parentCollection.sub(createCollectionInstruction.collectionModel.name))
+    fun createCollection(instruction: CreateCollectionInstruction) {
+        if (instruction.parentCollection != null) {
+            check(existsCollection(instruction.parentCollection))
+            { "parent collection ${instruction.parentCollection} does not exist" }
+            check(!existsCollection(instruction.parentCollection.sub(instruction.collectionModel.name)))
+            { "collection ${instruction.parentCollection.sub(instruction.collectionModel.name)} already exists" }
+        } else {
+            check(!existsCollection(CollectionRef(instruction.collectionModel.name)))
+            { " collection ${instruction.collectionModel.name} already exists" }
         }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(createCollectionInstruction) }
+        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(instruction) }
 
-        registerCollection(createCollectionInstruction.collectionModel, createCollectionInstruction.parentCollection)
+        registerCollection(instruction.collectionModel, instruction.parentCollection)
     }
 
-    fun createConnection(connection: ConnectionModel){
-        if(connections.containsKey(connection.name)) {
-            throw ConnectionAlreadyExistsException(connection.name)
-        }
-        if(!existsCollection(connection.collection1)) {
-            throw CollectionNotFoundException(connection.collection1)
-        }
-        if(!existsCollection(connection.collection2)) {
-            throw CollectionNotFoundException(connection.collection2)
-        }
+    fun createConnection(connection: ConnectionModel) {
+        check(!connections.containsKey(connection.name)) { "connection ${connection.name} already exists" }
+        check(existsCollection(connection.collection1))
+        { "connection collection ${connection.collection1} does not exist" }
+        check(existsCollection(connection.collection2))
+        { "connection collection ${connection.collection2} does not exist" }
 
         DriverManager.getInstance().execute { (DatabaseDriver::createConnection)(connection) }
 
@@ -66,7 +60,7 @@ object DatabaseManager {
     }
 
     fun registerCollection(collectionModel: CollectionModel, parentCollectionRef: CollectionRef? = null) {
-        if(parentCollectionRef != null) {
+        if (parentCollectionRef != null) {
             check(existsCollection(parentCollectionRef)) { "Parent Collection $parentCollectionRef does not exist" }
         }
         val newCollectionRef = parentCollectionRef?.sub(collectionModel.name) ?: CollectionRef(collectionModel.name)
@@ -81,14 +75,10 @@ object DatabaseManager {
     fun insertObject(insertObjectInstruction: InsertObjectInstruction) {
         val collectionRef = insertObjectInstruction.collectionPath.toCollectionRef()
 
-        if(!existsCollection(collectionRef)) {
-            throw CollectionNotFoundException(collectionRef)
-        }
-
+        check(existsCollection(collectionRef)) { "collection $collectionRef does not exist" }
         val schema = getCollectionModel(collectionRef).schema
-        if(!dataMatchesSchema(insertObjectInstruction.data, schema)) {
-            throw ObjectSchemaMismatch(insertObjectInstruction.data, schema)
-        }
+        check(dataMatchesSchema(insertObjectInstruction.data, schema))
+        { "insertion data does not match schema of collection $collectionRef" }
 
         val objectUuid = UUID.randomUUID()
 
@@ -98,39 +88,42 @@ object DatabaseManager {
     fun updateObject(updateObjectInstruction: UpdateObjectInstruction) {
         val collectionRef = updateObjectInstruction.documentPath.parentCollection().toCollectionRef()
 
-        if(!existsCollection(collectionRef)) {
-            throw CollectionNotFoundException(collectionRef)
-        }
+        check(existsCollection(collectionRef)) { "collection $collectionRef does not exist" }
         val schema = getCollectionModel(collectionRef).schema
-        if(!schemaContainsFields(updateObjectInstruction.data, schema)) {
-            throw ObjectSchemaMismatch(updateObjectInstruction.data, schema)
-        }
+        check(schemaContainsFields(updateObjectInstruction.data, schema))
+        { "update data does not match schema of collection $collectionRef" }
 
         DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectInstruction) }
     }
 
     fun query(query: PolyQuery): PolyResult {
-        require(query.path.segments.isNotEmpty()) {"query path cannot be empty"}
-        require(query.path.segments[0] is QuerySegment.Collection) {"query path must start with a collection"}
-        var currentPath = CollectionRef((query.path.segments[0] as QuerySegment.Collection).name)
+        require(query.path.segments.isNotEmpty()) { "query path cannot be empty" }
+        require(query.path.segments[0] is QuerySegment.Collection) { "query path must start with a collection" }
+        val segmentIterator = query.path.segments.iterator()
+        var currentPath = CollectionRef((segmentIterator.next() as QuerySegment.Collection).name)
         // validate the path against the schema registry
-        for (segment in query.path.segments) {
-            when(segment) {
+        for (segment in segmentIterator) {
+            when (segment) {
                 is QuerySegment.Connection -> {
-                    val connectionModel = getConnectionModel(segment.name)
+                    val connectionModel = getConnectionModel(segment.connectionName)
                     check(
                         connectionModel.collection1 == currentPath
                                 || connectionModel.collection2 == currentPath
                     )
-                    { "connection ${segment.name} does not exist on collection $currentPath" }
+                    { "connection ${segment.connectionName} does not exist on collection $currentPath" }
 
-                    segment.condition?.let { condition ->
+                    segment.connectionCondition?.let { condition ->
                         validateConditionFields(condition, connectionModel.connectionData)
                     }
 
-                    currentPath =
-                        if (connectionModel.collection1 == currentPath) connectionModel.collection2 else connectionModel.collection1
+                    currentPath = if (connectionModel.collection1 == currentPath) connectionModel.collection2
+                    else connectionModel.collection1
+
+                    segment.collectionCondition?.let { condition ->
+                        validateConditionFields(condition, getCollectionModel(currentPath).schema)
+                    }
                 }
+
                 is QuerySegment.Collection -> {
                     val collectionModel = getCollectionModel(currentPath)
                     segment.condition?.let { condition ->
@@ -143,7 +136,7 @@ object DatabaseManager {
         }
 
         return when (val terminal = query.terminal) {
-            is PolyTerminal.Take  -> DriverManager.getInstance().take(query, terminal)
+            is PolyTerminal.Take -> DriverManager.getInstance().take(query, terminal)
             is PolyTerminal.Count -> DriverManager.getInstance().count(query, terminal)
         }
     }
@@ -160,9 +153,36 @@ object DatabaseManager {
         return connections[connectionName] ?: throw IllegalStateException("connection $connectionName does not exist")
     }
 
+    fun getCollectionRef(queryPath: QueryPath): CollectionRef {
+        val segmentIterator = queryPath.segments.iterator()
+        var currentPath = CollectionRef(
+            when (val it = segmentIterator.next()) {
+                is QuerySegment.Collection -> it.name
+                is QuerySegment.Connection -> it.connectionName
+            }
+        )
+
+        for (segment in segmentIterator) {
+            when (segment) {
+                is QuerySegment.Collection -> {
+                    currentPath = currentPath.sub(segment.name)
+                }
+
+                is QuerySegment.Connection -> {
+                    val connectionModel = getConnectionModel(segment.connectionName)
+                    check(connectionModel.collection1 == currentPath || connectionModel.collection2 == currentPath) { "connection ${connectionModel.name} is not connected to collection ${segment.connectionName}" }
+                    currentPath =
+                        if (connectionModel.collection1 == currentPath) connectionModel.collection2 else connectionModel.collection1
+                }
+            }
+        }
+
+        return currentPath
+    }
+
     private fun dataMatchesSchema(polyDocument: PolyDocument, schema: ObjectSchema): Boolean {
-        for(entry in schema.fields) {
-            if(!(polyDocument.fields[entry.key] ?: return false).isType(entry.value)) {
+        for (entry in schema.fields) {
+            if (!(polyDocument.fields[entry.key] ?: return false).isType(entry.value)) {
                 return false
             }
         }
@@ -170,8 +190,8 @@ object DatabaseManager {
     }
 
     private fun schemaContainsFields(polyDocument: PolyDocument, schema: ObjectSchema): Boolean {
-        for(entry in polyDocument.fields) {
-            if(!entry.value.isType(schema.fields[entry.key] ?: return false)) {
+        for (entry in polyDocument.fields) {
+            if (!entry.value.isType(schema.fields[entry.key] ?: return false)) {
                 return false
             }
         }
@@ -183,10 +203,17 @@ object DatabaseManager {
             is Condition.Comparison.Equals, is Condition.Comparison.GreaterThan, is Condition.Comparison.LessThan -> {
                 val fieldType = schema.fields[condition.field]
                 require(fieldType != null) { "Unknown field: ${condition.field}" }
-                check(condition.value.isType(fieldType)) {"condition value ${condition.value} does not match field type $fieldType"}
+                check(condition.value.isType(fieldType)) { "condition value ${condition.value} does not match field type $fieldType" }
             }
-            is Condition.And -> { validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema) }
-            is Condition.Or  -> { validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema) }
+
+            is Condition.And -> {
+                validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema)
+            }
+
+            is Condition.Or -> {
+                validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema)
+            }
+
             is Condition.Not -> validateConditionFields(condition.condition, schema)
         }
     }

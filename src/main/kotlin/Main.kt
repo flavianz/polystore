@@ -11,6 +11,7 @@ import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InstructionHandler
 import ch.flavianz.instructions.QueryInstruction
+import ch.flavianz.model.CollectionRef
 import ch.flavianz.query.QueryParser
 
 fun main() {
@@ -48,24 +49,83 @@ fun main() {
         initPostgres(pg.jdbcConnection)
     }
 
+    DatabaseManager.initCollections(
+        mutableMapOf(
+            CollectionRef("hospitals") to CollectionModel(
+                "hospitals", ObjectSchema(
+                    mapOf(
+                        "name" to DataType.STRING,
+                        "patientCount" to DataType.INT,
+                        "address" to DataType.STRING
+                    )
+                )
+            ),
+            CollectionRef("hospitals", "departments") to CollectionModel(
+                "departments", ObjectSchema(
+                    mapOf(
+                        "type" to DataType.STRING,
+                        "capacity" to DataType.INT,
+                        "building" to DataType.STRING
+                    )
+                )
+            ),
+            CollectionRef("hospitals", "departments", "doctors") to CollectionModel(
+                "doctors", ObjectSchema(
+                    mapOf(
+                        "first" to DataType.STRING,
+                        "age" to DataType.INT,
+                        "last" to DataType.STRING
+                    )
+                )
+            ),
+            CollectionRef("hospitals", "departments", "doctors", "patients") to CollectionModel(
+                "patients", ObjectSchema(
+                    mapOf(
+                        "first" to DataType.STRING,
+                        "age" to DataType.INT,
+                        "last" to DataType.STRING
+                    )
+                )
+            ),
+            CollectionRef("buildings") to CollectionModel(
+                "buildings", ObjectSchema(
+                    mapOf(
+                        "address" to DataType.STRING,
+                        "built_in" to DataType.INT,
+                        "name" to DataType.STRING
+                    )
+                )
+            ),
+            CollectionRef("buildings", "rooms") to CollectionModel(
+                "rooms", ObjectSchema(
+                    mapOf(
+                        "tag" to DataType.STRING,
+                        "number" to DataType.INT,
+                        "nurse" to DataType.STRING
+                    )
+                )
+            ),
+        )
+    )
+
+    DatabaseManager.initConnections(
+        mutableMapOf(
+            "treated_in" to ConnectionModel(
+                "treated_in",
+                CollectionRef("hospitals", "departments", "doctors", "patients"),
+                CollectionRef("buildings", "rooms"),
+                ObjectSchema(mapOf("since" to DataType.INT, "price" to DataType.INT))
+            )
+        )
+    )
+
     val handler = InstructionHandler()
 
-    DatabaseManager.initRootCollections(mutableMapOf(Pair("friends", CollectionModel("friends", ObjectSchema(mapOf(Pair("language", DataType.STRING), Pair("height", DataType.INT))))), Pair("animals", CollectionModel("animals",
-        ObjectSchema(mapOf(Pair("name", DataType.STRING), Pair("age", DataType.INT))),
-        mutableMapOf(Pair("toys", CollectionModel("toys",
-            ObjectSchema(mapOf(Pair("kind", DataType.STRING), Pair("size", DataType.INT))))), Pair("meals", CollectionModel("meals",
-            ObjectSchema(mapOf(Pair("type", DataType.STRING), Pair("smell", DataType.INT))), mutableMapOf(Pair("toys", CollectionModel("toys",
-                ObjectSchema(mapOf(Pair("kind", DataType.STRING), Pair("size", DataType.INT))))), Pair("meals", CollectionModel("meals",
-                ObjectSchema(mapOf(Pair("type", DataType.STRING), Pair("smell", DataType.INT)))))))))))))
-
-
-    DatabaseManager.initConnections(mutableMapOf(Pair("toy_friends", ConnectionModel("toy_friends", CollectionRef("animals.toys"),
-        CollectionRef("friends"), ObjectSchema(mapOf(Pair("since", DataType.INT), Pair("strength", DataType.INT)))
-    ))))
-
-    val parser = QueryParser("""
-    from animals.(meals m where smell < 11) count
-""")
+    val parser = QueryParser(
+        """
+    from hospitals.departments.doctors.patients-treated_in-rooms r take r.*
+"""
+    )
 
     handler.handle(QueryInstruction(parser.parse()))
 
