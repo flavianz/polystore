@@ -100,7 +100,12 @@ object DatabaseManager {
         require(query.path.segments.isNotEmpty()) { "query path cannot be empty" }
         require(query.path.segments[0] is QuerySegment.Collection) { "query path must start with a collection" }
         val segmentIterator = query.path.segments.iterator()
-        var currentPath = CollectionRef((segmentIterator.next() as QuerySegment.Collection).name)
+        val firstSegment = segmentIterator.next() as QuerySegment.Collection
+        var currentPath = CollectionRef(firstSegment.name)
+        val firstCollectionModel = getCollectionModel(currentPath)
+        firstSegment.condition?.let { condition ->
+            validateConditionFields(condition, firstCollectionModel.schema)
+        }
         // validate the path against the schema registry
         for (segment in segmentIterator) {
             when (segment) {
