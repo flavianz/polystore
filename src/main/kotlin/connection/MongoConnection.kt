@@ -1,9 +1,12 @@
 package ch.flavianz.connection
 
+import com.mongodb.ConnectionString
+import com.mongodb.MongoClientSettings
 import com.mongodb.client.MongoClient
 import com.mongodb.client.MongoClients
 import com.mongodb.client.MongoDatabase
 import org.bson.Document
+import org.bson.UuidRepresentation
 
 /**
  * Manages a connection to a MongoDB database via the official Kotlin driver.
@@ -30,8 +33,11 @@ class MongoConnection(
 
     override fun connect() {
         if (isConnected) return
-        val uri = buildConnectionString()
-        client = MongoClients.create(uri)
+        val settings = MongoClientSettings.builder().applyConnectionString(ConnectionString(buildConnectionString()))
+            .uuidRepresentation(
+                UuidRepresentation.STANDARD
+            ).build()
+        client = MongoClients.create(settings)
         println("[$name] Connected.")
     }
 

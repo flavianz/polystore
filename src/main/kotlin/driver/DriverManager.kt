@@ -1,19 +1,27 @@
 package ch.flavianz.driver
 
+import ch.flavianz.connection.MongoConnection
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
 import java.sql.Connection
 
-class DriverManager private constructor(){
+class DriverManager private constructor() {
     var postgresDriver: PostgresDriver? = null
+    var mongoDriver: MongoDriver? = null
 
     fun execute(a: DatabaseDriver.() -> Unit) {
         postgresDriver?.a()
+        mongoDriver?.a()
     }
 
     fun initPostgres(jdbcConnection: Connection): DriverManager {
         this.postgresDriver = PostgresDriver(jdbcConnection)
+        return this
+    }
+
+    fun initMongo(mongoConnection: MongoConnection): DriverManager {
+        this.mongoDriver = MongoDriver(mongoConnection.mongoDatabase)
         return this
     }
 
