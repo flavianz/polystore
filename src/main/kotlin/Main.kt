@@ -17,7 +17,11 @@ import ch.flavianz.instructions.InstructionHandler
 import ch.flavianz.instructions.QueryInstruction
 import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.DocumentPath
+import ch.flavianz.model.QueryPath
+import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.QueryParser
+import kotlin.time.measureTime
 
 fun main() {
     val manager = ConnectionManager()
@@ -55,9 +59,9 @@ fun main() {
         initMongo(mongo)
     }
 
-    /*DatabaseManager.initCollections(
+    DatabaseManager.initCollections(
         mutableMapOf(
-            CollectionRef("hospitals") to CollectionModel(
+            /*CollectionRef("hospitals") to CollectionModel(
                 "hospitals", ObjectSchema(
                     mapOf(
                         "name" to DataType.STRING,
@@ -110,46 +114,45 @@ fun main() {
                         "nurse" to DataType.STRING
                     )
                 )
+            ),*/
+            CollectionRef("users") to CollectionModel(
+                "users", ObjectSchema(
+                    mapOf(
+                        "name" to DataType.STRING,
+                        "age" to DataType.INT,
+                    )
+                )
             ),
+            CollectionRef("users", "comments") to CollectionModel(
+                "comments", ObjectSchema(
+                    mapOf(
+                        "title" to DataType.STRING,
+                        "content" to DataType.STRING,
+                        "time" to DataType.INT
+                    )
+                )
+            )
         )
     )
 
     DatabaseManager.initConnections(
         mutableMapOf(
-            "treated_in" to ConnectionModel(
+            /*"treated_in" to ConnectionModel(
                 "treated_in",
                 CollectionRef("hospitals", "departments", "doctors", "patients"),
                 CollectionRef("buildings", "rooms"),
                 ObjectSchema(mapOf("since" to DataType.INT, "price" to DataType.INT))
-            )
-        )
-    )*/
-
-    val handler = InstructionHandler()
-
-    DatabaseManager.initCollections(
-        mutableMapOf(
-            CollectionRef("users") to CollectionModel(
-                "users",
-                ObjectSchema(mapOf("name" to DataType.STRING, "age" to DataType.INT))
-            )
+            )*/
         )
     )
 
-    handler.handle(
+    DatabaseManager.insertObject(
         InsertObjectInstruction(
-            CollectionPath("users"),
-            PolyDocument(mapOf("name" to PolyValue.of("Tim"), "age" to PolyValue.of(12)))
+            CollectionPath("users", "fe40ffea-6cdf-408d-8fa9-6df6f78f2bee", "comments"), PolyDocument(
+                mapOf("title" to PolyValue.of("Hey"), "content" to PolyValue.of("there"), "time" to PolyValue.of(1700))
+            )
         )
     )
-
-    /*val parser = QueryParser(
-        """
-    from hospitals.departments.doctors.patients-treated_in-rooms r take r.*
-"""
-    )
-
-    handler.handle(QueryInstruction(parser.parse()))*/
 
     manager.disconnectAll()
 }
