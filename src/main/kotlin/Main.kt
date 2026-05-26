@@ -146,13 +146,15 @@ fun main() {
         )
     )
 
-    DatabaseManager.insertObject(
+    /*DatabaseManager.insertObject(
         InsertObjectInstruction(
             CollectionPath("users", "fe40ffea-6cdf-408d-8fa9-6df6f78f2bee", "comments"), PolyDocument(
                 mapOf("title" to PolyValue.of("Hey"), "content" to PolyValue.of("there"), "time" to PolyValue.of(1700))
             )
         )
-    )
+    )*/
+
+    println(DatabaseManager.query(QueryParser("from users u take u.name, u.age").parse()))
 
     manager.disconnectAll()
 }

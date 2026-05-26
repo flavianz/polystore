@@ -6,6 +6,9 @@ import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.ConnectionModel
+import ch.flavianz.model.QuerySegment
+import ch.flavianz.query.Condition
+import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
@@ -13,7 +16,11 @@ import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Updates
 import org.bson.Document
+import org.bson.conversions.Bson
 import java.util.UUID
+import javax.swing.text.FieldView
+import kotlin.collections.associate
+import kotlin.collections.isNullOrEmpty
 
 class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     override fun createCollection(instruction: CreateCollectionInstruction) {
@@ -80,7 +87,52 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         query: PolyQuery,
         terminal: PolyTerminal.Take
     ): PolyResult.Documents {
-        TODO("Not yet implemented")
+        if (query.path.segments.size == 1) {
+            val segment = query.path.segments[0] as QuerySegment.Collection
+            val mongoCollection = mongoDatabase.getCollection(segment.name)
+            val result = if (segment.condition == null) mongoCollection.find() else
+                mongoCollection.find(conditionToFilter(segment.condition))
+
+            return PolyResult.Documents(result.map { doc ->
+                buildMap {
+                    for (field in terminal.fields) {
+                        when (field) {
+                            is FieldRef.Named -> put(
+                                "${field.segment}.${field.field}",
+                                parsePolyValue(doc["ps_f_${field.field}"])
+                            )
+
+                            is FieldRef.Wildcard -> doc.entries.filter { it.key.startsWith("ps_f_") }
+                                .forEach {
+                                    put(
+                                        "${field.segment}.${it.key.substring(5)}", parsePolyValue(it.value)
+                                    )
+                                }
+                        }
+                    }
+                }
+            }.toList())
+
+        }
+        return PolyResult.Documents(listOf())
+    }
+
+    private fun parsePolyValue(value: Any?): PolyValue {
+        return when (value) {
+            is Int -> PolyValue.of(value)
+            is String -> PolyValue.of(value)
+            is UUID -> PolyValue.of(value)
+            null -> PolyValue.NullValue
+            else -> throw IllegalStateException("unknown return type")
+        }
+    }
+
+    private fun conditionToFilter(condition: Condition): Bson {
+        return when (condition) {
+            is Condition.Comparison -> Filters.eq(condition.field, prepareValue(condition.value))
+            is Condition.Logic -> Filters.and(conditionToFilter(condition.left), conditionToFilter(condition.right))
+            is Condition.Not -> Filters.not(conditionToFilter(condition.condition))
+        }
     }
 
     override fun count(

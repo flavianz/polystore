@@ -15,13 +15,20 @@ sealed class Condition {
     sealed class Comparison : Condition() {
         abstract val field: String
         abstract val value: PolyValue
+
         data class Equals(override val field: String, override val value: PolyValue) : Comparison()
         data class GreaterThan(override val field: String, override val value: PolyValue.Number) : Comparison()
         data class LessThan(override val field: String, override val value: PolyValue.Number) : Comparison()
     }
 
-    data class And(val left: Condition, val right: Condition) : Condition()
-    data class Or(val left: Condition, val right: Condition) : Condition()
+    sealed class Logic : Condition() {
+        abstract val left: Condition
+        abstract val right: Condition
+
+        data class And(override val left: Condition, override val right: Condition) : Logic()
+        data class Or(override val left: Condition, override val right: Condition) : Logic()
+    }
+
     data class Not(val condition: Condition) : Condition()
 }
 

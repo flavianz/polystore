@@ -355,14 +355,14 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 )
             }"
 
-            is Condition.And -> "(${
+            is Condition.Logic.And -> "(${
                 translateCondition(
                     condition.left,
                     tableAlias
                 )
             } AND ${translateCondition(condition.right, tableAlias)})"
 
-            is Condition.Or -> "(${
+            is Condition.Logic.Or -> "(${
                 translateCondition(
                     condition.left,
                     tableAlias

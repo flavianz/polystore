@@ -211,11 +211,7 @@ object DatabaseManager {
                 check(condition.value.isType(fieldType)) { "condition value ${condition.value} does not match field type $fieldType" }
             }
 
-            is Condition.And -> {
-                validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema)
-            }
-
-            is Condition.Or -> {
+            is Condition.Logic.And, is Condition.Logic.Or -> {
                 validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema)
             }
 
