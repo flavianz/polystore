@@ -16,9 +16,11 @@ sealed class PolyValue {
     data class StringValue(override val value: String) : PolyValue() {
         override val type = DataType.STRING
     }
+
     data class UUIDValue(override val value: UUID) : PolyValue() {
         override val type = DataType.UUID
     }
+
     object NullValue : PolyValue() {
         override val value = null
         override val type = DataType.NULL
@@ -32,5 +34,9 @@ sealed class PolyValue {
 
     fun isType(dataType: DataType): Boolean {
         return this.type == dataType
+    }
+
+    fun getIntValue(): Int {
+        return value as Int
     }
 }

@@ -6,6 +6,7 @@ import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.ConnectionModel
+import ch.flavianz.model.PathSegment
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
@@ -18,9 +19,6 @@ import com.mongodb.client.model.Updates
 import org.bson.Document
 import org.bson.conversions.Bson
 import java.util.UUID
-import javax.swing.text.FieldView
-import kotlin.collections.associate
-import kotlin.collections.isNullOrEmpty
 
 class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     override fun createCollection(instruction: CreateCollectionInstruction) {
@@ -114,6 +112,43 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             }.toList())
 
         }
+        if (query.path.segments.size == 2) {
+            val segment = query.path.segments[0] as QuerySegment.Collection
+            val subSegment = query.path.segments[1] as QuerySegment.Collection
+            val mongoCollection = mongoDatabase.getCollection(segment.name)
+            val result = if (segment.condition == null) mongoCollection.find() else
+                mongoCollection.find(conditionToFilter(segment.condition))
+
+            return PolyResult.Documents(result.map { doc ->
+                buildMap {
+                    val subDocs = doc[subSegment.name]
+                    check(subDocs is List<*>) { "sub collection is not a list" }
+                    val filteredDocs = if (subSegment.condition == null) subDocs else
+                        subDocs.filter { subDoc ->
+                            check(subDoc is Document) { "element in subcollection is not a document" }
+                            checkCondition(subDoc, subSegment.condition)
+                        }
+                    for (field in terminal.fields) {
+                        for (filteredDoc in filteredDocs) {
+                            assert(filteredDoc is Document)
+                            when (field) {
+                                is FieldRef.Named -> put(
+                                    "${field.segment}.${field.field}",
+                                    parsePolyValue((filteredDoc as Document)["ps_f_${field.field}"])
+                                )
+
+                                is FieldRef.Wildcard -> (filteredDoc as Document).entries.filter { it.key.startsWith("ps_f_") }
+                                    .forEach {
+                                        put(
+                                            "${field.segment}.${it.key.substring(5)}", parsePolyValue(it.value)
+                                        )
+                                    }
+                            }
+                        }
+                    }
+                }
+            }.toList())
+        }
         return PolyResult.Documents(listOf())
     }
 
@@ -132,6 +167,34 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             is Condition.Comparison -> Filters.eq(condition.field, prepareValue(condition.value))
             is Condition.Logic -> Filters.and(conditionToFilter(condition.left), conditionToFilter(condition.right))
             is Condition.Not -> Filters.not(conditionToFilter(condition.condition))
+        }
+    }
+
+    private fun checkCondition(document: Document, condition: Condition): Boolean {
+        return when (condition) {
+            is Condition.Comparison.Equals -> document["ps_f_${condition.field}"] == condition.value
+            is Condition.Comparison -> {
+                when (val compValue = document["ps_f_${condition.field}"]) {
+                    is Number -> if (condition is Condition.Comparison.LessThan)
+                        (compValue.toDouble() < condition.value.getIntValue())
+                    else (compValue.toDouble() > condition.value.getIntValue())
+
+                    else -> throw IllegalStateException("can't compare a number to value of type ${compValue?.javaClass ?: "null"}")
+                }
+
+            }
+
+            is Condition.Logic.And -> checkCondition(document, condition.left) && checkCondition(
+                document,
+                condition.right
+            )
+
+            is Condition.Logic.Or -> checkCondition(document, condition.left) || checkCondition(
+                document,
+                condition.right
+            )
+
+            is Condition.Not -> !checkCondition(document, condition.condition)
         }
     }
 

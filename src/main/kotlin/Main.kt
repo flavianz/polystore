@@ -154,7 +154,7 @@ fun main() {
         )
     )*/
 
-    println(DatabaseManager.query(QueryParser("from users u take u.name, u.age").parse()))
+    println(DatabaseManager.query(QueryParser("from users u.comments t take u.name, t.content").parse()))
 
     manager.disconnectAll()
 }
