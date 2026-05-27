@@ -9,6 +9,7 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -101,15 +102,17 @@ object DatabaseManager {
         require(query.path.segments[0] is QuerySegment.Collection) { "query path must start with a collection" }
         val segmentIterator = query.path.segments.iterator()
         val firstSegment = segmentIterator.next() as QuerySegment.Collection
-        var currentPath = CollectionRef(firstSegment.name)
-        val firstCollectionModel = getCollectionModel(currentPath)
+        //var currentPath = CollectionRef((query.path.segments[0] as QuerySegment.Collection).name)
+        /*val firstCollectionModel = getCollectionModel(currentPath)
         firstSegment.condition?.let { condition ->
             validateConditionFields(condition, firstCollectionModel.schema)
-        }
+        }*/
         // validate the path against the schema registry
-        for (segment in segmentIterator) {
+        var currentPath: CollectionRef? = null
+        for (segment in query.path.segments) {
             when (segment) {
                 is QuerySegment.Connection -> {
+                    assert(currentPath != null)
                     val connectionModel = getConnectionModel(segment.connectionName)
                     check(
                         connectionModel.collection1 == currentPath
@@ -130,12 +133,11 @@ object DatabaseManager {
                 }
 
                 is QuerySegment.Collection -> {
+                    currentPath = currentPath?.sub(segment.name) ?: CollectionRef(segment.name)
                     val collectionModel = getCollectionModel(currentPath)
                     segment.condition?.let { condition ->
                         validateConditionFields(condition, collectionModel.schema)
                     }
-
-                    currentPath = currentPath.sub(segment.name)
                 }
             }
         }

@@ -200,7 +200,13 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
     private fun conditionToFilter(condition: Condition): Bson {
         return when (condition) {
-            is Condition.Comparison -> Filters.eq(condition.field, prepareValue(condition.value))
+            is Condition.Comparison.Equals -> Filters.eq("ps_f_${condition.field}", prepareValue(condition.value))
+            is Condition.Comparison.LessThan -> Filters.lt("ps_f_${condition.field}", prepareValue(condition.value)!!)
+            is Condition.Comparison.GreaterThan -> Filters.gt(
+                "ps_f_${condition.field}",
+                prepareValue(condition.value)!!
+            )
+
             is Condition.Logic -> Filters.and(conditionToFilter(condition.left), conditionToFilter(condition.right))
             is Condition.Not -> Filters.not(conditionToFilter(condition.condition))
         }

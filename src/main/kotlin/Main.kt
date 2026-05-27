@@ -143,7 +143,7 @@ fun main() {
     )*/
 
 
-    println(DatabaseManager.query(QueryParser("from users u.comments t take u.name, t.content").parse()))
+    println(DatabaseManager.query(QueryParser("from users u.(comments t where time < 1) take u.name, t.content").parse()))
 
     manager.disconnectAll()
 }
