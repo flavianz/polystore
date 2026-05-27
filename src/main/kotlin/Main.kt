@@ -4,24 +4,12 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.PostgresConnection
-import ch.flavianz.data.PolyDocument
-import ch.flavianz.data.PolyValue
 import ch.flavianz.driver.DriverManager
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.instructions.InsertObjectInstruction
-import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
-import ch.flavianz.instructions.InstructionHandler
-import ch.flavianz.instructions.QueryInstruction
-import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.CollectionRef
-import ch.flavianz.model.DocumentPath
-import ch.flavianz.model.QueryPath
-import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.QueryParser
-import kotlin.time.measureTime
 
 fun main() {
     val manager = ConnectionManager()
@@ -153,6 +141,7 @@ fun main() {
             )
         )
     )*/
+
 
     println(DatabaseManager.query(QueryParser("from users u.comments t take u.name, t.content").parse()))
 
