@@ -102,7 +102,14 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                         else mongoSubCollection.find(conditionToFilter(subSegment.condition)).toList()
             } else {
                 val mongoParentCollection = mongoDatabase.getCollection(parentSegment.name)
-                val parentDocs = mongoParentCollection.find(conditionToFilter(parentSegment.condition))
+                val parentDocs = if(subSegment.condition == null)
+                    mongoParentCollection.find(
+                        conditionToFilter(parentSegment.condition))
+                    else mongoParentCollection.find(
+                    Filters.and(
+                        conditionToFilter(parentSegment.condition),
+                        Filters.elemMatch(subSegment.name,
+                            conditionToFilter(subSegment.condition))))
                 val allSubDocs = parentDocs.map { doc ->
                     (doc[subSegment.name] as? List<*>)?.filterIsInstance<Document>() as List<Document>
                 }.flatten()
