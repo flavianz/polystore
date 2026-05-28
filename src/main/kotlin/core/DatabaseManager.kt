@@ -73,7 +73,7 @@ object DatabaseManager {
         connections[connection.name] = connection
     }
 
-    fun insertObject(insertObjectInstruction: InsertObjectInstruction) {
+    fun insertObject(insertObjectInstruction: InsertObjectInstruction): UUID {
         val collectionRef = insertObjectInstruction.collectionPath.toCollectionRef()
 
         check(existsCollection(collectionRef)) { "collection $collectionRef does not exist" }
@@ -84,6 +84,7 @@ object DatabaseManager {
         val objectUuid = UUID.randomUUID()
 
         DriverManager.getInstance().execute { (DatabaseDriver::insertObject)(objectUuid, insertObjectInstruction) }
+        return objectUuid
     }
 
     fun updateObject(updateObjectInstruction: UpdateObjectInstruction) {
