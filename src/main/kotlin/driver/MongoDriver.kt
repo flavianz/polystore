@@ -1,5 +1,6 @@
 package ch.flavianz.driver
 
+import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 import ch.flavianz.instructions.CreateCollectionInstruction
@@ -7,6 +8,7 @@ import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.ConnectionModel
+import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
@@ -67,7 +69,12 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             mongoCollection.updateOne(
                 Filters.eq("${collectionName}._id", instruction.documentPath.uuid),
                 Updates.combine(
-                    instruction.data.fields.map { Updates.set("$collectionName.$.${it.key}", prepareValue(it.value)) }
+                    instruction.data.fields.map {
+                        Updates.set(
+                            "$collectionName.$.ps_f_${it.key}",
+                            prepareValue(it.value)
+                        )
+                    }
                 )
             )
         }
@@ -76,17 +83,17 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         mongoCollection.updateOne(
             Filters.eq("_id", instruction.documentPath.uuid),
             Updates.combine(
-                instruction.data.fields.map { Updates.set(it.key, prepareValue(it.value)) }
+                instruction.data.fields.map { Updates.set("ps_f_${it.key}", prepareValue(it.value)) }
             )
         )
     }
 
     override fun take(
-        query: PolyQuery,
+        path: QueryPath,
         terminal: PolyTerminal.Take
     ): PolyResult.Documents {
-        if (query.path.segments.size == 1) {
-            val segment = query.path.segments[0] as QuerySegment.Collection
+        if (path.segments.size == 1) {
+            val segment = path.segments[0] as QuerySegment.Collection
             val mongoCollection = mongoDatabase.getCollection(segment.name)
             val result = if (segment.condition == null) mongoCollection.find() else
                 mongoCollection.find(conditionToFilter(segment.condition))
@@ -95,74 +102,91 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 parseResult(mapOf(segment.name to it), terminal.fields)
             }.toList())
         }
-        if (query.path.segments.size == 2) {
-            val parentSegment = query.path.segments[0] as QuerySegment.Collection
-            val subSegment = query.path.segments[1] as QuerySegment.Collection
+        if (path.segments.size == 2) {
+            val parentSegment = path.segments[0] as QuerySegment.Collection
 
-            if (parentSegment.condition == null && !terminal.fields.map { it.segment }.contains(parentSegment.name)) {
-                val mongoSubCollection =
-                    mongoDatabase.getCollection(CollectionRef(parentSegment.name, subSegment.name).toPostgresPath())
-                val subDocs = if (subSegment.condition == null) mongoSubCollection.find().toList()
-                else mongoSubCollection.find(conditionToFilter(subSegment.condition)).toList()
-
-                return PolyResult.Documents(subDocs.map {
-                    parseResult(mapOf(subSegment.name to it), terminal.fields)
-                }.toList())
-            } else {
-                val mongoParentCollection = mongoDatabase.getCollection(parentSegment.name)
-                if (subSegment.condition == null) {
-                    val parentDocs = if (parentSegment.condition == null) mongoParentCollection.find()
-                    else mongoParentCollection.find(conditionToFilter(parentSegment.condition))
-
-                    return PolyResult.Documents(buildList {
-                        parentDocs.forEach { parentDoc ->
-                            val subDocs =
-                                (parentDoc[subSegment.name] as? List<*>)?.filterIsInstance<Document>() as List<Document>
-                            for (subDoc in subDocs) {
-                                add(
-                                    parseResult(
-                                        mapOf(parentSegment.name to parentDoc, subSegment.name to subDoc),
-                                        terminal.fields
-                                    )
-                                )
-                            }
-                        }
-                    })
-                } else {
-                    val parentDocs = if (parentSegment.condition == null) mongoParentCollection.find(
-                        Filters.elemMatch(
-                            subSegment.name,
-                            conditionToFilter(subSegment.condition)
-                        )
-                    ) else mongoParentCollection.find(
-                        Filters.and(
-                            conditionToFilter(parentSegment.condition),
-                            Filters.elemMatch(
-                                subSegment.name,
-                                conditionToFilter(subSegment.condition)
+            when (val subSegment = path.segments[1]) {
+                is QuerySegment.Collection -> {
+                    if (parentSegment.condition == null && !terminal.fields.map { it.segment }
+                            .contains(parentSegment.name)) {
+                        val mongoSubCollection =
+                            mongoDatabase.getCollection(
+                                CollectionRef(
+                                    parentSegment.name,
+                                    subSegment.name
+                                ).toPostgresPath()
                             )
-                        )
-                    )
+                        val subDocs = if (subSegment.condition == null) mongoSubCollection.find().toList()
+                        else mongoSubCollection.find(conditionToFilter(subSegment.condition)).toList()
 
-                    return PolyResult.Documents(buildList {
-                        parentDocs.forEach { parentDoc ->
-                            val subDocs =
-                                ((parentDoc[subSegment.name] as? List<*>)?.filterIsInstance<Document>() as List<Document>)
-                                    .filter { checkCondition(it, subSegment.condition) }
-                            for (subDoc in subDocs) {
-                                add(
-                                    parseResult(
-                                        mapOf(parentSegment.name to parentDoc, subSegment.name to subDoc),
-                                        terminal.fields
+                        return PolyResult.Documents(subDocs.map {
+                            parseResult(mapOf(subSegment.name to it), terminal.fields)
+                        }.toList())
+                    } else {
+                        val mongoParentCollection = mongoDatabase.getCollection(parentSegment.name)
+                        if (subSegment.condition == null) {
+                            val parentDocs = if (parentSegment.condition == null) mongoParentCollection.find()
+                            else mongoParentCollection.find(conditionToFilter(parentSegment.condition))
+
+                            return PolyResult.Documents(buildList {
+                                parentDocs.forEach { parentDoc ->
+                                    val subDocs =
+                                        (parentDoc[subSegment.name] as? List<*>)?.filterIsInstance<Document>() as List<Document>
+                                    for (subDoc in subDocs) {
+                                        add(
+                                            parseResult(
+                                                mapOf(parentSegment.name to parentDoc, subSegment.name to subDoc),
+                                                terminal.fields
+                                            )
+                                        )
+                                    }
+                                }
+                            })
+                        } else {
+                            val parentDocs = if (parentSegment.condition == null) mongoParentCollection.find(
+                                Filters.elemMatch(
+                                    subSegment.name,
+                                    conditionToFilter(subSegment.condition)
+                                )
+                            ) else mongoParentCollection.find(
+                                Filters.and(
+                                    conditionToFilter(parentSegment.condition),
+                                    Filters.elemMatch(
+                                        subSegment.name,
+                                        conditionToFilter(subSegment.condition)
                                     )
                                 )
-                            }
+                            )
+
+                            return PolyResult.Documents(buildList {
+                                parentDocs.forEach { parentDoc ->
+                                    val subDocs =
+                                        ((parentDoc[subSegment.name] as? List<*>)?.filterIsInstance<Document>() as List<Document>)
+                                            .filter { checkCondition(it, subSegment.condition) }
+                                    for (subDoc in subDocs) {
+                                        add(
+                                            parseResult(
+                                                mapOf(parentSegment.name to parentDoc, subSegment.name to subDoc),
+                                                terminal.fields
+                                            )
+                                        )
+                                    }
+                                }
+                            })
                         }
-                    })
+                    }
+                }
+
+                is QuerySegment.Connection -> {
+                    TODO()
                 }
             }
+        } else {
+            TODO()
+            /*val newTerminal = terminal.fields.filter { it.segment != path.segments[0]. }
+            val docs = take(QueryPath(path.segments.subList(2, path.segments.size - 1)), )
+            return take()*/
         }
-        return PolyResult.Documents(listOf())
     }
 
     private fun parseResult(documents: Map<String, Document>, fields: List<FieldRef>): PolyData {
@@ -241,7 +265,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     }
 
     override fun count(
-        query: PolyQuery,
+        path: QueryPath,
         terminal: PolyTerminal.Count
     ): PolyResult.Count {
         TODO("Not yet implemented")

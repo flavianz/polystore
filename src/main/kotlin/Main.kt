@@ -4,11 +4,15 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.PostgresConnection
+import ch.flavianz.data.PolyDocument
+import ch.flavianz.data.PolyValue
 import ch.flavianz.driver.DriverManager
+import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.DocumentPath
 import ch.flavianz.query.QueryParser
 
 fun main() {
@@ -141,6 +145,22 @@ fun main() {
             )
         )
     )*/
+
+    DatabaseManager.updateObject(
+        UpdateObjectInstruction(
+            DocumentPath(
+                "users",
+                "fe40ffea-6cdf-408d-8fa9-6df6f78f2bee",
+                "comments",
+                "08fc06c4-b10a-417e-9a0b-d20c2aba0b4a"
+            ),
+            PolyDocument(
+                mapOf(
+                    "content" to PolyValue.of("this is some new content")
+                )
+            )
+        )
+    )
 
 
     println(DatabaseManager.query(QueryParser("from users u.(comments t where time < 1) take u.name, t.content").parse()))

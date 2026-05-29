@@ -11,7 +11,6 @@ import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
 import java.sql.Connection
@@ -138,7 +137,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun take(query: PolyQuery, terminal: PolyTerminal.Take): PolyResult.Documents {
+    override fun take(path: QueryPath, terminal: PolyTerminal.Take): PolyResult.Documents {
         val sql = StringBuilder()
 
         val selectClauses = terminal.fields.flatMap { fieldRef ->
@@ -165,18 +164,18 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 }
             }
 
-            val segmentIndex = query.path.segments.indexOfFirst {
+            val segmentIndex = path.segments.indexOfFirst {
                 when (it) {
                     is QuerySegment.Collection -> it.name == fieldRef.segment
                     is QuerySegment.Connection -> it.connectionName == fieldRef.segment || it.collectionName == fieldRef.segment
                 }
             }
-            check(segmentIndex != -1) { "take field segment not found in query path ${query.path}" }
-            when (val segment = query.path.segments[segmentIndex]) {
+            check(segmentIndex != -1) { "take field segment not found in query path ${path}" }
+            when (val segment = path.segments[segmentIndex]) {
                 is QuerySegment.Collection -> generateCollectionSelectClause(
                     DatabaseManager.getCollectionRef(
                         QueryPath(
-                            query.path.segments.take(segmentIndex + 1)
+                            path.segments.take(segmentIndex + 1)
                         )
                     )
                 )
@@ -186,7 +185,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                         generateCollectionSelectClause(
                             DatabaseManager.getCollectionRef(
                                 QueryPath(
-                                    query.path.segments.take(
+                                    path.segments.take(
                                         segmentIndex + 1
                                     )
                                 )/*.subCol(fieldRef.segment)*/
@@ -218,8 +217,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
 
         sql.append("SELECT ").append(selectClauses.joinToString(", "))
-        appendFromAndJoins(sql, query)
-        appendWhere(sql, query)
+        appendFromAndJoins(sql, path)
+        appendWhere(sql, path)
 
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
 
@@ -242,7 +241,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         })
     }
 
-    override fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResult.Count {
+    override fun count(query: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count {
         val sql = StringBuilder()
         sql.append("SELECT COUNT(*) AS ps_count")
         appendFromAndJoins(sql, query)
@@ -253,18 +252,18 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         return PolyResult.Count(rs.getInt("ps_count"))
     }
 
-    private fun appendFromAndJoins(sql: StringBuilder, query: PolyQuery) {
-        val firstNode = query.path.segments.first() as QuerySegment.Collection
+    private fun appendFromAndJoins(sql: StringBuilder, path: QueryPath) {
+        val firstNode = path.segments.first() as QuerySegment.Collection
         val firstCol = CollectionRef(firstNode.name)
         val firstTable = "ps_col_${firstCol.toPostgresPath()}"
         sql.append(" FROM ").append(quoteIdentifier(firstTable))
 
-        for (i in 1 until query.path.segments.size) {
-            val currentSegment = query.path.segments[i]
+        for (i in 1 until path.segments.size) {
+            val currentSegment = path.segments[i]
             when (currentSegment) {
                 is QuerySegment.Collection -> {
-                    val prevCol = DatabaseManager.getCollectionRef(query.path.subPath(i))
-                    val currCol = DatabaseManager.getCollectionRef(query.path.subPath(i + 1))
+                    val prevCol = DatabaseManager.getCollectionRef(path.subPath(i))
+                    val currCol = DatabaseManager.getCollectionRef(path.subPath(i + 1))
                     val prevTable = "ps_col_${prevCol.toPostgresPath()}"
                     val currTable = "ps_col_${currCol.toPostgresPath()}"
 
@@ -277,7 +276,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                 is QuerySegment.Connection -> {
                     val connectionModel = DatabaseManager.getConnectionModel(currentSegment.connectionName)
-                    val prevCol = DatabaseManager.getCollectionRef(query.path.subPath(i))
+                    val prevCol = DatabaseManager.getCollectionRef(path.subPath(i))
                     val prevTable = "ps_col_${prevCol.toPostgresPath()}"
                     val nextTable = "ps_col_${connectionModel.collection2.toPostgresPath()}"
                     val connTable =
@@ -300,15 +299,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
     }
 
-    private fun appendWhere(sql: StringBuilder, query: PolyQuery) {
+    private fun appendWhere(sql: StringBuilder, path: QueryPath) {
         var i = 0
-        val conditions: List<String> = query.path.segments.flatMap { segment ->
+        val conditions: List<String> = path.segments.flatMap { segment ->
             i++
             buildList {
                 when (segment) {
                     is QuerySegment.Collection -> {
                         if (segment.condition != null) {
-                            val col = DatabaseManager.getCollectionRef(query.path.subPath(i))
+                            val col = DatabaseManager.getCollectionRef(path.subPath(i))
                             val pgTable = "ps_col_${col.toPostgresPath()}"
                             add(translateCondition(segment.condition, pgTable))
                         }
@@ -316,7 +315,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                     is QuerySegment.Connection -> {
                         if (segment.collectionCondition != null) {
-                            val col = DatabaseManager.getCollectionRef(query.path.subPath(i))
+                            val col = DatabaseManager.getCollectionRef(path.subPath(i))
                             val pgTable = "ps_col_${col.toPostgresPath()}"
                             add(translateCondition(segment.collectionCondition, pgTable))
                         }

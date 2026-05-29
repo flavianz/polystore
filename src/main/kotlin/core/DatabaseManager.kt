@@ -153,6 +153,10 @@ object DatabaseManager {
         return collections[collectionRef] != null
     }
 
+    fun getConnectionOrNull(collectionRef: CollectionRef): ConnectionModel? {
+        return connections.values.firstOrNull { it.collection1 == collectionRef || it.collection2 == collectionRef }
+    }
+
     fun getCollectionModel(collectionRef: CollectionRef): CollectionModel {
         return collections[collectionRef] ?: throw IllegalStateException("collection $collectionRef does not exist")
     }
