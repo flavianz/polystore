@@ -1,6 +1,7 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
+import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.CreateCollectionInstruction
@@ -76,7 +77,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
 
         // Add fields from the schema
-        for ((name, dataType) in connection.connectionData.fields) {
+        for ((name, dataType) in connection.connectionDataSchema.fields) {
             // f = field
             sql.append(", ps_f_").append(name).append(" ").append(dataType.toPostgresType())
         }
@@ -136,6 +137,40 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         this.connection.prepareStatement(sql.toString()).execute()
     }
+
+    override fun insertConnection(
+        connection: ConnectionModel,
+        collectionRef1: CollectionRef,
+        uuid1: UUID,
+        collectionRef2: CollectionRef,
+        uuid2: UUID,
+        connectionData: PolyData
+    ) {
+        val sql = StringBuilder()
+        val tableName =
+            "ps_con_${connection.collection1.toPostgresPath()}__${connection.name}__${connection.collection2.toPostgresPath()}"
+        sql.append("INSERT INTO ").append(quoteIdentifier(tableName)).append(" (")
+        sql.append(quoteIdentifier("ps_cfk_${connection.collection1.toPostgresPath()}")).append(", ")
+        sql.append(quoteIdentifier("ps_cfk_${connection.collection2.toPostgresPath()}"))
+
+        for (entry in connectionData) {
+            sql.append(", ").append(quoteIdentifier("ps_f_${entry.key}"))
+        }
+        sql.append(") VALUES (")
+
+        sql.append(prepareValue(PolyValue.of(uuid1))).append(", ")
+        sql.append(prepareValue(PolyValue.of(uuid2)))
+
+        for (entry in connectionData) {
+            sql.append(", ").append(prepareValue(entry.value))
+        }
+        sql.append(")")
+
+        println(sql.toString())
+
+        this.connection.prepareStatement(sql.toString()).execute()
+    }
+
 
     override fun take(path: QueryPath, terminal: PolyTerminal.Take): PolyResult.Documents {
         val sql = StringBuilder()
@@ -197,7 +232,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                             "ps_con_${connectionModel.collection1.toPostgresPath()}__${connectionModel.name}__${connectionModel.collection2.toPostgresPath()}"
                         when (fieldRef) {
                             is FieldRef.Wildcard -> {
-                                val schema = connectionModel.connectionData
+                                val schema = connectionModel.connectionDataSchema
                                 schema.fields.keys.map { f ->
                                     "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${pgTable}__$f")}"
                                 }
@@ -241,11 +276,11 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         })
     }
 
-    override fun count(query: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count {
+    override fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count {
         val sql = StringBuilder()
         sql.append("SELECT COUNT(*) AS ps_count")
-        appendFromAndJoins(sql, query)
-        appendWhere(sql, query)
+        appendFromAndJoins(sql, path)
+        appendWhere(sql, path)
 
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
         rs.next()

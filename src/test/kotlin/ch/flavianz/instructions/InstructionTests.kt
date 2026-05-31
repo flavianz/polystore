@@ -96,7 +96,7 @@ class InstructionTests {
             name = "belongs_to",
             collection1 = CollectionRef("users"),
             collection2 = CollectionRef("groups"),
-            connectionData = connectionDataSchema
+            connectionDataSchema = connectionDataSchema
         )
         val instruction = CreateConnectionInstruction(connectionModel)
 
@@ -106,7 +106,7 @@ class InstructionTests {
         assertEquals("belongs_to", registeredConnection.name)
         assertEquals(CollectionRef("users"), registeredConnection.collection1)
         assertEquals(CollectionRef("groups"), registeredConnection.collection2)
-        assertEquals(connectionDataSchema, registeredConnection.connectionData)
+        assertEquals(connectionDataSchema, registeredConnection.connectionDataSchema)
     }
 
     @Test
@@ -118,7 +118,7 @@ class InstructionTests {
             name = "belongs_to",
             collection1 = CollectionRef("users"),
             collection2 = CollectionRef("nonexistent"),
-            connectionData = ObjectSchema(emptyMap())
+            connectionDataSchema = ObjectSchema(emptyMap())
         )
 
         assertFailsWith<IllegalStateException> {
@@ -136,7 +136,7 @@ class InstructionTests {
             name = "belongs_to",
             collection1 = CollectionRef("users"),
             collection2 = CollectionRef("groups"),
-            connectionData = ObjectSchema(emptyMap())
+            connectionDataSchema = ObjectSchema(emptyMap())
         )
 
         handler.handle(CreateConnectionInstruction(connectionModel))
@@ -151,10 +151,12 @@ class InstructionTests {
         val schema = ObjectSchema(mapOf("name" to DataType.STRING, "age" to DataType.INT))
         handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
 
-        val doc = PolyDocument(mapOf(
-            "name" to PolyValue.of("Alice"),
-            "age" to PolyValue.of(30)
-        ))
+        val doc = PolyDocument(
+            mapOf(
+                "name" to PolyValue.of("Alice"),
+                "age" to PolyValue.of(30)
+            )
+        )
         val instruction = InsertObjectInstruction(CollectionPath("users"), doc)
 
         // Should not throw, driver execute is no-op
@@ -177,10 +179,12 @@ class InstructionTests {
         handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
 
         // 'age' is passed as String instead of Int
-        val doc = PolyDocument(mapOf(
-            "name" to PolyValue.of("Alice"),
-            "age" to PolyValue.of("thirty")
-        ))
+        val doc = PolyDocument(
+            mapOf(
+                "name" to PolyValue.of("Alice"),
+                "age" to PolyValue.of("thirty")
+            )
+        )
         val instruction = InsertObjectInstruction(CollectionPath("users"), doc)
 
         assertFailsWith<IllegalStateException> {
@@ -194,9 +198,11 @@ class InstructionTests {
         handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
 
         // Missing 'age' field
-        val doc = PolyDocument(mapOf(
-            "name" to PolyValue.of("Alice")
-        ))
+        val doc = PolyDocument(
+            mapOf(
+                "name" to PolyValue.of("Alice")
+            )
+        )
         val instruction = InsertObjectInstruction(CollectionPath("users"), doc)
 
         assertFailsWith<IllegalStateException> {
@@ -210,9 +216,11 @@ class InstructionTests {
         handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
 
         val docId = UUID.randomUUID()
-        val updateDoc = PolyDocument(mapOf(
-            "age" to PolyValue.of(31)
-        ))
+        val updateDoc = PolyDocument(
+            mapOf(
+                "age" to PolyValue.of(31)
+            )
+        )
         val path = CollectionPath("users").doc(docId)
         val instruction = UpdateObjectInstruction(path, updateDoc)
 
@@ -238,9 +246,11 @@ class InstructionTests {
         handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
 
         val docId = UUID.randomUUID()
-        val updateDoc = PolyDocument(mapOf(
-            "nonexistent" to PolyValue.of("value")
-        ))
+        val updateDoc = PolyDocument(
+            mapOf(
+                "nonexistent" to PolyValue.of("value")
+            )
+        )
         val path = CollectionPath("users").doc(docId)
         val instruction = UpdateObjectInstruction(path, updateDoc)
 

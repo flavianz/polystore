@@ -9,7 +9,6 @@ import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.*
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyTerminal
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.sql.Connection
@@ -104,7 +103,7 @@ class PostgresDriverIntegrationTests {
             name = "test_bought",
             collection1 = CollectionRef("test_users"),
             collection2 = CollectionRef("test_users", "test_orders"),
-            connectionData = connectionSchema
+            connectionDataSchema = connectionSchema
         )
         driver.createConnection(connectionModel)
 
@@ -141,8 +140,7 @@ class PostgresDriverIntegrationTests {
         // 5. Test take (Wildcard)
         // path: test_users
         val queryPath = QueryPath(QuerySegment.Collection("test_users"))
-        val takeQuery = PolyQuery(queryPath, PolyTerminal.Take(listOf(FieldRef.Wildcard("test_users"))))
-        val takeResult = driver.take(takeQuery, takeQuery.terminal as PolyTerminal.Take)
+        val takeResult = driver.take(queryPath, PolyTerminal.Take(listOf(FieldRef.Wildcard("test_users"))))
 
         assertEquals(1, takeResult.polyData.size)
         val userRow = takeResult.polyData[0]
@@ -151,8 +149,7 @@ class PostgresDriverIntegrationTests {
         assertEquals(31, userRow["ps_col_test_users__age"]?.value) // updated age
 
         // 6. Test count
-        val countQuery = PolyQuery(queryPath, PolyTerminal.Count)
-        val countResult = driver.count(countQuery, PolyTerminal.Count)
+        val countResult = driver.count(queryPath, PolyTerminal.Count)
         assertEquals(1, countResult.count)
 
         // 7. Test Join query across connection
@@ -163,7 +160,8 @@ class PostgresDriverIntegrationTests {
                 QuerySegment.Connection("test_bought", "test_orders")
             )
         )
-        val joinQuery = PolyQuery(
+
+        val joinResult = driver.take(
             joinPath, PolyTerminal.Take(
                 listOf(
                     FieldRef.Wildcard("test_users"),
@@ -172,7 +170,6 @@ class PostgresDriverIntegrationTests {
                 )
             )
         )
-        val joinResult = driver.take(joinQuery, joinQuery.terminal as PolyTerminal.Take)
 
         assertEquals(1, joinResult.polyData.size)
         val joinRow = joinResult.polyData[0]
@@ -218,8 +215,7 @@ class PostgresDriverIntegrationTests {
         // Query: from (test_users u where age > 30)
         val pathWithCond =
             QueryPath(QuerySegment.Collection("test_users", Condition.Comparison.GreaterThan("age", PolyValue.of(30))))
-        val query = PolyQuery(pathWithCond, PolyTerminal.Take(listOf(FieldRef.Wildcard("test_users"))))
-        val result = driver.take(query, query.terminal as PolyTerminal.Take)
+        val result = driver.take(pathWithCond, PolyTerminal.Take(listOf(FieldRef.Wildcard("test_users"))))
 
         assertEquals(1, result.polyData.size)
         assertEquals("Bob", result.polyData[0]["ps_col_test_users__name"]?.value)

@@ -12,7 +12,6 @@ import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
 import com.mongodb.client.MongoDatabase
@@ -35,7 +34,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     }
 
     override fun createConnection(connection: ConnectionModel) {
-        TODO("Not yet implemented")
+        // nothing to do
     }
 
     override fun insertObject(uuid: UUID, instruction: InsertObjectInstruction) {
@@ -51,7 +50,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             val mongoParentCollection = mongoDatabase.getCollection(parentCollectionName)
             mongoParentCollection.updateOne(
                 Filters.eq("_id", instruction.collectionPath.parentDoc().uuid),
-                Updates.push(collectionRef.leafName(), document)
+                Updates.push("ps_sub_${collectionRef.leafName()}", document)
             )
         }
 
@@ -63,7 +62,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             // update parent collection
             val parentCollection =
                 instruction.documentPath.parentCollection().parentDoc().parentCollection().toCollectionRef()
-            val collectionName = instruction.documentPath.parentCollection().toCollectionRef().leafName()
+            val collectionName = "ps_sub_${instruction.documentPath.parentCollection().toCollectionRef().leafName()}"
             val mongoCollection = mongoDatabase.getCollection(parentCollection.toPostgresPath())
 
             mongoCollection.updateOne(
@@ -86,7 +85,46 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 instruction.data.fields.map { Updates.set("ps_f_${it.key}", prepareValue(it.value)) }
             )
         )
+
+        val collectionRef = instruction.documentPath.parentCollection().toCollectionRef()
+        val connection = DatabaseManager.getConnectionOrNull(collectionRef)
+
+        if (connection != null) {
+            // update connected documents
+            val connectedCollection =
+                if (connection.collection1 == collectionRef) connection.collection2 else connection.collection1
+            val connectionName = "ps_con_${connection.name}"
+            val mongoDoc = mongoCollection.find(Filters.eq("_id", instruction.documentPath.uuid)).firstOrNull()
+            checkNotNull(mongoDoc) { "updated mongo doc does not exist" }
+
+            val connectedDocs = (mongoDoc[connectionName] as List<*>?)?.filterIsInstance<Document>() ?: emptyList()
+            val ids = connectedDocs.map { it["_id"] as UUID }
+
+            val mongoConnectedCollection = mongoDatabase.getCollection(connectedCollection.toPostgresPath())
+            mongoConnectedCollection.updateMany(
+                Filters.`in`("_id", ids),
+                Updates.combine(
+                    instruction.data.fields.map {
+                        Updates.set(
+                            "ps_sub_${collectionRef.leafName()}.$.ps_doc.ps_f_${it.key}",
+                            prepareValue(it.value)
+                        )
+                    })
+            )
+        }
     }
+
+    override fun insertConnection(
+        connection: ConnectionModel,
+        collectionRef1: CollectionRef,
+        uuid1: UUID,
+        collectionRef2: CollectionRef,
+        uuid2: UUID,
+        connectionData: PolyData
+    ) {
+        TODO("Not yet implemented")
+    }
+
 
     override fun take(
         path: QueryPath,

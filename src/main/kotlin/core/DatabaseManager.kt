@@ -1,5 +1,6 @@
 package ch.flavianz.core
 
+import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyDocument
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
@@ -9,7 +10,6 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
-import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -78,7 +78,7 @@ object DatabaseManager {
 
         check(existsCollection(collectionRef)) { "collection $collectionRef does not exist" }
         val schema = getCollectionModel(collectionRef).schema
-        check(dataMatchesSchema(insertObjectInstruction.data, schema))
+        check(dataMatchesSchema(insertObjectInstruction.data.fields, schema))
         { "insertion data does not match schema of collection $collectionRef" }
 
         val objectUuid = UUID.randomUUID()
@@ -96,6 +96,39 @@ object DatabaseManager {
         { "update data does not match schema of collection $collectionRef" }
 
         DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectInstruction) }
+    }
+
+    fun insertConnection(
+        connectionName: String,
+        collectionRef1: CollectionRef, uuid1: UUID,
+        collectionRef2: CollectionRef, uuid2: UUID,
+        connectionData: PolyData
+    ) {
+        val connection = connections[connectionName]
+        checkNotNull(connection) { "connection $connectionName does not exist" }
+
+        check(
+            (collectionRef1 == connection.collection1 && collectionRef2 == connection.collection2)
+                    || (collectionRef1 == connection.collection2 && collectionRef2 == connection.collection1)
+        )
+        { "collections to not match collections stored in connection" }
+        check(
+            dataMatchesSchema(
+                connectionData,
+                connection.connectionDataSchema
+            )
+        ) { "connection data does not match schema" }
+        DriverManager.getInstance().execute {
+            (DatabaseDriver::insertConnection)(
+                connection,
+                if (collectionRef1 == connection.collection1) collectionRef1 else collectionRef2,
+                if (collectionRef1 == connection.collection1) uuid1 else uuid2,
+                if (collectionRef1 == connection.collection1) collectionRef2 else collectionRef1,
+                if (collectionRef1 == connection.collection1) uuid2 else uuid1,
+                connectionData
+            )
+        }
+
     }
 
     fun query(query: PolyQuery): PolyResult {
@@ -122,7 +155,7 @@ object DatabaseManager {
                     { "connection ${segment.connectionName} does not exist on collection $currentPath" }
 
                     segment.connectionCondition?.let { condition ->
-                        validateConditionFields(condition, connectionModel.connectionData)
+                        validateConditionFields(condition, connectionModel.connectionDataSchema)
                     }
 
                     currentPath = if (connectionModel.collection1 == currentPath) connectionModel.collection2
@@ -192,13 +225,13 @@ object DatabaseManager {
         return currentPath
     }
 
-    private fun dataMatchesSchema(polyDocument: PolyDocument, schema: ObjectSchema): Boolean {
+    private fun dataMatchesSchema(polyDocument: PolyData, schema: ObjectSchema): Boolean {
         for (entry in schema.fields) {
-            if (!(polyDocument.fields[entry.key] ?: return false).isType(entry.value)) {
+            if (!(polyDocument[entry.key] ?: return false).isType(entry.value)) {
                 return false
             }
         }
-        return polyDocument.fields.size == schema.fields.size
+        return polyDocument.size == schema.fields.size
     }
 
     private fun schemaContainsFields(polyDocument: PolyDocument, schema: ObjectSchema): Boolean {

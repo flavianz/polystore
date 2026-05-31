@@ -7,13 +7,18 @@ import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.data.PolyDocument
 import ch.flavianz.data.PolyValue
 import ch.flavianz.driver.DriverManager
+import ch.flavianz.instructions.CreateCollectionInstruction
+import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.DataType
 import ch.flavianz.model.ObjectSchema
 import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DocumentPath
 import ch.flavianz.query.QueryParser
+import java.util.UUID
 
 fun main() {
     val manager = ConnectionManager()
@@ -115,13 +120,9 @@ fun main() {
                     )
                 )
             ),
-            CollectionRef("users", "comments") to CollectionModel(
-                "comments", ObjectSchema(
-                    mapOf(
-                        "title" to DataType.STRING,
-                        "content" to DataType.STRING,
-                        "time" to DataType.INT
-                    )
+            CollectionRef("posts") to CollectionModel(
+                "posts", ObjectSchema(
+                    mapOf("content" to DataType.STRING, "date" to DataType.INT)
                 )
             )
         )
@@ -135,35 +136,27 @@ fun main() {
                 CollectionRef("buildings", "rooms"),
                 ObjectSchema(mapOf("since" to DataType.INT, "price" to DataType.INT))
             )*/
-        )
-    )
-
-    /*DatabaseManager.insertObject(
-        InsertObjectInstruction(
-            CollectionPath("users", "fe40ffea-6cdf-408d-8fa9-6df6f78f2bee", "comments"), PolyDocument(
-                mapOf("title" to PolyValue.of("Hey"), "content" to PolyValue.of("there"), "time" to PolyValue.of(1700))
-            )
-        )
-    )*/
-
-    DatabaseManager.updateObject(
-        UpdateObjectInstruction(
-            DocumentPath(
-                "users",
-                "fe40ffea-6cdf-408d-8fa9-6df6f78f2bee",
-                "comments",
-                "08fc06c4-b10a-417e-9a0b-d20c2aba0b4a"
-            ),
-            PolyDocument(
-                mapOf(
-                    "content" to PolyValue.of("this is some new content")
+            "posted" to ConnectionModel(
+                "posted",
+                CollectionRef("users"),
+                CollectionRef("posts"),
+                ObjectSchema(
+                    mapOf(
+                        "connection_data" to DataType.STRING
+                    )
                 )
             )
         )
     )
 
-
-    println(DatabaseManager.query(QueryParser("from users u.(comments t where time < 1) take u.name, t.content").parse()))
+    DatabaseManager.insertConnection(
+        "posted",
+        CollectionRef("posts"), UUID.fromString("a74be899-a5f1-4664-aeec-4b9730f49864"),
+        CollectionRef("users"), UUID.fromString("fe40ffea-6cdf-408d-8fa9-6df6f78f2bee"),
+        mapOf(
+            "connection_data" to PolyValue.of("Hello World")
+        )
+    )
 
     manager.disconnectAll()
 }
