@@ -1,7 +1,6 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyDocument
 import ch.flavianz.data.PolyValue
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
@@ -24,9 +23,9 @@ class PostgresDriverIntegrationTests {
     private val username = System.getenv("TEST_DB_USERNAME") ?: "postgres"
     private val password = System.getenv("TEST_DB_PASSWORD") ?: "password"
 
-    private val userSchema = ObjectSchema(mapOf("name" to DataType.STRING, "age" to DataType.INT))
-    private val orderSchema = ObjectSchema(mapOf("item" to DataType.STRING, "price" to DataType.INT))
-    private val connectionSchema = ObjectSchema(mapOf("quantity" to DataType.INT))
+    private val userSchema = mapOf("name" to DataType.STRING, "age" to DataType.INT)
+    private val orderSchema = mapOf("item" to DataType.STRING, "price" to DataType.INT)
+    private val connectionSchema = mapOf("quantity" to DataType.INT)
 
     private var connection: Connection? = null
     private var driver: PostgresDriver? = null
@@ -111,7 +110,7 @@ class PostgresDriverIntegrationTests {
         val userUuid = UUID.randomUUID()
         val insertUserInstruction = InsertObjectInstruction(
             CollectionPath("test_users"),
-            PolyDocument(mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(30)))
+            mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(30))
         )
         driver.insertDocument(userUuid, insertUserInstruction)
 
@@ -119,7 +118,7 @@ class PostgresDriverIntegrationTests {
         val orderPath = CollectionPath("test_users").doc(userUuid).sub("test_orders")
         val insertOrderInstruction = InsertObjectInstruction(
             orderPath,
-            PolyDocument(mapOf("item" to PolyValue.of("Laptop"), "price" to PolyValue.of(1200)))
+            (mapOf("item" to PolyValue.of("Laptop"), "price" to PolyValue.of(1200)))
         )
         driver.insertDocument(orderUuid, insertOrderInstruction)
 
@@ -133,9 +132,9 @@ class PostgresDriverIntegrationTests {
         // 4. Test updateObject
         val updateInstruction = UpdateObjectInstruction(
             CollectionPath("test_users").doc(userUuid),
-            PolyDocument(mapOf("age" to PolyValue.of(31)))
+            (mapOf("age" to PolyValue.of(31)))
         )
-        driver.insertDocument(updateInstruction)
+        driver.updateDocument(updateInstruction)
 
         // 5. Test take (Wildcard)
         // path: test_users
@@ -200,7 +199,7 @@ class PostgresDriverIntegrationTests {
         driver.insertDocument(
             user1, InsertObjectInstruction(
                 CollectionPath("test_users"),
-                PolyDocument(mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(25)))
+                (mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(25)))
             )
         )
 
@@ -208,7 +207,7 @@ class PostgresDriverIntegrationTests {
         driver.insertDocument(
             user2, InsertObjectInstruction(
                 CollectionPath("test_users"),
-                PolyDocument(mapOf("name" to PolyValue.of("Bob"), "age" to PolyValue.of(35)))
+                (mapOf("name" to PolyValue.of("Bob"), "age" to PolyValue.of(35)))
             )
         )
 
