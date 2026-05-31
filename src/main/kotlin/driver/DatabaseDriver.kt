@@ -1,7 +1,6 @@
 package ch.flavianz.driver
 
 import ch.flavianz.data.PolyData
-import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
@@ -16,8 +15,8 @@ interface DatabaseDriver {
     fun createCollection(instruction: CreateCollectionInstruction)
     fun createConnection(connection: ConnectionModel)
 
-    fun insertObject(uuid: UUID, instruction: InsertObjectInstruction)
-    fun updateObject(instruction: UpdateObjectInstruction)
+    fun insertDocument(uuid: UUID, instruction: InsertObjectInstruction)
+    fun updateDocument(instruction: UpdateObjectInstruction)
     fun insertConnection(
         connection: ConnectionModel,
         collectionRef1: CollectionRef, uuid1: UUID,

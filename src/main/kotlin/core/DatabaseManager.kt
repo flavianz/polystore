@@ -1,16 +1,15 @@
 package ch.flavianz.core
 
 import ch.flavianz.data.PolyData
-import ch.flavianz.data.PolyDocument
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.ObjectSchema
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
@@ -73,17 +72,17 @@ object DatabaseManager {
         connections[connection.name] = connection
     }
 
-    fun insertObject(insertObjectInstruction: InsertObjectInstruction): UUID {
+    fun insertDocument(insertObjectInstruction: InsertObjectInstruction): UUID {
         val collectionRef = insertObjectInstruction.collectionPath.toCollectionRef()
 
         check(existsCollection(collectionRef)) { "collection $collectionRef does not exist" }
         val schema = getCollectionModel(collectionRef).schema
-        check(dataMatchesSchema(insertObjectInstruction.data.fields, schema))
+        check(dataMatchesSchema(insertObjectInstruction.data, schema))
         { "insertion data does not match schema of collection $collectionRef" }
 
         val objectUuid = UUID.randomUUID()
 
-        DriverManager.getInstance().execute { (DatabaseDriver::insertObject)(objectUuid, insertObjectInstruction) }
+        DriverManager.getInstance().execute { (DatabaseDriver::insertDocument)(objectUuid, insertObjectInstruction) }
         return objectUuid
     }
 
@@ -95,7 +94,7 @@ object DatabaseManager {
         check(schemaContainsFields(updateObjectInstruction.data, schema))
         { "update data does not match schema of collection $collectionRef" }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::updateObject)(updateObjectInstruction) }
+        DriverManager.getInstance().execute { (DatabaseDriver::updateDocument)(updateObjectInstruction) }
     }
 
     fun insertConnection(
@@ -225,28 +224,28 @@ object DatabaseManager {
         return currentPath
     }
 
-    private fun dataMatchesSchema(polyDocument: PolyData, schema: ObjectSchema): Boolean {
-        for (entry in schema.fields) {
+    private fun dataMatchesSchema(polyDocument: PolyData, schema: PolySchema): Boolean {
+        for (entry in schema) {
             if (!(polyDocument[entry.key] ?: return false).isType(entry.value)) {
                 return false
             }
         }
-        return polyDocument.size == schema.fields.size
+        return polyDocument.size == schema.size
     }
 
-    private fun schemaContainsFields(polyDocument: PolyDocument, schema: ObjectSchema): Boolean {
-        for (entry in polyDocument.fields) {
-            if (!entry.value.isType(schema.fields[entry.key] ?: return false)) {
+    private fun schemaContainsFields(polyDocument: PolyData, schema: PolySchema): Boolean {
+        for (entry in polyDocument) {
+            if (!entry.value.isType(schema[entry.key] ?: return false)) {
                 return false
             }
         }
         return true
     }
 
-    private fun validateConditionFields(condition: Condition, schema: ObjectSchema) {
+    private fun validateConditionFields(condition: Condition, schema: PolySchema) {
         when (condition) {
             is Condition.Comparison.Equals, is Condition.Comparison.GreaterThan, is Condition.Comparison.LessThan -> {
-                val fieldType = schema.fields[condition.field]
+                val fieldType = schema[condition.field]
                 require(fieldType != null) { "Unknown field: ${condition.field}" }
                 check(condition.value.isType(fieldType)) { "condition value ${condition.value} does not match field type $fieldType" }
             }

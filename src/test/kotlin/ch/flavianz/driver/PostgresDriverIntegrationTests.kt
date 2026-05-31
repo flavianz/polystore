@@ -113,7 +113,7 @@ class PostgresDriverIntegrationTests {
             CollectionPath("test_users"),
             PolyDocument(mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(30)))
         )
-        driver.insertObject(userUuid, insertUserInstruction)
+        driver.insertDocument(userUuid, insertUserInstruction)
 
         val orderUuid = UUID.randomUUID()
         val orderPath = CollectionPath("test_users").doc(userUuid).sub("test_orders")
@@ -121,7 +121,7 @@ class PostgresDriverIntegrationTests {
             orderPath,
             PolyDocument(mapOf("item" to PolyValue.of("Laptop"), "price" to PolyValue.of(1200)))
         )
-        driver.insertObject(orderUuid, insertOrderInstruction)
+        driver.insertDocument(orderUuid, insertOrderInstruction)
 
         // Insert Connection record directly using SQL (as connection table is updated manually or via query in app design)
         connection!!.prepareStatement(
@@ -135,7 +135,7 @@ class PostgresDriverIntegrationTests {
             CollectionPath("test_users").doc(userUuid),
             PolyDocument(mapOf("age" to PolyValue.of(31)))
         )
-        driver.updateObject(updateInstruction)
+        driver.insertDocument(updateInstruction)
 
         // 5. Test take (Wildcard)
         // path: test_users
@@ -197,7 +197,7 @@ class PostgresDriverIntegrationTests {
         driver.createCollection(CreateCollectionInstruction(CollectionModel("test_users", userSchema)))
 
         val user1 = UUID.randomUUID()
-        driver.insertObject(
+        driver.insertDocument(
             user1, InsertObjectInstruction(
                 CollectionPath("test_users"),
                 PolyDocument(mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(25)))
@@ -205,7 +205,7 @@ class PostgresDriverIntegrationTests {
         )
 
         val user2 = UUID.randomUUID()
-        driver.insertObject(
+        driver.insertDocument(
             user2, InsertObjectInstruction(
                 CollectionPath("test_users"),
                 PolyDocument(mapOf("name" to PolyValue.of("Bob"), "age" to PolyValue.of(35)))

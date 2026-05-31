@@ -8,15 +8,19 @@ class InstructionHandler {
             is CreateCollectionInstruction -> {
                 DatabaseManager.createCollection(instruction)
             }
+
             is CreateConnectionInstruction -> {
                 DatabaseManager.createConnection(instruction.connection)
             }
+
             is InsertObjectInstruction -> {
-                DatabaseManager.insertObject(instruction)
+                DatabaseManager.insertDocument(instruction)
             }
+
             is UpdateObjectInstruction -> {
                 DatabaseManager.updateObject(instruction)
             }
+
             is QueryInstruction -> {
                 println(DatabaseManager.query(instruction.query))
             }

@@ -37,9 +37,9 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         // nothing to do
     }
 
-    override fun insertObject(uuid: UUID, instruction: InsertObjectInstruction) {
+    override fun insertDocument(uuid: UUID, instruction: InsertObjectInstruction) {
         val document = Document().append("_id", uuid)
-        for (field in instruction.data.fields) {
+        for (field in instruction.data) {
             document.append("ps_f_${field.key}", prepareValue(field.value))
         }
 
@@ -57,7 +57,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         mongoDatabase.getCollection(collectionRef.toPostgresPath()).insertOne(document)
     }
 
-    override fun updateObject(instruction: UpdateObjectInstruction) {
+    override fun updateDocument(instruction: UpdateObjectInstruction) {
         if (instruction.documentPath.parentCollection().hasParentDoc()) {
             // update parent collection
             val parentCollection =
@@ -68,7 +68,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             mongoCollection.updateOne(
                 Filters.eq("${collectionName}._id", instruction.documentPath.uuid),
                 Updates.combine(
-                    instruction.data.fields.map {
+                    instruction.data.map {
                         Updates.set(
                             "$collectionName.$.ps_f_${it.key}",
                             prepareValue(it.value)
@@ -82,7 +82,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         mongoCollection.updateOne(
             Filters.eq("_id", instruction.documentPath.uuid),
             Updates.combine(
-                instruction.data.fields.map { Updates.set("ps_f_${it.key}", prepareValue(it.value)) }
+                instruction.data.map { Updates.set("ps_f_${it.key}", prepareValue(it.value)) }
             )
         )
 
@@ -104,7 +104,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             mongoConnectedCollection.updateMany(
                 Filters.`in`("_id", ids),
                 Updates.combine(
-                    instruction.data.fields.map {
+                    instruction.data.map {
                         Updates.set(
                             "ps_sub_${collectionRef.leafName()}.$.ps_doc.ps_f_${it.key}",
                             prepareValue(it.value)
@@ -205,7 +205,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                             return PolyResult.Documents(buildList {
                                 parentDocs.forEach { parentDoc ->
                                     val subDocs =
-                                        (parentDoc[subSegment.name] as? List<*>)?.filterIsInstance<Document>() as List<Document>
+                                        (parentDoc["ps_sub_${subSegment.name}"] as? List<*>)?.filterIsInstance<Document>() as List<Document>
                                     for (subDoc in subDocs) {
                                         add(
                                             parseResult(
@@ -219,14 +219,14 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                         } else {
                             val parentDocs = if (parentSegment.condition == null) mongoParentCollection.find(
                                 Filters.elemMatch(
-                                    subSegment.name,
+                                    "ps_sub_${subSegment.name}",
                                     conditionToFilter(subSegment.condition)
                                 )
                             ) else mongoParentCollection.find(
                                 Filters.and(
                                     conditionToFilter(parentSegment.condition),
                                     Filters.elemMatch(
-                                        subSegment.name,
+                                        "ps_sub_${subSegment.name}",
                                         conditionToFilter(subSegment.condition)
                                     )
                                 )
@@ -235,7 +235,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                             return PolyResult.Documents(buildList {
                                 parentDocs.forEach { parentDoc ->
                                     val subDocs =
-                                        ((parentDoc[subSegment.name] as? List<*>)?.filterIsInstance<Document>() as List<Document>)
+                                        ((parentDoc["ps_sub_${subSegment.name}"] as? List<*>)?.filterIsInstance<Document>() as List<Document>)
                                             .filter { checkCondition(it, subSegment.condition) }
                                     for (subDoc in subDocs) {
                                         add(

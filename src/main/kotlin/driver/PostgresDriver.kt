@@ -46,7 +46,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
 
         // Add fields from the schema
-        for ((name, dataType) in collectionModel.schema.fields) {
+        for ((name, dataType) in collectionModel.schema) {
             sql.append(", ps_f_").append(name).append(" ").append(dataType.toPostgresType())
         }
 
@@ -77,7 +77,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
 
         // Add fields from the schema
-        for ((name, dataType) in connection.connectionDataSchema.fields) {
+        for ((name, dataType) in connection.connectionDataSchema) {
             // f = field
             sql.append(", ps_f_").append(name).append(" ").append(dataType.toPostgresType())
         }
@@ -87,7 +87,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun insertObject(uuid: UUID, instruction: InsertObjectInstruction) {
+    override fun insertDocument(uuid: UUID, instruction: InsertObjectInstruction) {
         val sql = StringBuilder()
         val collectionRef = instruction.collectionPath.toCollectionRef()
         sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" (")
@@ -96,7 +96,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             sql.append(", ").append(quoteIdentifier("ps_parent_fk"))
         }
 
-        val entries = ArrayList(instruction.data.fields.entries)
+        val entries = ArrayList(instruction.data.entries)
 
         for (entry in entries) {
             sql.append(", ").append(quoteIdentifier("ps_f_${entry.key}"))
@@ -115,16 +115,16 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun updateObject(instruction: UpdateObjectInstruction) {
+    override fun updateDocument(instruction: UpdateObjectInstruction) {
         val sql = StringBuilder()
         val collectionRef = instruction.documentPath.parentCollection().toCollectionRef()
         sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" SET ")
 
-        for (entry in instruction.data.fields) {
+        for (entry in instruction.data.entries) {
             sql.append(quoteIdentifier("ps_f_${entry.key}")).append(" = ").append(prepareValue(entry.value))
                 .append(", ")
         }
-        if (instruction.data.fields.isNotEmpty()) {
+        if (instruction.data.isNotEmpty()) {
             // remove last comma
             sql.deleteRange(sql.length - 2, sql.length)
         }
@@ -181,7 +181,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                         val schema = DatabaseManager.getCollectionModel(col).schema
                         val pkCol =
                             "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_pk")} AS ${quoteIdentifier("${pgTable}__id")}"
-                        val fieldCols = schema.fields.keys.map { f ->
+                        val fieldCols = schema.keys.map { f ->
                             "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${pgTable}__$f")}"
                         }
                         listOf(pkCol) + fieldCols
@@ -231,7 +231,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                         when (fieldRef) {
                             is FieldRef.Wildcard -> {
                                 val schema = connectionModel.connectionDataSchema
-                                schema.fields.keys.map { f ->
+                                schema.keys.map { f ->
                                     "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${pgTable}__$f")}"
                                 }
                             }
