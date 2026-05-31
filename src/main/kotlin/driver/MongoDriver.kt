@@ -122,7 +122,43 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         uuid2: UUID,
         connectionData: PolyData
     ) {
-        TODO("Not yet implemented")
+        val mongoCollection1 = mongoDatabase.getCollection(collectionRef1.toPostgresPath())
+        val mongoCollection2 = mongoDatabase.getCollection(collectionRef2.toPostgresPath())
+
+        val doc1 = mongoCollection1.find(Filters.eq("_id", uuid1)).firstOrNull()
+        val doc2 = mongoCollection2.find(Filters.eq("_id", uuid2)).firstOrNull()
+        check(doc1 != null && doc2 != null) { "did not find both documents of inserted connection" }
+
+        fun prepareInsertDoc(doc: Document): Map<String, Any> = doc.entries.map {
+            // remove data from subcollections and connections, only leave ids
+            if (it.key.startsWith("ps_con_") || it.key.startsWith("ps_col_")) {
+                val docs = (it.value as List<*>).filterIsInstance<Document>()
+                return@map it.key to docs.map { doc -> doc["_id"] }
+            }
+            return@map it.key to it.value
+        }.toMap()
+
+        val insertDoc1 = Document(
+            mapOf(
+                "ps_rel" to connectionData.map { it.key to prepareValue(it.value) }.toMap(),
+                "ps_doc" to prepareInsertDoc(doc1)
+            )
+        )
+        val insertDoc2 = Document(
+            mapOf(
+                "ps_rel" to connectionData.map { it.key to prepareValue(it.value) }.toMap(),
+                "ps_doc" to prepareInsertDoc(doc2)
+            )
+        )
+
+        mongoCollection1.updateOne(
+            Filters.eq("_id", uuid1),
+            Updates.push("ps_con_${connection.name}", insertDoc2)
+        )
+        mongoCollection2.updateOne(
+            Filters.eq("_id", uuid2),
+            Updates.push("ps_con_${connection.name}", insertDoc1)
+        )
     }
 
 

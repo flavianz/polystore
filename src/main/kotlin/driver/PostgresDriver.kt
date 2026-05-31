@@ -166,8 +166,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
         sql.append(")")
 
-        println(sql.toString())
-
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
