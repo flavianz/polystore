@@ -10,7 +10,6 @@ import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.CollectionPath
-import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.query.QueryParser
@@ -51,63 +50,61 @@ fun main() {
         initMongo(mongo)
     }
 
-    /*DatabaseManager.initCollections(
-        mutableMapOf(
-            /*CollectionRef("hospitals") to CollectionModel(
-                "hospitals", ObjectSchema(
-                    mapOf(
-                        "name" to DataType.STRING,
-                        "patientCount" to DataType.INT,
-                        "address" to DataType.STRING
-                    )
+    DatabaseManager.initCollections(
+        listOf(
+            CollectionModel(
+                "hospitals",
+                mapOf(
+                    "name" to DataType.STRING,
+                    "patientCount" to DataType.INT,
+                    "address" to DataType.STRING
+                ),
+                mutableListOf("departments")
+            ),
+            CollectionModel(
+                "departments",
+                mapOf(
+                    "type" to DataType.STRING,
+                    "capacity" to DataType.INT,
+                    "building" to DataType.STRING
+                ),
+                mutableListOf("doctors")
+            ),
+            CollectionModel(
+                "doctors",
+                mapOf(
+                    "first" to DataType.STRING,
+                    "age" to DataType.INT,
+                    "last" to DataType.STRING
+                ),
+                mutableListOf("patients")
+            ),
+            CollectionModel(
+                "patients",
+                mapOf(
+                    "first" to DataType.STRING,
+                    "age" to DataType.INT,
+                    "last" to DataType.STRING
                 )
             ),
-            CollectionRef("hospitals", "departments") to CollectionModel(
-                "departments", ObjectSchema(
-                    mapOf(
-                        "type" to DataType.STRING,
-                        "capacity" to DataType.INT,
-                        "building" to DataType.STRING
-                    )
-                )
+            CollectionModel(
+                "buildings",
+                mapOf(
+                    "address" to DataType.STRING,
+                    "built_in" to DataType.INT,
+                    "name" to DataType.STRING
+                ),
+                mutableListOf("rooms")
             ),
-            CollectionRef("hospitals", "departments", "doctors") to CollectionModel(
-                "doctors", ObjectSchema(
-                    mapOf(
-                        "first" to DataType.STRING,
-                        "age" to DataType.INT,
-                        "last" to DataType.STRING
-                    )
+            CollectionModel(
+                "rooms",
+                mapOf(
+                    "tag" to DataType.STRING,
+                    "number" to DataType.INT,
+                    "nurse" to DataType.STRING
                 )
-            ),
-            CollectionRef("hospitals", "departments", "doctors", "patients") to CollectionModel(
-                "patients", ObjectSchema(
-                    mapOf(
-                        "first" to DataType.STRING,
-                        "age" to DataType.INT,
-                        "last" to DataType.STRING
-                    )
-                )
-            ),
-            CollectionRef("buildings") to CollectionModel(
-                "buildings", ObjectSchema(
-                    mapOf(
-                        "address" to DataType.STRING,
-                        "built_in" to DataType.INT,
-                        "name" to DataType.STRING
-                    )
-                )
-            ),
-            CollectionRef("buildings", "rooms") to CollectionModel(
-                "rooms", ObjectSchema(
-                    mapOf(
-                        "tag" to DataType.STRING,
-                        "number" to DataType.INT,
-                        "nurse" to DataType.STRING
-                    )
-                )
-            ),*/
-            CollectionRef("users") to CollectionModel(
+            )
+            /*CollectionRef("users") to CollectionModel(
                 "users", ObjectSchema(
                     mapOf(
                         "name" to DataType.STRING,
@@ -119,9 +116,9 @@ fun main() {
                 "posts", ObjectSchema(
                     mapOf("content" to DataType.STRING, "date" to DataType.INT)
                 )
-            )
+            )*/
         )
-    )*/
+    )
 
     /*DatabaseManager.initConnections(
         mutableMapOf(
@@ -152,8 +149,6 @@ fun main() {
             "connection_data" to PolyValue.of("Hello World")
         )
     )*/
-
-    demo()
 
     manager.disconnectAll()
 }
@@ -200,7 +195,7 @@ fun demo() {
                     "last" to DataType.STRING,
                     "age" to DataType.INT
                 )
-            ), CollectionRef("schools")
+            ), "schools"
         )
     )
 
@@ -270,8 +265,8 @@ fun demo() {
     DatabaseManager.createConnection(
         ConnectionModel(
             "studies",
-            CollectionRef("schools", "students"),
-            CollectionRef("courses"),
+            "students",
+            "courses",
             mapOf(
                 "grade" to DataType.INT,
                 "year" to DataType.INT
@@ -281,8 +276,8 @@ fun demo() {
 
     DatabaseManager.insertConnection(
         "studies",
-        CollectionRef("schools", "students"), danielUUID,
-        CollectionRef("courses"), mathUUID,
+        "students", danielUUID,
+        "courses", mathUUID,
         mapOf(
             "grade" to PolyValue.of(5),
             "year" to PolyValue.of(2025)
@@ -290,8 +285,8 @@ fun demo() {
     )
     DatabaseManager.insertConnection(
         "studies",
-        CollectionRef("schools", "students"), peterUUID,
-        CollectionRef("courses"), englishUUID,
+        "students", peterUUID,
+        "courses", englishUUID,
         mapOf(
             "grade" to PolyValue.of(4),
             "year" to PolyValue.of(2023)
@@ -299,8 +294,8 @@ fun demo() {
     )
     DatabaseManager.insertConnection(
         "studies",
-        CollectionRef("schools", "students"), hansUUID,
-        CollectionRef("courses"), mathUUID,
+        "students", hansUUID,
+        "courses", mathUUID,
         mapOf(
             "grade" to PolyValue.of(6),
             "year" to PolyValue.of(2026)

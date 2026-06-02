@@ -29,4 +29,11 @@ sealed class QuerySegment {
         val connectionCondition: Condition? = null,
         val collectionCondition: Condition? = null
     ) : QuerySegment()
+
+    fun name(): String {
+        return when (this) {
+            is Connection -> collectionName
+            is Collection -> name
+        }
+    }
 }

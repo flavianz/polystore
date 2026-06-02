@@ -2,8 +2,8 @@ package ch.flavianz.instructions
 
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.CollectionRef
 
-data class CreateCollectionInstruction(val collectionModel: CollectionModel, val parentCollection: CollectionRef? = null) :
+data class CreateCollectionInstruction(val collectionModel: CollectionModel, val parentCollectionName: String? = null) :
     Instruction
+
 data class CreateConnectionInstruction(val connection: ConnectionModel) : Instruction

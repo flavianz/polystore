@@ -1,14 +1,12 @@
 package ch.flavianz.model
 
-import ch.flavianz.data.PolyData
-
 data class ConnectionModel(
     val name: String,
-    val collection1: CollectionRef,
-    val collection2: CollectionRef,
+    val collection1Name: String,
+    val collection2Name: String,
     val connectionDataSchema: PolySchema
 ) {
     fun toPostgresPath(): String {
-        return "${collection1.toPostgresPath()}__${name}__${collection2.toPostgresPath()}"
+        return "${collection1Name}__${name}__${collection2Name}"
     }
 }

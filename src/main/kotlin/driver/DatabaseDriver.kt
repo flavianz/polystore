@@ -5,7 +5,6 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
-import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.QueryPath
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
@@ -19,8 +18,8 @@ interface DatabaseDriver {
     fun updateDocument(instruction: UpdateObjectInstruction)
     fun insertConnection(
         connection: ConnectionModel,
-        collectionRef1: CollectionRef, uuid1: UUID,
-        collectionRef2: CollectionRef, uuid2: UUID,
+        collection1Name: String, uuid1: UUID,
+        collection2Name: String, uuid2: UUID,
         connectionData: PolyData
     )
 

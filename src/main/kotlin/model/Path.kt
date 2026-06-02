@@ -105,6 +105,10 @@ data class CollectionPath(val segments: List<PathSegment>) {
     override fun toString(): String {
         return segments.joinToString(".")
     }
+
+    fun leafName(): String {
+        return (segments[segments.size - 1] as PathSegment.Collection).name
+    }
 }
 
 fun parsePath(segmentStrings: List<String>): List<PathSegment> {

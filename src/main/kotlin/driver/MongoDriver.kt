@@ -25,9 +25,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     override fun createCollection(instruction: CreateCollectionInstruction) {
         val collectionModel = instruction.collectionModel
 
-        val collectionName = if (instruction.parentCollection == null)
-            CollectionRef(collectionModel.name).toPostgresPath()
-        else instruction.parentCollection.sub(collectionModel.name).toPostgresPath()
+        val collectionName = collectionModel.name
 
         //TODO: change name to hashName (probably)
         mongoDatabase.createCollection(collectionName)
@@ -86,13 +84,13 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             )
         )
 
-        val collectionRef = instruction.documentPath.parentCollection().toCollectionRef()
-        val connection = DatabaseManager.getConnectionOrNull(collectionRef)
+        val collectionName = instruction.documentPath.parentCollection().leafName()
+        val connection = DatabaseManager.getConnectionOrNull(collectionName)
 
         if (connection != null) {
             // update connected documents
             val connectedCollection =
-                if (connection.collection1 == collectionRef) connection.collection2 else connection.collection1
+                if (connection.collection1Name == collectionName) connection.collection2Name else connection.collection1Name
             val connectionName = "ps_con_${connection.name}"
             val mongoDoc = mongoCollection.find(Filters.eq("_id", instruction.documentPath.uuid)).firstOrNull()
             checkNotNull(mongoDoc) { "updated mongo doc does not exist" }
@@ -100,13 +98,13 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             val connectedDocs = (mongoDoc[connectionName] as List<*>?)?.filterIsInstance<Document>() ?: emptyList()
             val ids = connectedDocs.map { it["_id"] as UUID }
 
-            val mongoConnectedCollection = mongoDatabase.getCollection(connectedCollection.toPostgresPath())
+            val mongoConnectedCollection = mongoDatabase.getCollection(connectedCollection)
             mongoConnectedCollection.updateMany(
                 Filters.`in`("_id", ids),
                 Updates.combine(
                     instruction.data.map {
                         Updates.set(
-                            "ps_sub_${collectionRef.leafName()}.$.ps_doc.ps_f_${it.key}",
+                            "ps_sub_${collectionName}.$.ps_doc.ps_f_${it.key}",
                             prepareValue(it.value)
                         )
                     })
@@ -116,14 +114,14 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
     override fun insertConnection(
         connection: ConnectionModel,
-        collectionRef1: CollectionRef,
+        collection1Name: String,
         uuid1: UUID,
-        collectionRef2: CollectionRef,
+        collection2Name: String,
         uuid2: UUID,
         connectionData: PolyData
     ) {
-        val mongoCollection1 = mongoDatabase.getCollection(collectionRef1.toPostgresPath())
-        val mongoCollection2 = mongoDatabase.getCollection(collectionRef2.toPostgresPath())
+        val mongoCollection1 = mongoDatabase.getCollection(collection1Name)
+        val mongoCollection2 = mongoDatabase.getCollection(collection2Name)
 
         val doc1 = mongoCollection1.find(Filters.eq("_id", uuid1)).firstOrNull()
         val doc2 = mongoCollection2.find(Filters.eq("_id", uuid2)).firstOrNull()

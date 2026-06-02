@@ -17,15 +17,15 @@ class InstructionTests {
         // Initialize DriverManager with a null PostgresDriver if not already initialized
         try {
             DriverManager.getInstance()
-        } catch (e: IllegalStateException) {
+        } catch (_: IllegalStateException) {
             DriverManager.initialize {
                 // postgresDriver remains null for unit tests
             }
         }
 
         // Reset DatabaseManager state before each test
-        DatabaseManager.initCollections(mutableMapOf())
-        DatabaseManager.initConnections(mutableMapOf())
+        DatabaseManager.initCollections(listOf())
+        DatabaseManager.initConnections(listOf())
     }
 
     @Test
@@ -50,7 +50,7 @@ class InstructionTests {
 
         val childSchema = (mapOf("title" to DataType.STRING))
         val childModel = CollectionModel("jobs", childSchema)
-        val instruction = CreateCollectionInstruction(childModel, parentCollection = CollectionRef("companies"))
+        val instruction = CreateCollectionInstruction(childModel, parentCollectionName = "companies")
 
         handler.handle(instruction)
 
@@ -75,7 +75,7 @@ class InstructionTests {
     fun testCreateCollectionInstructionParentDoesNotExist() {
         val schema = (mapOf("name" to DataType.STRING))
         val model = CollectionModel("jobs", schema)
-        val instruction = CreateCollectionInstruction(model, parentCollection = CollectionRef("nonexistent"))
+        val instruction = CreateCollectionInstruction(model, parentCollectionName = "nonexistent")
 
         assertFailsWith<IllegalStateException> {
             handler.handle(instruction)
@@ -93,8 +93,8 @@ class InstructionTests {
         val connectionDataSchema = (mapOf("role" to DataType.STRING))
         val connectionModel = ConnectionModel(
             name = "belongs_to",
-            collection1 = CollectionRef("users"),
-            collection2 = CollectionRef("groups"),
+            collection1Name = "users",
+            collection2Name = "groups",
             connectionDataSchema = connectionDataSchema
         )
         val instruction = CreateConnectionInstruction(connectionModel)
@@ -103,8 +103,8 @@ class InstructionTests {
 
         val registeredConnection = DatabaseManager.getConnectionModel("belongs_to")
         assertEquals("belongs_to", registeredConnection.name)
-        assertEquals(CollectionRef("users"), registeredConnection.collection1)
-        assertEquals(CollectionRef("groups"), registeredConnection.collection2)
+        assertEquals("users", registeredConnection.collection1Name)
+        assertEquals("groups", registeredConnection.collection2Name)
         assertEquals(connectionDataSchema, registeredConnection.connectionDataSchema)
     }
 
@@ -115,8 +115,8 @@ class InstructionTests {
 
         val connectionModel = ConnectionModel(
             name = "belongs_to",
-            collection1 = CollectionRef("users"),
-            collection2 = CollectionRef("nonexistent"),
+            collection1Name = "users",
+            collection2Name = "nonexistent",
             connectionDataSchema = (emptyMap())
         )
 
@@ -133,8 +133,8 @@ class InstructionTests {
 
         val connectionModel = ConnectionModel(
             name = "belongs_to",
-            collection1 = CollectionRef("users"),
-            collection2 = CollectionRef("groups"),
+            collection1Name = "users",
+            collection2Name = "groups",
             connectionDataSchema = (emptyMap())
         )
 

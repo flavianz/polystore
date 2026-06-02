@@ -33,7 +33,7 @@ class PostgresDriverIntegrationTests {
     private fun isDatabaseReachable(): Boolean {
         return try {
             DriverManager.getConnection("jdbc:postgresql://$host:$port/$database", username, password).use { true }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }
@@ -48,17 +48,17 @@ class PostgresDriverIntegrationTests {
 
         // Reset and populate schema registry in DatabaseManager
         DatabaseManager.initCollections(
-            mutableMapOf(
-                CollectionRef("test_users") to CollectionModel("test_users", userSchema),
-                CollectionRef("test_users", "test_orders") to CollectionModel("test_orders", orderSchema)
+            listOf(
+                CollectionModel("test_users", userSchema, mutableListOf("test_orders")),
+                CollectionModel("test_orders", orderSchema)
             )
         )
         DatabaseManager.initConnections(
-            mutableMapOf(
-                "test_bought" to ConnectionModel(
+            listOf(
+                ConnectionModel(
                     "test_bought",
-                    CollectionRef("test_users"),
-                    CollectionRef("test_users", "test_orders"),
+                    "test_users",
+                    "test_orders",
                     connectionSchema
                 )
             )
@@ -78,8 +78,8 @@ class PostgresDriverIntegrationTests {
 
     private fun cleanupTables() {
         connection?.createStatement()?.use { stmt ->
-            stmt.execute("DROP TABLE IF EXISTS \"ps_con_test_users__test_bought__test_users_test_orders\"")
-            stmt.execute("DROP TABLE IF EXISTS \"ps_col_test_users_test_orders\"")
+            stmt.execute("DROP TABLE IF EXISTS \"ps_con_test_users__test_bought__test_orders\"")
+            stmt.execute("DROP TABLE IF EXISTS \"ps_col_test_orders\"")
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_test_users\"")
         }
     }
@@ -93,15 +93,15 @@ class PostgresDriverIntegrationTests {
         driver.createCollection(
             CreateCollectionInstruction(
                 CollectionModel("test_orders", orderSchema),
-                parentCollection = CollectionRef("test_users")
+                parentCollectionName = "test_users"
             )
         )
 
         // 2. Create connection
         val connectionModel = ConnectionModel(
             name = "test_bought",
-            collection1 = CollectionRef("test_users"),
-            collection2 = CollectionRef("test_users", "test_orders"),
+            collection1Name = "test_users",
+            collection2Name = "test_orders",
             connectionDataSchema = connectionSchema
         )
         driver.createConnection(connectionModel)
@@ -124,8 +124,8 @@ class PostgresDriverIntegrationTests {
 
         // Insert Connection record directly using SQL (as connection table is updated manually or via query in app design)
         connection!!.prepareStatement(
-            "INSERT INTO \"ps_con_test_users__test_bought__test_users_test_orders\" " +
-                    "(\"ps_cfk_test_users\", \"ps_cfk_test_users_test_orders\", \"ps_f_quantity\") " +
+            "INSERT INTO \"ps_con_test_users__test_bought__test_orders\" " +
+                    "(\"ps_cfk_test_users\", \"ps_cfk_test_orders\", \"ps_f_quantity\") " +
                     "VALUES ('$userUuid', '$orderUuid', 5)"
         ).execute()
 
@@ -179,14 +179,13 @@ class PostgresDriverIntegrationTests {
         assertEquals(31, joinRow["ps_col_test_users__age"]?.value)
 
         // Validate connection fields in join
-        // PostgreSQL truncates identifiers to 63 bytes (ps_con_test_users__test_bought__test_users_test_orders__quantity -> ps_con_test_users__test_bought__test_users_test_orders__quantit)
-        val quantityKey = "ps_con_test_users__test_bought__test_users_test_orders__quantit"
+        val quantityKey = "ps_con_test_users__test_bought__test_orders__quantity"
         assertEquals(5, joinRow[quantityKey]?.value)
 
         // Validate order fields in join
-        assertEquals(orderUuid.toString(), joinRow["ps_col_test_users_test_orders__id"]?.value?.toString())
-        assertEquals("Laptop", joinRow["ps_col_test_users_test_orders__item"]?.value)
-        assertEquals(1200, joinRow["ps_col_test_users_test_orders__price"]?.value)
+        assertEquals(orderUuid.toString(), joinRow["ps_col_test_orders__id"]?.value?.toString())
+        assertEquals("Laptop", joinRow["ps_col_test_orders__item"]?.value)
+        assertEquals(1200, joinRow["ps_col_test_orders__price"]?.value)
     }
 
     @Test
