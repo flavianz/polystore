@@ -52,7 +52,7 @@ fun main() {
 
     DatabaseManager.initCollections(
         listOf(
-            CollectionModel(
+            /*CollectionModel(
                 "hospitals",
                 mapOf(
                     "name" to DataType.STRING,
@@ -116,18 +116,40 @@ fun main() {
                 "posts", ObjectSchema(
                     mapOf("content" to DataType.STRING, "date" to DataType.INT)
                 )
-            )*/
+            )*/*/
+            CollectionModel(
+                "schools", mapOf(
+                    "name" to DataType.STRING,
+                    "address" to DataType.STRING,
+                    "student_count" to DataType.INT
+                )
+            ),
+            CollectionModel(
+                "students", mapOf(
+                    "first" to DataType.STRING,
+                    "last" to DataType.STRING,
+                    "age" to DataType.INT
+                ),
+                mutableListOf("schools")
+            ),
+            CollectionModel(
+                "courses", mapOf(
+                    "subject" to DataType.STRING,
+                    "teacher" to DataType.STRING,
+                    "difficulty" to DataType.INT
+                )
+            )
         )
     )
 
-    /*DatabaseManager.initConnections(
-        mutableMapOf(
+    DatabaseManager.initConnections(
+        listOf(
             /*"treated_in" to ConnectionModel(
                 "treated_in",
                 CollectionRef("hospitals", "departments", "doctors", "patients"),
                 CollectionRef("buildings", "rooms"),
                 ObjectSchema(mapOf("since" to DataType.INT, "price" to DataType.INT))
-            )*/
+            )
             "posted" to ConnectionModel(
                 "posted",
                 CollectionRef("users"),
@@ -137,18 +159,21 @@ fun main() {
                         "connection_data" to DataType.STRING
                     )
                 )
+            )*/
+            ConnectionModel(
+                "studies",
+                "students",
+                "courses",
+                mapOf(
+                    "grade" to DataType.INT,
+                    "year" to DataType.INT
+                )
             )
         )
-    )*/
+    )
 
-    /*DatabaseManager.insertConnection(
-        "posted",
-        CollectionRef("posts"), UUID.fromString("a74be899-a5f1-4664-aeec-4b9730f49864"),
-        CollectionRef("users"), UUID.fromString("fe40ffea-6cdf-408d-8fa9-6df6f78f2bee"),
-        mapOf(
-            "connection_data" to PolyValue.of("Hello World")
-        )
-    )*/
+    println(DatabaseManager.query(QueryParser("from (schools s where student_count > 900).(students st where age > 17) take s.name, st.last, st.age").parse()))
+    println(DatabaseManager.query(QueryParser("from (schools sc).(students st)-(studies stu)-(courses c) take sc.name, st.last, c.subject, stu.year").parse()))
 
     manager.disconnectAll()
 }

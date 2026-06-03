@@ -116,7 +116,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     override fun updateDocument(instruction: UpdateObjectInstruction) {
         val sql = StringBuilder()
         val collectionRef = instruction.documentPath.parentCollection().toCollectionRef()
-        sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.toPostgresPath()}")).append(" SET ")
+        sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.leafName()}")).append(" SET ")
 
         for (entry in instruction.data.entries) {
             sql.append(quoteIdentifier("ps_f_${entry.key}")).append(" = ").append(prepareValue(entry.value))
@@ -283,7 +283,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     private fun appendFromAndJoins(sql: StringBuilder, path: QueryPath) {
         val firstNode = path.segments.first() as QuerySegment.Collection
         val firstCol = CollectionRef(firstNode.name)
-        val firstTable = "ps_col_${firstCol.toPostgresPath()}"
+        val firstTable = "ps_col_${firstCol.leafName()}"
         sql.append(" FROM ").append(quoteIdentifier(firstTable))
 
         for (i in 1 until path.segments.size) {

@@ -49,10 +49,6 @@ data class CollectionRef(val segments: List<PathSegment.Collection>) {
 
     constructor(vararg segments: String) : this(segments.map { PathSegment.Collection(it) })
 
-    fun toPostgresPath(): String {
-        return segments.joinToString("_")
-    }
-
     fun leafName(): String {
         return segments[segments.size - 1].name
     }

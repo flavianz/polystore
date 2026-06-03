@@ -76,7 +76,7 @@ object DatabaseManager {
     fun insertDocument(insertObjectInstruction: InsertObjectInstruction): UUID {
         val collectionRef = insertObjectInstruction.collectionPath.toCollectionRef()
 
-        check(existsCollection(collectionRef)) { "collection $collectionRef does not exist" }
+        check(existsCollection(collectionRef.leafName())) { "collection ${collectionRef.leafName()} does not exist" }
         val schema = getCollectionModel(collectionRef).schema
         check(dataMatchesSchema(insertObjectInstruction.data, schema))
         { "insertion data does not match schema of collection $collectionRef" }
@@ -90,7 +90,7 @@ object DatabaseManager {
     fun updateObject(updateObjectInstruction: UpdateObjectInstruction) {
         val collectionRef = updateObjectInstruction.documentPath.parentCollection().toCollectionRef()
 
-        check(existsCollection(collectionRef)) { "collection $collectionRef does not exist" }
+        check(existsCollection(collectionRef.leafName())) { "collection $collectionRef does not exist" }
         val schema = getCollectionModel(collectionRef).schema
         check(schemaContainsFields(updateObjectInstruction.data, schema))
         { "update data does not match schema of collection $collectionRef" }
