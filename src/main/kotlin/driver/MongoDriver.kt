@@ -13,6 +13,7 @@ import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
+import com.mongodb.client.FindIterable
 import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Updates
@@ -162,154 +163,264 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     override fun take(
         path: QueryPath,
         terminal: PolyTerminal.Take
-    ): PolyResult.Documents {
-        val requestedSegments = terminal.fields.map { it.segment }.toSet()
+    ): List<PolyData> {
+        check(path.segments.isNotEmpty()) { "empty query" }
+        val docsBySegment = mutableMapOf<String, List<MongoPolyDocument>>()
+        val segments = path.segments
+        var i = 0
+        when (val firstSegment = segments[0]) {
+            is QuerySegment.Collection -> {
+                if (segments.getOrNull(1) is QuerySegment.Collection) {
+                    val parentDocs = fetchTwoCollectionSegments(
+                        firstSegment,
+                        segments[1] as QuerySegment.Collection
+                    )
+                    docsBySegment[firstSegment.name] = parentDocs.keys.map { MongoPolyDocument(it) }
+                    docsBySegment[segments[1].collectionName()] =
+                        parentDocs.values.flatten().map { MongoPolyDocument(it) }
 
-        var contexts: List<Map<String, Document>> = listOf(emptyMap())
+                    i += 2
+                } else {
+                    val docs = fetchCollectionSegment(firstSegment)
+                    docsBySegment[firstSegment.name] = docs
 
-        path.segments.forEachIndexed { index, rawSegment ->
-            println("=== segment $index: $rawSegment ===")
-            println("contexts before: ${contexts.size}")
-            contexts = if (index == 0) {
-                rawSegment as QuerySegment.Collection
-                val col = mongoDatabase.getCollection(rawSegment.name)
-                val docs = if (rawSegment.condition == null) col.find().toList()
-                else col.find(conditionToFilter(rawSegment.condition)).toList()
-                docs.map { mapOf(rawSegment.name to it) }
+                    i++
+                }
+            }
 
-            } else {
-                when (rawSegment) {
-                    is QuerySegment.Collection -> {
-                        val prevSegment = path.segments[index - 1] as QuerySegment.Collection
-                        val isDirectSubcollection = prevSegment.condition == null
-                                && prevSegment.name !in requestedSegments
-                                && contexts.all { it.size == 1 }
+            is QuerySegment.Connection -> {
+                val connectionDocs = fetchConnectionSegment(firstSegment, null)
+                docsBySegment[firstSegment.collectionName] =
+                    connectionDocs.values.map { MongoPolyDocument(it) }.distinctBy { it.id() }
+                docsBySegment[firstSegment.connectionName] = connectionDocs.keys.map { MongoPolyDocument(it) }
 
-                        if (isDirectSubcollection) {
-                            val col = mongoDatabase.getCollection(rawSegment.name)
+                i += 1
+            }
+        }
+        while (i < segments.size) {
+            val previousSegment = segments[i - 1]
+            val previousSegmentDocs = docsBySegment[previousSegment.collectionName()]
+                ?: throw IllegalStateException("segment was not fetched")
+            if (previousSegmentDocs.isEmpty()) {
+                return emptyList()
+            }
+            when (val segment = segments[i]) {
+                is QuerySegment.Collection -> {
+                    when (previousSegment) {
+                        is QuerySegment.Connection -> {
+                            docsBySegment[segment.name] =
+                                previousSegmentDocs.flatMap { it.getSubCollectionDocuments(segment.name) }
+                            i++
+                        }
 
-                            val docs = if (rawSegment.condition == null) col.find().toList()
-                            else col.find(conditionToFilter(rawSegment.condition)).toList()
-                            docs.map { mapOf(rawSegment.name to it) }
-                        } else {
-                            contexts.flatMap { ctx ->
-                                expandCollection(ctx, ctx.keys.last(), rawSegment)
+                        is QuerySegment.Collection -> {
+                            val segmentIds = previousSegmentDocs.flatMap { it.getSubCollectionIds(segment.name) }
+
+                            val combinedSegment = withIdCondition(segment, segmentIds)
+
+                            if (segments.getOrNull(i + 1) is QuerySegment.Collection) {
+                                val parentDocs = fetchTwoCollectionSegments(
+                                    combinedSegment,
+                                    segments[i + 1] as QuerySegment.Collection
+                                )
+                                docsBySegment[segment.name] = parentDocs.keys.toList().map { MongoPolyDocument(it) }
+                                docsBySegment[segments[i + 1].collectionName()] =
+                                    parentDocs.values.flatten().map { MongoPolyDocument(it) }
+                                i += 2
+                            } else {
+                                val docs = fetchCollectionSegment(combinedSegment)
+                                docsBySegment[combinedSegment.name] = docs
+
+                                i++
                             }
                         }
                     }
+                }
 
-                    is QuerySegment.Connection -> {
-                        contexts.flatMap { ctx ->
-                            expandConnection(ctx, rawSegment)
+                is QuerySegment.Connection -> {
+                    val segmentIds = previousSegmentDocs.map { it.id() }
+
+                    val connectionDocs = fetchConnectionSegment(
+                        segment, segmentIds
+                    )
+                    docsBySegment[segment.collectionName] =
+                        connectionDocs.values.map { MongoPolyDocument(it) }.distinctBy { it.id() }
+                    docsBySegment[segment.connectionName] = connectionDocs.keys.map { MongoPolyDocument(it) }
+
+                    i++
+                }
+            }
+        }
+
+        println(docsBySegment)
+
+        var completeDocPaths: List<Map<String, MongoPolyDocument>>? = null
+
+        segments.forEachIndexed { index, segment ->
+            if (completeDocPaths == null) {
+                completeDocPaths = when (segment) {
+                    is QuerySegment.Collection -> docsBySegment[segment.name]!!.map { mapOf(segment.name to it) }
+                    is QuerySegment.Connection -> docsBySegment[segment.collectionName]!!.map { mapOf(segment.collectionName to it) } +
+                            docsBySegment[segment.connectionName]!!.map { mapOf(segment.connectionName to it) }
+                }
+            } else {
+                completeDocPaths = buildList {
+                    for (docPath in completeDocPaths) {
+                        assert(index >= 1)
+                        val previousDoc = docPath[segments[index - 1].collectionName()]!!
+                        when (segment) {
+                            is QuerySegment.Collection -> {
+                                val ids = previousDoc.getSubCollectionIds(segment.name)
+                                val allDocs = docsBySegment[segment.name]!!
+                                for (doc in allDocs.filter { it.id() in ids }) {
+                                    add(docPath + (segment.name to doc))
+                                }
+                            }
+
+                            is QuerySegment.Connection -> {
+                                val ids = previousDoc.getConnectedIds(segment.connectionName)
+                                val collectionDocs = docsBySegment[segment.collectionName]!!
+                                val availableRelations = buildMap {
+                                    for (doc in collectionDocs.filter { it.id() in ids }) {
+                                        for (con in doc.getConnectionDocuments(segment.connectionName)
+                                            .filter { it.getSubDoc("ps_doc").id() == previousDoc.id() }) {
+                                            put(con, doc)
+                                        }
+                                    }
+                                }
+                                for (relationship in availableRelations) {
+                                    add(
+                                        docPath + (segment.collectionName to relationship.value) + (segment.connectionName to relationship.key.getSubDoc(
+                                            "ps_rel"
+                                        ))
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
-            println("contexts after: ${contexts.size}")
-            if (contexts.isNotEmpty()) println("first ctx keys: ${contexts.first().keys}")
         }
 
-        println(contexts)
+        checkNotNull(completeDocPaths)
 
-        return PolyResult.Documents(contexts.map { takeResultFields(it, terminal.fields) })
+        return completeDocPaths.map {
+            takeResultFields(
+                it,
+                terminal.fields
+            )
+        }
     }
 
-    private fun expandCollection(
-        ctx: Map<String, Document>,
-        parentCollectionName: String,
-        segment: QuerySegment.Collection
-    ): List<Map<String, Document>> {
-        val parentDoc = ctx.values.last()
-        val embeddedKey = "ps_sub_${segment.name}"
-        val parentId = parentDoc["_id"]
+    private fun withIdCondition(segment: QuerySegment.Collection, ids: List<UUID>): QuerySegment.Collection {
+        val idCondition = Condition.In("_id", ids.map { PolyValue.of(it) })
+        return QuerySegment.Collection(
+            segment.name,
+            if (segment.condition == null) idCondition else Condition.Logic.And(segment.condition, idCondition)
+        )
+    }
 
-        val subDocs: List<Document> = if (segment.condition == null) {
-            (parentDoc[embeddedKey] as? List<*>)
-                ?.filterIsInstance<Document>()
-                ?: emptyList()
+    private fun fetchCollectionSegment(segment: QuerySegment.Collection): List<MongoPolyDocument> {
+        val mongoCollection = mongoDatabase.getCollection(segment.name)
+        val result = if (segment.condition == null) mongoCollection.find() else
+            mongoCollection.find(conditionToFilter(segment.condition))
+
+        return result.map { MongoPolyDocument(it) }.toList()
+    }
+
+    private fun fetchTwoCollectionSegments(
+        parentSegment: QuerySegment.Collection,
+        subSegment: QuerySegment.Collection
+    ): Map<Document, List<Document>> {
+        val mongoParentCollection = mongoDatabase.getCollection(parentSegment.name)
+        if (subSegment.condition == null) {
+            val parentDocs = if (parentSegment.condition == null) mongoParentCollection.find()
+            else mongoParentCollection.find(conditionToFilter(parentSegment.condition))
+
+            return parseSubDocs(parentDocs, subSegment.name)
         } else {
-            val col = mongoDatabase.getCollection(parentCollectionName)
-            val refetchedParent = col.find(
-                Filters.and(
-                    Filters.eq("_id", parentId),
-                    Filters.elemMatch(embeddedKey, conditionToFilter(segment.condition))
+            val parentDocs = if (parentSegment.condition == null) mongoParentCollection.find(
+                Filters.elemMatch(
+                    "ps_sub_${subSegment.name}",
+                    conditionToFilter(subSegment.condition)
                 )
-            ).firstOrNull() ?: return emptyList()
+            ) else mongoParentCollection.find(
+                Filters.and(
+                    conditionToFilter(parentSegment.condition),
+                    Filters.elemMatch(
+                        "ps_sub_${subSegment.name}",
+                        conditionToFilter(subSegment.condition)
+                    )
+                )
+            )
 
-            ((refetchedParent[embeddedKey] as? List<*>)
-                ?.filterIsInstance<Document>()
-                ?: emptyList())
-                .filter { checkCondition(it, segment.condition) }
+            // manually filter subdocs to avoid false positives (required)
+            val allSubDocs = parseSubDocs(parentDocs, subSegment.name)
+            return allSubDocs.map { it.key to it.value.filter { checkCondition(it, subSegment.condition) } }.toMap()
         }
-
-        return subDocs.map { ctx + (segment.name to it) }
     }
 
-    private fun expandConnection(
-        ctx: Map<String, Document>,
-        segment: QuerySegment.Connection
-    ): List<Map<String, Document>> {
-        val parentDoc = ctx.values.last()
-        val parentCollectionName = ctx.keys.last()
-        val parentId = parentDoc["_id"]
-        val embeddedKey = "ps_con_${segment.connectionName}"
-
-        // The parent may be an embedded snapshot (e.g. from ps_sub_*) which won't have
-        // ps_con_* fields — always re-fetch the live document by _id
-        val col = mongoDatabase.getCollection(parentCollectionName)
-        val liveParentDoc = col.find(Filters.eq("_id", parentId)).firstOrNull()
-            ?: return emptyList()
-
-        val entries: List<Document> = if (segment.connectionCondition == null && segment.collectionCondition == null) {
-            (liveParentDoc[embeddedKey] as? List<*>)
-                ?.filterIsInstance<Document>()
-                ?: emptyList()
-        } else {
-            val elemMatchFilter = listOfNotNull(
-                segment.connectionCondition?.let { cond ->
-                    Filters.elemMatch(embeddedKey, conditionToFilter(cond, "ps_rel"))
-                },
-                segment.collectionCondition?.let { cond ->
-                    Filters.elemMatch(embeddedKey, conditionToFilter(cond, "ps_doc"))
-                }
-            ).let { filters ->
-                if (filters.size == 1) Filters.and(Filters.eq("_id", parentId), filters[0])
-                else Filters.and(Filters.eq("_id", parentId), Filters.and(filters))
+    private fun fetchConnectionSegment(
+        segment: QuerySegment.Connection,
+        startCollectionIds: List<UUID>?
+    ): Map<Document, Document> {
+        val filters = mutableListOf<Bson>()
+        if (segment.collectionCondition != null) {
+            filters.add(conditionToFilter(segment.collectionCondition))
+        }
+        if (segment.connectionCondition != null) {
+            filters.add(
+                Filters.elemMatch(
+                    "ps_con_${segment.connectionName}",
+                    conditionToFilter(segment.connectionCondition, "ps_rel.")
+                )
+            )
+        }
+        if (startCollectionIds != null) {
+            filters.add(
+                Filters.elemMatch(
+                    "ps_con_${segment.connectionName}",
+                    Filters.`in`("ps_doc._id", startCollectionIds)
+                )
+            )
+        }
+        val collectionDocs = mongoDatabase.getCollection(segment.collectionName).find(Filters.and(filters))
+        return buildMap {
+            collectionDocs.forEach { parentDoc ->
+                val relations = (parentDoc["ps_con_${segment.connectionName}"] as List<*>).filterIsInstance<Document>()
+                relations.filter { if (startCollectionIds != null) ((it["ps_doc"] as Document)["_id"] as UUID) in startCollectionIds else true }
+                    .forEach {
+                        put(it, parentDoc)
+                    }
             }
-
-            val refetchedParent = col.find(elemMatchFilter).firstOrNull()
-                ?: return emptyList()
-
-            ((refetchedParent[embeddedKey] as? List<*>)
-                ?.filterIsInstance<Document>()
-                ?: emptyList())
-                .filter { entry ->
-                    val rel = (entry["ps_rel"] as? Document) ?: Document()
-                    val doc = (entry["ps_doc"] as? Document) ?: Document()
-                    (segment.connectionCondition == null || checkCondition(rel, segment.connectionCondition))
-                            && (segment.collectionCondition == null || checkCondition(doc, segment.collectionCondition))
-                }
-        }
-
-        return entries.map { entry ->
-            val relDoc = (entry["ps_rel"] as? Document) ?: Document()
-            val connectedDoc = (entry["ps_doc"] as? Document) ?: Document()
-            ctx + (segment.connectionName to relDoc) + (segment.collectionName to connectedDoc)
         }
     }
 
-    private fun takeResultFields(documents: Map<String, Document>, fields: List<FieldRef>): PolyData {
+    private fun parseSubDocs(
+        parentDocs: FindIterable<Document>,
+        subCollectionName: String,
+    ): Map<Document, List<Document>> {
+        return buildMap {
+            parentDocs.forEach { parentDoc ->
+                put(
+                    parentDoc,
+                    (parentDoc["ps_sub_${subCollectionName}"] as? List<*>)?.filterIsInstance<Document>() as List<Document>
+                )
+            }
+        }
+    }
+
+    private fun takeResultFields(documents: Map<String, MongoPolyDocument>, fields: List<FieldRef>): PolyData {
         return buildMap {
             for (field in fields) {
                 val segmentDoc = documents[field.segment]
-                checkNotNull(segmentDoc) { "document for segment ${field.segment} missing" }
                 when (field) {
                     is FieldRef.Named -> put(
                         "${field.segment}.${field.field}",
-                        parsePolyValue(segmentDoc["ps_f_${field.field}"])
+                        parsePolyValue(segmentDoc?.getField(field.field))
                     )
 
-                    is FieldRef.Wildcard -> segmentDoc.entries.filter { it.key.startsWith("ps_f_") }
+                    is FieldRef.Wildcard -> (segmentDoc?.entries() ?: emptyList()).filter { it.key.startsWith("ps_f_") }
                         .forEach {
                             put(
                                 "${field.segment}.${it.key.substring(5)}", parsePolyValue(it.value)
@@ -332,21 +443,26 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     }
 
     private fun conditionToFilter(condition: Condition, prefix: String = ""): Bson {
-        fun fieldName(field: String) = if (prefix.isEmpty()) "ps_f_$field" else "$prefix.ps_f_$field"
         return when (condition) {
-            is Condition.Comparison.Equals -> Filters.eq(fieldName(condition.field), prepareValue(condition.value))
-            is Condition.Comparison.LessThan -> Filters.lt(fieldName(condition.field), prepareValue(condition.value)!!)
-            is Condition.Comparison.GreaterThan -> Filters.gt(
-                fieldName(condition.field),
+            is Condition.Comparison.Equals -> Filters.eq(
+                "${prefix}ps_f_${condition.field}",
+                prepareValue(condition.value)
+            )
+
+            is Condition.Comparison.LessThan -> Filters.lt(
+                "${prefix}ps_f_${condition.field}",
                 prepareValue(condition.value)!!
             )
 
-            is Condition.Logic -> Filters.and(
-                conditionToFilter(condition.left, prefix),
-                conditionToFilter(condition.right, prefix)
+            is Condition.Comparison.GreaterThan -> Filters.gt(
+                "${prefix}ps_f_${condition.field}",
+                prepareValue(condition.value)!!
             )
 
-            is Condition.Not -> Filters.not(conditionToFilter(condition.condition, prefix))
+            is Condition.Logic.And -> Filters.and(conditionToFilter(condition.left), conditionToFilter(condition.right))
+            is Condition.Logic.Or -> Filters.or(conditionToFilter(condition.left), conditionToFilter(condition.right))
+            is Condition.Not -> Filters.not(conditionToFilter(condition.condition))
+            is Condition.In -> Filters.`in`(condition.field, condition.list.map { prepareValue(it) })
         }
     }
 
@@ -375,6 +491,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             )
 
             is Condition.Not -> !checkCondition(document, condition.condition)
+            is Condition.In -> document["ps_f_${condition.field}"] in condition.list
         }
     }
 
@@ -388,5 +505,60 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
     private fun prepareValue(value: PolyValue): Any? {
         return value.value
+    }
+}
+
+data class MongoPolyDocument(val doc: Document) {
+    fun id(): UUID {
+        return doc["_id"] as UUID
+    }
+
+    fun getField(name: String): Any? {
+        return doc["ps_f_$name"]
+    }
+
+    fun getSubDoc(name: String): MongoPolyDocument {
+        return MongoPolyDocument(doc[name] as Document)
+    }
+
+    fun entries() = doc.entries
+
+    fun getSubCollectionDocuments(name: String): List<MongoPolyDocument> {
+        val subCollection = doc["ps_sub_${name}"]
+        check(subCollection is List<*>) { "sub collection $name does not exist on ${id()}" }
+        return subCollection.filterIsInstance<Document>().map { MongoPolyDocument(it) }
+    }
+
+    fun getSubCollectionIds(name: String): List<UUID> {
+        val subCollection = doc["ps_sub_${name}"]
+        check(subCollection is List<*>) { "sub collection $name does not exist on ${id()}" }
+        if (subCollection.isEmpty()) {
+            return emptyList()
+        }
+        return if (subCollection.first()!! is UUID) {
+            subCollection.filterIsInstance<UUID>()
+        } else {
+            subCollection.filterIsInstance<Document>().map { it["_id"] as UUID }
+        }
+    }
+
+    fun getConnectedIds(name: String): List<UUID> {
+        val connection = doc["ps_con_${name}"]
+        println(doc)
+        check(connection is List<*>) { "connection $name does not exist on ${id()}" }
+        if (connection.isEmpty()) {
+            return emptyList()
+        }
+        return if (connection.first()!! is UUID) {
+            connection.filterIsInstance<UUID>()
+        } else {
+            connection.filterIsInstance<Document>().map { (it["ps_doc"] as Document)["_id"] as UUID }
+        }
+    }
+
+    fun getConnectionDocuments(name: String): List<MongoPolyDocument> {
+        val subCollection = doc["ps_con_${name}"]
+        check(subCollection is List<*>) { "connection $name does not exist on ${id()}" }
+        return subCollection.filterIsInstance<Document>().map { MongoPolyDocument(it) }
     }
 }

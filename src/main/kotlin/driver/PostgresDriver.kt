@@ -168,7 +168,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     }
 
 
-    override fun take(path: QueryPath, terminal: PolyTerminal.Take): PolyResult.Documents {
+    override fun take(path: QueryPath, terminal: PolyTerminal.Take): List<PolyData> {
         val sql = StringBuilder()
 
         val selectClauses = terminal.fields.flatMap { fieldRef ->
@@ -250,7 +250,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
 
-        return PolyResult.Documents(buildList {
+        return buildList {
             val metaData = rs.metaData
             val columnNames = (1..metaData.columnCount).map { metaData.getColumnName(it) }
 
@@ -266,7 +266,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 }
                 add(fields)
             }
-        })
+        }
     }
 
     override fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count {
@@ -289,8 +289,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         for (i in 1 until path.segments.size) {
             when (val currentSegment = path.segments[i]) {
                 is QuerySegment.Collection -> {
-                    val prevCol = path.segments[i - 1].name()
-                    val currCol = currentSegment.name()
+                    val prevCol = path.segments[i - 1].collectionName()
+                    val currCol = currentSegment.collectionName()
                     val prevTable = "ps_col_${prevCol}"
                     val currTable = "ps_col_${currCol}"
 
@@ -303,7 +303,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                 is QuerySegment.Connection -> {
                     val connectionModel = DatabaseManager.getConnectionModel(currentSegment.connectionName)
-                    val prevCol = path.segments[i - 1].name()
+                    val prevCol = path.segments[i - 1].collectionName()
                     val prevTable = "ps_col_${prevCol}"
                     val nextTable = "ps_col_${connectionModel.collection2Name}"
                     val connTable =
@@ -334,7 +334,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 when (segment) {
                     is QuerySegment.Collection -> {
                         if (segment.condition != null) {
-                            val col = path.segments[i - 1].name()
+                            val col = path.segments[i - 1].collectionName()
                             val pgTable = "ps_col_${col}"
                             add(translateCondition(segment.condition, pgTable))
                         }
@@ -342,7 +342,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                     is QuerySegment.Connection -> {
                         if (segment.collectionCondition != null) {
-                            val col = path.segments[i - 1].name()
+                            val col = path.segments[i - 1].collectionName()
                             val pgTable = "ps_col_${col}"
                             add(translateCondition(segment.collectionCondition, pgTable))
                         }
@@ -396,6 +396,10 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             } OR ${translateCondition(condition.right, tableAlias)})"
 
             is Condition.Not -> "NOT (${translateCondition(condition.condition, tableAlias)})"
+
+            is Condition.In -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("ps_f_${condition.field}")} IN (${
+                condition.list.joinToString(",") { prepareValue(it) }
+            })"
         }
     }
 

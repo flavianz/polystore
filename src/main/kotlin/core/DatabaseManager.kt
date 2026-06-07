@@ -171,7 +171,7 @@ object DatabaseManager {
         }
 
         return when (val terminal = query.terminal) {
-            is PolyTerminal.Take -> DriverManager.getInstance().take(query, terminal)
+            is PolyTerminal.Take -> PolyResult.Documents(DriverManager.getInstance().take(query, terminal))
             is PolyTerminal.Count -> DriverManager.getInstance().count(query, terminal)
         }
     }
@@ -239,6 +239,10 @@ object DatabaseManager {
             }
 
             is Condition.Not -> validateConditionFields(condition.condition, schema)
+            is Condition.In -> {
+                val fieldType = schema[condition.field]
+                require(fieldType != null) { "Unknown field: ${condition.field}" }
+            }
         }
     }
 }

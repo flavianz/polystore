@@ -141,8 +141,8 @@ class PostgresDriverIntegrationTests {
         val queryPath = QueryPath(QuerySegment.Collection("test_users"))
         val takeResult = driver.take(queryPath, PolyTerminal.Take(listOf(FieldRef.Wildcard("test_users"))))
 
-        assertEquals(1, takeResult.polyData.size)
-        val userRow = takeResult.polyData[0]
+        assertEquals(1, takeResult.size)
+        val userRow = takeResult[0]
         assertEquals(userUuid.toString(), userRow["ps_col_test_users__id"]?.value?.toString())
         assertEquals("Alice", userRow["ps_col_test_users__name"]?.value)
         assertEquals(31, userRow["ps_col_test_users__age"]?.value) // updated age
@@ -170,8 +170,8 @@ class PostgresDriverIntegrationTests {
             )
         )
 
-        assertEquals(1, joinResult.polyData.size)
-        val joinRow = joinResult.polyData[0]
+        assertEquals(1, joinResult.size)
+        val joinRow = joinResult[0]
 
         // Validate user fields in join
         assertEquals(userUuid.toString(), joinRow["ps_col_test_users__id"]?.value?.toString())
@@ -215,7 +215,7 @@ class PostgresDriverIntegrationTests {
             QueryPath(QuerySegment.Collection("test_users", Condition.Comparison.GreaterThan("age", PolyValue.of(30))))
         val result = driver.take(pathWithCond, PolyTerminal.Take(listOf(FieldRef.Wildcard("test_users"))))
 
-        assertEquals(1, result.polyData.size)
-        assertEquals("Bob", result.polyData[0]["ps_col_test_users__name"]?.value)
+        assertEquals(1, result.size)
+        assertEquals("Bob", result[0]["ps_col_test_users__name"]?.value)
     }
 }

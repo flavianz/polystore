@@ -30,7 +30,7 @@ sealed class QuerySegment {
         val collectionCondition: Condition? = null
     ) : QuerySegment()
 
-    fun name(): String {
+    fun collectionName(): String {
         return when (this) {
             is Connection -> collectionName
             is Collection -> name

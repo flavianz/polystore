@@ -11,14 +11,23 @@ sealed class PolyValue {
 
     data class IntValue(override val value: Int) : Number() {
         override val type = DataType.INT
+        override fun toString(): String {
+            return value.toString()
+        }
     }
 
     data class StringValue(override val value: String) : PolyValue() {
         override val type = DataType.STRING
+        override fun toString(): String {
+            return value
+        }
     }
 
     data class UUIDValue(override val value: UUID) : PolyValue() {
         override val type = DataType.UUID
+        override fun toString(): String {
+            return value.toString()
+        }
     }
 
     object NullValue : PolyValue() {
@@ -38,5 +47,9 @@ sealed class PolyValue {
 
     fun getIntValue(): Int {
         return value as Int
+    }
+
+    override fun toString(): String {
+        return value.toString()
     }
 }

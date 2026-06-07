@@ -23,6 +23,6 @@ interface DatabaseDriver {
         connectionData: PolyData
     )
 
-    fun take(path: QueryPath, terminal: PolyTerminal.Take): PolyResult.Documents
+    fun take(path: QueryPath, terminal: PolyTerminal.Take): List<PolyData>
     fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count
 }

@@ -1,6 +1,7 @@
 package ch.flavianz.driver
 
 import ch.flavianz.connection.MongoConnection
+import ch.flavianz.data.PolyData
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
@@ -25,7 +26,7 @@ class DriverManager private constructor() {
         return this
     }
 
-    fun take(query: PolyQuery, terminal: PolyTerminal.Take): PolyResult.Documents {
+    fun take(query: PolyQuery, terminal: PolyTerminal.Take): List<PolyData> {
         return (this.mongoDriver ?: throw NotImplementedError("postgres not conencted")).take(query.path, terminal)
     }
 

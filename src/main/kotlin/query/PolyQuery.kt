@@ -30,6 +30,8 @@ sealed class Condition {
     }
 
     data class Not(val condition: Condition) : Condition()
+
+    data class In(val field: String, val list: List<PolyValue>) : Condition()
 }
 
 sealed class FieldRef {
