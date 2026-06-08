@@ -3,6 +3,7 @@ package ch.flavianz.query
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.QueryPath
+import kotlin.math.max
 
 // --- The full query ---
 data class PolyQuery(
@@ -48,6 +49,30 @@ sealed class PolyTerminal {
 }
 
 sealed class PolyResult {
-    data class Documents(val polyData: List<PolyData>) : PolyResult()
+    data class Documents(val polyData: List<PolyData>) : PolyResult() {
+        override fun toString(): String {
+            val string = StringBuilder()
+            val columns = polyData.flatMap { it.keys }.distinct()
+            val maxWidths = columns.associateWith { column ->
+                max(polyData.maxOfOrNull { it[column].toString().length } ?: 0,
+                    column.length)
+            }
+            string.append("-".repeat(maxWidths.values.sum() + maxWidths.values.size * 3 + 1)).append("\n")
+            for (column in columns) {
+                string.append("| ${String.format("%-${maxWidths[column]}s", column)} ")
+            }
+            string.append("|\n")
+            string.append("-".repeat(maxWidths.values.sum() + maxWidths.values.size * 3 + 1)).append("\n")
+            for (result in polyData) {
+                for (column in columns) {
+                    string.append("| ${String.format("%-${maxWidths[column]}s", result[column])} ")
+                }
+                string.append("|\n")
+            }
+            string.append("-".repeat(maxWidths.values.sum() + maxWidths.values.size * 3 + 1)).append("\n")
+            return string.toString()
+        }
+    }
+
     data class Count(val count: Int) : PolyResult()
 }
