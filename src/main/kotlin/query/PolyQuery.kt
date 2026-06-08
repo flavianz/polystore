@@ -3,6 +3,10 @@ package ch.flavianz.query
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.QueryPath
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.math.max
 
 // --- The full query ---
@@ -49,9 +53,37 @@ sealed class PolyTerminal {
 }
 
 sealed class PolyResult {
+    fun toJson(): String = when (this) {
+        is Count -> buildJsonObject {
+            put("type", "count")
+            put("count", count)
+        }.toString()
+
+        is Documents -> buildJsonObject {
+            put("type", "documents")
+            put("data", buildJsonArray {
+                for (row in polyData) {
+                    add(buildJsonObject {
+                        for ((key, value) in row) {
+                            when (value) {
+                                is PolyValue.IntValue -> put(key, value.value)
+                                is PolyValue.StringValue -> put(key, value.value)
+                                is PolyValue.UUIDValue -> put(key, value.value.toString())
+                                is PolyValue.NullValue -> put(key, JsonNull)
+                            }
+                        }
+                    })
+                }
+            })
+        }.toString()
+    }
+
     data class Documents(val polyData: List<PolyData>) : PolyResult() {
         override fun toString(): String {
-            val string = StringBuilder()
+            if (polyData.isEmpty()) {
+                return "\n----------------\n" + "| Empty Result |\n" + "----------------\n"
+            }
+            val string = StringBuilder("\n")
             val columns = polyData.flatMap { it.keys }.distinct()
             val maxWidths = columns.associateWith { column ->
                 max(polyData.maxOfOrNull { it[column].toString().length } ?: 0,

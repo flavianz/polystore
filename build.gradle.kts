@@ -9,6 +9,15 @@ repositories {
     mavenCentral()
 }
 
+val ktor_version = "2.3.12"
+
+dependencies {
+    implementation("io.ktor:ktor-server-core:$ktor_version")
+    implementation("io.ktor:ktor-server-netty:$ktor_version")
+    implementation("io.ktor:ktor-server-content-negotiation:$ktor_version")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
+}
+
 dependencies {
     implementation("org.postgresql:postgresql:42.7.11")
     implementation("org.mongodb:mongodb-driver-sync:5.1.0")

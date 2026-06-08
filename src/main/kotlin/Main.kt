@@ -172,10 +172,12 @@ fun main() {
         )
     )
 
-    //println(DatabaseManager.query(QueryParser("from (schools s where student_count > 900).(students st) take s.name, st.last, st.age").parse()))
-    println(DatabaseManager.query(QueryParser("from (schools sc).(students st)-(studies stu)-(courses c) take sc.name, st.last, c.subject, stu.year").parse()))
+    // Don't disconnect - keep connections alive for the server
+    Runtime.getRuntime().addShutdownHook(Thread {
+        manager.disconnectAll()
+    })
 
-    manager.disconnectAll()
+    startServer()
 }
 
 fun demo() {

@@ -252,8 +252,6 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             }
         }
 
-        println(docsBySegment)
-
         var completeDocPaths: List<Map<String, MongoPolyDocument>>? = null
 
         segments.forEachIndexed { index, segment ->
@@ -544,7 +542,6 @@ data class MongoPolyDocument(val doc: Document) {
 
     fun getConnectedIds(name: String): List<UUID> {
         val connection = doc["ps_con_${name}"]
-        println(doc)
         check(connection is List<*>) { "connection $name does not exist on ${id()}" }
         if (connection.isEmpty()) {
             return emptyList()
