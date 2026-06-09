@@ -39,6 +39,16 @@ sealed class PolyValue {
         fun of(value: String) = StringValue(value)
         fun of(value: Int) = IntValue(value)
         fun of(value: UUID) = UUIDValue(value)
+
+        fun of(value: Any?): PolyValue {
+            return when (value) {
+                is Int -> IntValue(value)
+                is String -> StringValue(value)
+                is UUID -> UUIDValue(value)
+                null -> NullValue
+                else -> throw IllegalStateException("unknown return type")
+            }
+        }
     }
 
     fun isType(dataType: DataType): Boolean {

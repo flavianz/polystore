@@ -211,13 +211,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     if (segment.collectionName == fieldRef.segment) {
                         generateCollectionSelectClause(
                             segment.collectionName
-                            /*DatabaseManager.getCollectionRef(
-                                QueryPath(
-                                    path.segments.take(
-                                        segmentIndex + 1
-                                    )
-                                )/*.subCol(fieldRef.segment)*/
-                            )*/
                         )
                     } else {
                         val connectionModel = DatabaseManager.getConnectionModel(segment.connectionName)

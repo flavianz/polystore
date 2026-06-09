@@ -16,6 +16,7 @@ import ch.flavianz.query.PolyTerminal
 import com.mongodb.client.FindIterable
 import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
+import com.mongodb.client.model.UpdateOptions
 import com.mongodb.client.model.Updates
 import org.bson.Document
 import org.bson.conversions.Bson
@@ -96,7 +97,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             checkNotNull(mongoDoc) { "updated mongo doc does not exist" }
 
             val connectedDocs = (mongoDoc[connectionName] as List<*>?)?.filterIsInstance<Document>() ?: emptyList()
-            val ids = connectedDocs.map { it["_id"] as UUID }
+            val ids = connectedDocs.map { (it["ps_doc"] as Document)["_id"] as UUID }
 
             val mongoConnectedCollection = mongoDatabase.getCollection(connectedCollection)
             mongoConnectedCollection.updateMany(
@@ -104,10 +105,11 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 Updates.combine(
                     instruction.data.map {
                         Updates.set(
-                            "ps_sub_${collectionName}.$.ps_doc.ps_f_${it.key}",
+                            "ps_con_${connection.name}.$[elem].ps_doc.ps_f_${it.key}",
                             prepareValue(it.value)
                         )
-                    })
+                    }),
+                UpdateOptions().arrayFilters(listOf(Filters.eq("elem.ps_doc._id", instruction.documentPath.uuid)))
             )
         }
     }
@@ -138,13 +140,13 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
         val insertDoc1 = Document(
             mapOf(
-                "ps_rel" to connectionData.map { it.key to prepareValue(it.value) }.toMap(),
+                "ps_rel" to connectionData.map { "ps_f_${it.key}" to prepareValue(it.value) }.toMap(),
                 "ps_doc" to prepareInsertDoc(doc1)
             )
         )
         val insertDoc2 = Document(
             mapOf(
-                "ps_rel" to connectionData.map { it.key to prepareValue(it.value) }.toMap(),
+                "ps_rel" to connectionData.map { "ps_f_${it.key}" to prepareValue(it.value) }.toMap(),
                 "ps_doc" to prepareInsertDoc(doc2)
             )
         )
@@ -281,7 +283,12 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                                 val availableRelations = buildMap {
                                     for (doc in collectionDocs.filter { it.id() in ids }) {
                                         for (con in doc.getConnectionDocuments(segment.connectionName)
-                                            .filter { it.getSubDoc("ps_doc").id() == previousDoc.id() }) {
+                                            .filter { it.getSubDoc("ps_doc").id() == previousDoc.id() }.filter {
+                                                checkCondition(
+                                                    it.getSubDoc("ps_rel").doc,
+                                                    segment.connectionCondition
+                                                )
+                                            }) {
                                             put(con, doc)
                                         }
                                     }
@@ -354,7 +361,14 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
             // manually filter subdocs to avoid false positives (required)
             val allSubDocs = parseSubDocs(parentDocs, subSegment.name)
-            return allSubDocs.map { it.key to it.value.filter { checkCondition(it, subSegment.condition) } }.toMap()
+            return allSubDocs.map { subDoc ->
+                subDoc.key to subDoc.value.filter {
+                    checkCondition(
+                        it,
+                        subSegment.condition
+                    )
+                }
+            }.toMap()
         }
     }
 
@@ -386,7 +400,11 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         return buildMap {
             collectionDocs.forEach { parentDoc ->
                 val relations = (parentDoc["ps_con_${segment.connectionName}"] as List<*>).filterIsInstance<Document>()
-                relations.filter { if (startCollectionIds != null) ((it["ps_doc"] as Document)["_id"] as UUID) in startCollectionIds else true }
+                relations.filter {
+                    startCollectionIds == null || ((it["ps_doc"] as Document)["_id"] as UUID) in startCollectionIds
+                }.filter {
+                    checkCondition(it["ps_rel"] as Document, segment.connectionCondition)
+                }
                     .forEach {
                         put(it, parentDoc)
                     }
@@ -400,10 +418,13 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     ): Map<Document, List<Document>> {
         return buildMap {
             parentDocs.forEach { parentDoc ->
-                put(
-                    parentDoc,
-                    (parentDoc["ps_sub_${subCollectionName}"] as? List<*>)?.filterIsInstance<Document>() as List<Document>
-                )
+                val subCollection = parentDoc["ps_sub_${subCollectionName}"]
+                if (subCollection != null) {
+                    put(
+                        parentDoc,
+                        (parentDoc["ps_sub_${subCollectionName}"] as List<*>).filterIsInstance<Document>()
+                    )
+                }
             }
         }
     }
@@ -415,28 +436,20 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 when (field) {
                     is FieldRef.Named -> put(
                         "${field.segment}.${field.field}",
-                        parsePolyValue(segmentDoc?.getField(field.field))
+                        PolyValue.of(segmentDoc?.getField(field.field))
                     )
 
-                    is FieldRef.Wildcard -> (segmentDoc?.entries() ?: emptyList()).filter { it.key.startsWith("ps_f_") }
+                    is FieldRef.Wildcard -> (segmentDoc?.entries()
+                        ?: emptyList()).filter { it.key.startsWith("ps_f_") || it.key == "_id" }
                         .forEach {
                             put(
-                                "${field.segment}.${it.key.substring(5)}", parsePolyValue(it.value)
+                                "${field.segment}.${if (it.key == "_id") "_id" else it.key.substring(5)}",
+                                PolyValue.of(it.value)
                             )
                         }
 
                 }
             }
-        }
-    }
-
-    private fun parsePolyValue(value: Any?): PolyValue {
-        return when (value) {
-            is Int -> PolyValue.of(value)
-            is String -> PolyValue.of(value)
-            is UUID -> PolyValue.of(value)
-            null -> PolyValue.NullValue
-            else -> throw IllegalStateException("unknown return type")
         }
     }
 
@@ -464,9 +477,9 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         }
     }
 
-    private fun checkCondition(document: Document, condition: Condition): Boolean {
+    private fun checkCondition(document: Document, condition: Condition?): Boolean {
         return when (condition) {
-            is Condition.Comparison.Equals -> document["ps_f_${condition.field}"] == condition.value
+            is Condition.Comparison.Equals -> PolyValue.of(document["ps_f_${condition.field}"]) == condition.value
             is Condition.Comparison -> {
                 when (val compValue = document["ps_f_${condition.field}"]) {
                     is Number -> if (condition is Condition.Comparison.LessThan)
@@ -490,6 +503,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
             is Condition.Not -> !checkCondition(document, condition.condition)
             is Condition.In -> document["ps_f_${condition.field}"] in condition.list
+            null -> true
         }
     }
 
@@ -541,7 +555,7 @@ data class MongoPolyDocument(val doc: Document) {
     }
 
     fun getConnectedIds(name: String): List<UUID> {
-        val connection = doc["ps_con_${name}"]
+        val connection = doc["ps_con_${name}"] ?: return emptyList()
         check(connection is List<*>) { "connection $name does not exist on ${id()}" }
         if (connection.isEmpty()) {
             return emptyList()
