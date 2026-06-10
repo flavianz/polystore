@@ -27,11 +27,11 @@ class DriverManager private constructor() {
     }
 
     fun take(query: PolyQuery, terminal: PolyTerminal.Take): List<PolyData> {
-        return (this.mongoDriver ?: throw NotImplementedError("postgres not conencted")).take(query.path, terminal)
+        return (this.mongoDriver ?: throw NotImplementedError("postgres not connected")).take(query.path, terminal)
     }
 
     fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResult.Count {
-        return (this.mongoDriver ?: throw NotImplementedError("postgres not conencted")).count(query.path, terminal)
+        return (this.mongoDriver ?: throw NotImplementedError("postgres not connected")).count(query.path, terminal)
     }
 
     companion object {

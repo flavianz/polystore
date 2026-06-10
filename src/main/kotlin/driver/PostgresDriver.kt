@@ -20,6 +20,7 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
 
+@Suppress("SqlSourceToSinkFlow")
 class PostgresDriver(val connection: Connection) : DatabaseDriver {
     override fun createCollection(instruction: CreateCollectionInstruction) {
         val collectionModel = instruction.collectionModel
@@ -201,7 +202,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     is QuerySegment.Connection -> it.connectionName == fieldRef.segment || it.collectionName == fieldRef.segment
                 }
             }
-            check(segmentIndex != -1) { "take field segment not found in query path ${path}" }
+            check(segmentIndex != -1) { "take field segment not found in query path $path" }
             when (val segment = path.segments[segmentIndex]) {
                 is QuerySegment.Collection -> generateCollectionSelectClause(
                     segment.name

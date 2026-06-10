@@ -12,26 +12,6 @@ data class QueryPath(val segments: List<QuerySegment>) {
     constructor(collection: QuerySegment.Collection) : this(listOf(collection))
     constructor(connection: QuerySegment.Connection) : this(listOf(connection))
 
-    fun subCol(name: String): QueryPath {
-        return QueryPath(segments + QuerySegment.Collection(name))
-    }
-
-    fun con(connectionName: String, collectionName: String): QueryPath {
-        return QueryPath(segments + QuerySegment.Connection(connectionName, collectionName))
-    }
-
-    fun subCol(collection: QuerySegment.Collection): QueryPath {
-        return QueryPath(segments + collection)
-    }
-
-    fun con(connection: QuerySegment.Connection): QueryPath {
-        return QueryPath(segments + connection)
-    }
-
-    fun subPath(n: Int): QueryPath {
-        return QueryPath(segments.take(n))
-    }
-
     override fun toString(): String {
         return segments.joinToString(".")
     }
@@ -76,10 +56,6 @@ data class CollectionPath(val segments: List<PathSegment>) {
 
     fun doc(uuid: UUID): DocumentPath {
         return DocumentPath(segments + PathSegment.Document(uuid))
-    }
-
-    fun doc(uuid: String): DocumentPath {
-        return DocumentPath(segments + PathSegment.Document(UUID.fromString(uuid)))
     }
 
     fun hasParentDoc(): Boolean {
@@ -142,9 +118,6 @@ data class DocumentPath(val segments: List<PathSegment>) {
         newPath.removeLast()
         return CollectionPath(newPath)
     }
-
-    constructor(vararg segment: String) : this(parsePath(segment.toList()))
-
 
     override fun toString(): String {
         return segments.joinToString(".")

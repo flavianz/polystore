@@ -359,7 +359,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 )
             )
 
-            // manually filter subdocs to avoid false positives (required)
+            // manually filter sub docs to avoid false positives (required)
             val allSubDocs = parseSubDocs(parentDocs, subSegment.name)
             return allSubDocs.map { subDoc ->
                 subDoc.key to subDoc.value.filter {
