@@ -396,7 +396,8 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 )
             )
         }
-        val collectionDocs = mongoDatabase.getCollection(segment.collectionName).find(Filters.and(filters))
+        val collectionDocs = mongoDatabase.getCollection(segment.collectionName)
+            .find(if (filters.isNotEmpty()) Filters.and(filters) else Filters.empty())
         return buildMap {
             collectionDocs.forEach { parentDoc ->
                 val relations = (parentDoc["ps_con_${segment.connectionName}"] as List<*>).filterIsInstance<Document>()
@@ -536,13 +537,13 @@ data class MongoPolyDocument(val doc: Document) {
     fun entries() = doc.entries
 
     fun getSubCollectionDocuments(name: String): List<MongoPolyDocument> {
-        val subCollection = doc["ps_sub_${name}"]
+        val subCollection = doc["ps_sub_${name}"] ?: return emptyList()
         check(subCollection is List<*>) { "sub collection $name does not exist on ${id()}" }
         return subCollection.filterIsInstance<Document>().map { MongoPolyDocument(it) }
     }
 
     fun getSubCollectionIds(name: String): List<UUID> {
-        val subCollection = doc["ps_sub_${name}"]
+        val subCollection = doc["ps_sub_${name}"] ?: return emptyList()
         check(subCollection is List<*>) { "sub collection $name does not exist on ${id()}" }
         if (subCollection.isEmpty()) {
             return emptyList()

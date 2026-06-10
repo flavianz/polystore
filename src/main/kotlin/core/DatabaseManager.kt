@@ -10,6 +10,7 @@ import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.PolySchema
+import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.PolyQuery
@@ -171,7 +172,51 @@ object DatabaseManager {
         }
 
         return when (val terminal = query.terminal) {
-            is PolyTerminal.Take -> PolyResult.Documents(DriverManager.getInstance().take(query, terminal))
+            is PolyTerminal.Take -> {
+                val segments = mutableListOf<QuerySegment>()
+                for (i in query.path.segments.indices) {
+                    val segment = query.path.segments[i]
+                    val hasConditions = when (segment) {
+                        is QuerySegment.Collection -> segment.condition != null
+                        is QuerySegment.Connection -> segment.connectionCondition != null || segment.collectionCondition != null
+                    }
+                    var hasConnectionBeenReplaced = false
+                    val isTakenFrom = when (segment) {
+                        is QuerySegment.Collection -> terminal.fields.any { it.segment == segment.name }
+                        is QuerySegment.Connection -> {
+                            if (terminal.fields.any { it.segment == segment.connectionName }) {
+                                segments.add(segments[i - 1])
+                                true
+                            } else if (terminal.fields.any { it.segment == segment.collectionName }) {
+                                segments.add(
+                                    QuerySegment.Collection(
+                                        segment.collectionName,
+                                        segment.collectionCondition
+                                    )
+                                )
+                                hasConnectionBeenReplaced = true
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                    }
+                    if (!hasConditions && !isTakenFrom) {
+                        continue
+                    }
+                    segments.addAll(
+                        query.path.segments.subList(
+                            if (hasConnectionBeenReplaced) i + 1 else i,
+                            query.path.segments.size
+                        )
+                    )
+                }
+
+                PolyResult.Documents(
+                    DriverManager.getInstance().take(PolyQuery(QueryPath(segments), terminal), terminal)
+                )
+            }
+
             is PolyTerminal.Count -> DriverManager.getInstance().count(query, terminal)
         }
     }

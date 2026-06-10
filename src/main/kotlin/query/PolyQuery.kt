@@ -64,13 +64,19 @@ sealed class PolyResult {
             put("data", buildJsonArray {
                 for (row in polyData) {
                     add(buildJsonObject {
-                        for ((key, value) in row) {
-                            when (value) {
-                                is PolyValue.IntValue -> put(key, value.value)
-                                is PolyValue.StringValue -> put(key, value.value)
-                                is PolyValue.UUIDValue -> put(key, value.value.toString())
-                                is PolyValue.NullValue -> put(key, JsonNull)
-                            }
+                        val segments = row.entries.groupBy { it.key.split(".").first() }
+                        for (segment in segments) {
+                            put(segment.key, buildJsonObject {
+                                for ((key, value) in row) {
+                                    val subKey = key.split(".")[1]
+                                    when (value) {
+                                        is PolyValue.IntValue -> put(subKey, value.value)
+                                        is PolyValue.StringValue -> put(subKey, value.value)
+                                        is PolyValue.UUIDValue -> put(subKey, value.value.toString())
+                                        is PolyValue.NullValue -> put(subKey, JsonNull)
+                                    }
+                                }
+                            })
                         }
                     })
                 }
