@@ -67,7 +67,7 @@ sealed class PolyResult {
                         val segments = row.entries.groupBy { it.key.split(".").first() }
                         for (segment in segments) {
                             put(segment.key, buildJsonObject {
-                                for ((key, value) in row) {
+                                for ((key, value) in segment.value) {
                                     val subKey = key.split(".")[1]
                                     when (value) {
                                         is PolyValue.IntValue -> put(subKey, value.value)

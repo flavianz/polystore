@@ -176,18 +176,14 @@ object DatabaseManager {
                 val segments = mutableListOf<QuerySegment>()
                 for (i in query.path.segments.indices) {
                     val segment = query.path.segments[i]
-                    val hasConditions = when (segment) {
-                        is QuerySegment.Collection -> segment.condition != null
-                        is QuerySegment.Connection -> segment.connectionCondition != null || segment.collectionCondition != null
-                    }
                     var hasConnectionBeenReplaced = false
-                    val isTakenFrom = when (segment) {
-                        is QuerySegment.Collection -> terminal.fields.any { it.segment == segment.name }
+                    val isRelevant = when (segment) {
+                        is QuerySegment.Collection -> terminal.fields.any { it.segment == segment.name } || segment.condition != null
                         is QuerySegment.Connection -> {
-                            if (terminal.fields.any { it.segment == segment.connectionName }) {
-                                segments.add(segments[i - 1])
+                            if (terminal.fields.any { it.segment == segment.connectionName } || segment.connectionCondition != null) {
+                                segments.add(query.path.segments[i - 1])
                                 true
-                            } else if (terminal.fields.any { it.segment == segment.collectionName }) {
+                            } else if (terminal.fields.any { it.segment == segment.collectionName } || segment.collectionCondition != null) {
                                 segments.add(
                                     QuerySegment.Collection(
                                         segment.collectionName,
@@ -201,7 +197,7 @@ object DatabaseManager {
                             }
                         }
                     }
-                    if (!hasConditions && !isTakenFrom) {
+                    if (!isRelevant) {
                         continue
                     }
                     segments.addAll(
@@ -210,6 +206,7 @@ object DatabaseManager {
                             query.path.segments.size
                         )
                     )
+                    break
                 }
 
                 PolyResult.Documents(
