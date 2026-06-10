@@ -71,8 +71,10 @@ sealed class PolyResult {
                                     val subKey = key.split(".")[1]
                                     when (value) {
                                         is PolyValue.IntValue -> put(subKey, value.value)
+                                        is PolyValue.FloatValue -> put(subKey, value.value)
                                         is PolyValue.StringValue -> put(subKey, value.value)
                                         is PolyValue.UUIDValue -> put(subKey, value.value.toString())
+                                        is PolyValue.BooleanValue -> put(subKey, value.value)
                                         is PolyValue.NullValue -> put(subKey, JsonNull)
                                     }
                                 }

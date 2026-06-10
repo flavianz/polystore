@@ -408,7 +408,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 "'${value.value.toString()}'"
             }
 
-            is PolyValue.IntValue -> {
+            is PolyValue.IntValue, is PolyValue.FloatValue, is PolyValue.BooleanValue -> {
                 value.value.toString()
             }
 

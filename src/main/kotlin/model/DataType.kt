@@ -3,7 +3,9 @@ package ch.flavianz.model
 enum class DataType {
     STRING,
     INT,
+    FLOAT,
     UUID,
+    BOOLEAN,
     NULL;
 
 
@@ -11,7 +13,9 @@ enum class DataType {
         return when (this) {
             STRING -> "TEXT"
             INT -> "INTEGER"
+            FLOAT -> "FLOAT"
             UUID -> "UUID"
+            BOOLEAN -> "BOOLEAN"
             NULL -> "NULL"
         }
     }

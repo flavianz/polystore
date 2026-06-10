@@ -30,6 +30,20 @@ sealed class PolyValue {
         }
     }
 
+    data class BooleanValue(override val value: Boolean) : PolyValue() {
+        override val type = DataType.BOOLEAN
+        override fun toString(): String {
+            return value.toString()
+        }
+    }
+
+    data class FloatValue(override val value: Float) : PolyValue() {
+        override val type = DataType.FLOAT
+        override fun toString(): String {
+            return value.toString()
+        }
+    }
+
     object NullValue : PolyValue() {
         override val value = null
         override val type = DataType.NULL
@@ -38,13 +52,17 @@ sealed class PolyValue {
     companion object {
         fun of(value: String) = StringValue(value)
         fun of(value: Int) = IntValue(value)
+        fun of(value: Float) = FloatValue(value)
         fun of(value: UUID) = UUIDValue(value)
+        fun of(value: Boolean) = BooleanValue(value)
 
         fun of(value: Any?): PolyValue {
             return when (value) {
                 is Int -> IntValue(value)
+                is Float -> FloatValue(value)
                 is String -> StringValue(value)
                 is UUID -> UUIDValue(value)
+                is Boolean -> BooleanValue(value)
                 null -> NullValue
                 else -> throw IllegalStateException("unknown return type")
             }
