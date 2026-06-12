@@ -1,8 +1,6 @@
-package ch.flavianz
+package ch.flavianz.server
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.query.QueryParser
 import io.ktor.http.ContentType
@@ -19,8 +17,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import java.util.Locale
-import java.util.Locale.getDefault
+import java.util.UUID
 
 fun startServer() {
     embeddedServer(Netty, port = 8080) {
@@ -52,13 +49,10 @@ fun startServer() {
                 }
 
                 val result = runCatching {
-                    DatabaseManager.createCollection(CreateCollectionInstruction(
-                        CollectionModel(
-                            body.name,
-                            body.fields.associate { it.name to DataType.valueOf(it.type.uppercase()) }
-                        ),
+                    DatabaseManager.createCollection(body.name,
+                            body.fields.associate { it.name to DataType.valueOf(it.type.uppercase()) },
                         body.parentCollection
-                    ))
+                    )
                 }
 
                 result.fold(
@@ -66,19 +60,16 @@ fun startServer() {
                     onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
                 )
             }
+
+            post("/document/insert") {
+                val body = call.receive<InsertDocumentRequest>()
+
+                val polyFields = body.fields.mapValues { (_, v) -> v.toPolyValue() }
+
+                DatabaseManager.insertDocument(body.collection,polyFields.toMap(), body.parentDocUuid?.let { UUID.fromString(it) })
+                call.respond(HttpStatusCode.Created, "ok")
+            }
         }
     }.start(wait = true)
 }
 
-@kotlinx.serialization.Serializable
-data class CreateCollectionRequest(
-    val name: String,
-    val fields: List<FieldDefinition>,
-    val parentCollection: String? = null
-)
-
-@kotlinx.serialization.Serializable
-data class FieldDefinition(
-    val name: String,
-    val type: String  // or your PolyValue type enum
-)
