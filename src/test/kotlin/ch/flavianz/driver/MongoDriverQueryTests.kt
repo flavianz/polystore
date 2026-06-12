@@ -3,8 +3,6 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.ConnectionModel
@@ -45,7 +43,7 @@ class MongoDriverQueryTests {
     private val port = (System.getenv("TEST_MONGO_PORT") ?: "27017").toInt()
     private val database = System.getenv("TEST_MONGO_DATABASE") ?: "polystore_test"
 
-    // ── Schemas ───────────────────────────────────────────────────────────────
+    // schemas
 
     private val studentSchema = mapOf("name" to DataType.STRING, "gpa" to DataType.INT)
     private val enrollmentSchema = mapOf("semester" to DataType.STRING, "grade" to DataType.INT)
@@ -54,7 +52,15 @@ class MongoDriverQueryTests {
     private val attendsSchema = mapOf("score" to DataType.INT)
     private val belongsToSchema = mapOf("since" to DataType.INT)
 
-    // ── IDs ──────────────────────────────────────────────────────────────────
+    // collections
+
+    private val studentsModel = CollectionModel("students", studentSchema, mutableListOf("enrollments"), null)
+    private val enrollmentsModel = CollectionModel("enrollments", enrollmentSchema, mutableListOf(), "students")
+    private val coursesModel = CollectionModel("courses", courseSchema, mutableListOf(), null)
+    private val departmentsModel = CollectionModel("departments", departmentSchema, mutableListOf(), null)
+
+
+    // ids
 
     private val aliceId = UUID.randomUUID()
     private val bobId = UUID.randomUUID()
@@ -67,12 +73,12 @@ class MongoDriverQueryTests {
     private val scienceDeptId = UUID.randomUUID()
     private val humanitiesDeptId = UUID.randomUUID()
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // state
 
     private var mongoDatabase: MongoDatabase? = null
     private var driver: MongoDriver? = null
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    // lifecycle
 
     private fun isDatabaseReachable(): Boolean = try {
         MongoClients.create("mongodb://$host:$port")
@@ -98,10 +104,10 @@ class MongoDriverQueryTests {
 
         DatabaseManager.initCollections(
             listOf(
-                CollectionModel("students", studentSchema, mutableListOf("enrollments")),
-                CollectionModel("enrollments", enrollmentSchema),
-                CollectionModel("courses", courseSchema),
-                CollectionModel("departments", departmentSchema),
+                studentsModel,
+                enrollmentsModel,
+                coursesModel,
+                departmentsModel
             )
         )
         DatabaseManager.initConnections(
@@ -125,15 +131,10 @@ class MongoDriverQueryTests {
 
     private fun createSchema() {
         val d = driver!!
-        d.createCollection(CreateCollectionInstruction(CollectionModel("students", studentSchema)))
-        d.createCollection(
-            CreateCollectionInstruction(
-                CollectionModel("enrollments", enrollmentSchema),
-                parentCollectionName = "students"
-            )
-        )
-        d.createCollection(CreateCollectionInstruction(CollectionModel("courses", courseSchema)))
-        d.createCollection(CreateCollectionInstruction(CollectionModel("departments", departmentSchema)))
+        d.createCollection("students", studentSchema)
+        d.createCollection("enrollments", enrollmentSchema, "students")
+        d.createCollection("courses", courseSchema)
+        d.createCollection("departments", departmentSchema)
         d.createConnection(ConnectionModel("attends", "students", "courses", attendsSchema))
         d.createConnection(ConnectionModel("belongs_to", "courses", "departments", belongsToSchema))
     }
@@ -143,77 +144,69 @@ class MongoDriverQueryTests {
 
         // Students: Alice gpa=4, Bob gpa=3, Carol gpa=2
         d.insertDocument(
-            aliceId, InsertObjectInstruction(
-                CollectionPath("students"),
+            studentsModel,
+            aliceId,
                 mapOf("name" to PolyValue.of("Alice"), "gpa" to PolyValue.of(4))
-            )
+
         )
         d.insertDocument(
-            bobId, InsertObjectInstruction(
-                CollectionPath("students"),
+            studentsModel,
+            bobId,
                 mapOf("name" to PolyValue.of("Bob"), "gpa" to PolyValue.of(3))
-            )
+
         )
-        d.insertDocument(
-            carolId, InsertObjectInstruction(
-                CollectionPath("students"),
+        d.insertDocument(studentsModel,
+            carolId,
                 mapOf("name" to PolyValue.of("Carol"), "gpa" to PolyValue.of(2))
-            )
+
         )
 
         // Enrollments (subcollection of students)
         // Alice: Fall grade=90, Spring grade=85; Bob: Fall grade=70; Carol: none
         d.insertDocument(
-            UUID.randomUUID(), InsertObjectInstruction(
-                CollectionPath("students").doc(aliceId).sub("enrollments"),
-                mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(90))
-            )
+            enrollmentsModel,
+            UUID.randomUUID(),
+                mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(90)), aliceId
+
         )
-        d.insertDocument(
-            UUID.randomUUID(), InsertObjectInstruction(
-                CollectionPath("students").doc(aliceId).sub("enrollments"),
-                mapOf("semester" to PolyValue.of("Spring"), "grade" to PolyValue.of(85))
-            )
+        d.insertDocument(enrollmentsModel,
+            UUID.randomUUID(),
+                mapOf("semester" to PolyValue.of("Spring"), "grade" to PolyValue.of(85)), aliceId
+
         )
-        d.insertDocument(
-            UUID.randomUUID(), InsertObjectInstruction(
-                CollectionPath("students").doc(bobId).sub("enrollments"),
-                mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(70))
-            )
+        d.insertDocument(enrollmentsModel,
+            UUID.randomUUID(),
+                mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(70)), bobId
+
         )
 
         // Courses
-        d.insertDocument(
-            mathId, InsertObjectInstruction(
-                CollectionPath("courses"),
+        d.insertDocument(coursesModel,
+            mathId,
                 mapOf("title" to PolyValue.of("Math"), "credits" to PolyValue.of(4))
-            )
+
         )
-        d.insertDocument(
-            historyId, InsertObjectInstruction(
-                CollectionPath("courses"),
+        d.insertDocument(coursesModel,
+            historyId,
                 mapOf("title" to PolyValue.of("History"), "credits" to PolyValue.of(3))
-            )
+
         )
-        d.insertDocument(
-            physicsId, InsertObjectInstruction(
-                CollectionPath("courses"),
+        d.insertDocument(coursesModel,
+            physicsId,
                 mapOf("title" to PolyValue.of("Physics"), "credits" to PolyValue.of(4))
-            )
+
         )
 
         // Departments
-        d.insertDocument(
-            scienceDeptId, InsertObjectInstruction(
-                CollectionPath("departments"),
+        d.insertDocument(departmentsModel,
+            scienceDeptId,
                 mapOf("name" to PolyValue.of("Science"), "budget" to PolyValue.of(500))
-            )
+
         )
-        d.insertDocument(
-            humanitiesDeptId, InsertObjectInstruction(
-                CollectionPath("departments"),
+        d.insertDocument(departmentsModel,
+            humanitiesDeptId,
                 mapOf("name" to PolyValue.of("Humanities"), "budget" to PolyValue.of(200))
-            )
+
         )
 
         // attends: Alice→Math(95), Alice→History(80), Bob→Math(60), Carol→Physics(75)
@@ -580,10 +573,10 @@ class MongoDriverQueryTests {
     fun `student with no connections does not appear in join result`() {
         val lonelyId = UUID.randomUUID()
         driver!!.insertDocument(
-            lonelyId, InsertObjectInstruction(
-                CollectionPath("students"),
+            studentsModel,
+            lonelyId,
                 mapOf("name" to PolyValue.of("Lonely"), "gpa" to PolyValue.of(1))
-            )
+
         )
         val path = QueryPath(
             listOf(

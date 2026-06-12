@@ -5,15 +5,11 @@ import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.connection.PostgresConnection
-import ch.flavianz.data.PolyValue
 import ch.flavianz.driver.DriverManager
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
-import ch.flavianz.query.QueryParser
+import ch.flavianz.server.startServer
 
 fun main() {
     val manager = ConnectionManager()
@@ -131,7 +127,7 @@ fun main() {
                     "name" to DataType.STRING,
                     "address" to DataType.STRING,
                     "student_count" to DataType.INT
-                )
+                ), mutableListOf(), null
             ),
             CollectionModel(
                 "students", mapOf(
@@ -139,14 +135,14 @@ fun main() {
                     "last" to DataType.STRING,
                     "age" to DataType.INT
                 ),
-                mutableListOf("schools")
+                mutableListOf("schools"), null
             ),
             CollectionModel(
                 "courses", mapOf(
                     "subject" to DataType.STRING,
                     "teacher" to DataType.STRING,
                     "difficulty" to DataType.INT
-                )
+                ), mutableListOf(), null
             )
         )
     )
@@ -189,7 +185,7 @@ fun main() {
     startServer()
 }
 
-fun demo() {
+/*fun demo() {
     DatabaseManager.createCollection(
         CreateCollectionInstruction(
             CollectionModel(
@@ -339,4 +335,4 @@ fun demo() {
     )
 
     println(DatabaseManager.query(QueryParser("from (schools sc).(students st)-(studies stu)-(courses c) take sc.name, st.last, c.subject, stu.year").parse()))
-}
+}*/

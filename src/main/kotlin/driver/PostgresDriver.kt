@@ -4,10 +4,10 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
@@ -22,10 +22,7 @@ import kotlin.collections.iterator
 
 @Suppress("SqlSourceToSinkFlow")
 class PostgresDriver(val connection: Connection) : DatabaseDriver {
-    override fun createCollection(instruction: CreateCollectionInstruction) {
-        val collectionModel = instruction.collectionModel
-        val collectionName = collectionModel.name
-
+    override fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
         val sql = StringBuilder()
 
         // Add the primary key column
@@ -35,8 +32,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         // ps_pk = polystore_primarykey
         sql.append(" (").append(quoteIdentifier("ps_pk")).append(" UUID PRIMARY KEY")
 
-        if (instruction.parentCollectionName != null) {
-            val parentCollectionName = instruction.parentCollectionName
+        if (parentCollectionName != null) {
             // ps_pfk = polystore_parentforeignkey
             sql.append(", ").append(quoteIdentifier("ps_parent_fk")).append(" UUID CONSTRAINT ")
                 .append(quoteIdentifier("${collectionName}_parent_${parentCollectionName}_fk"))
@@ -45,7 +41,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
 
         // Add fields from the schema
-        for ((name, dataType) in collectionModel.schema) {
+        for ((name, dataType) in schema) {
             sql.append(", ps_f_").append(name).append(" ").append(dataType.toPostgresType())
         }
 
@@ -86,27 +82,25 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun insertDocument(uuid: UUID, instruction: InsertObjectInstruction) {
+    override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
         val sql = StringBuilder()
-        val collectionRef = instruction.collectionPath.toCollectionRef()
-        sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${collectionRef.leafName()}")).append(" (")
+        sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${collection.name}")).append(" (")
         sql.append(quoteIdentifier("ps_pk"))
-        if (collectionRef.segments.size > 1) {
+
+        if (parentDocUuid != null) {
             sql.append(", ").append(quoteIdentifier("ps_parent_fk"))
         }
 
-        val entries = ArrayList(instruction.data.entries)
-
-        for (entry in entries) {
+        for (entry in data.entries) {
             sql.append(", ").append(quoteIdentifier("ps_f_${entry.key}"))
         }
         sql.append(") VALUES (").append(prepareValue(PolyValue.of(uuid)))
 
-        if (collectionRef.segments.size > 1) {
-            sql.append(", ").append(prepareValue(PolyValue.of(instruction.collectionPath.parentDoc().uuid)))
+        if (parentDocUuid != null) {
+            sql.append(", ").append(prepareValue(PolyValue.of(parentDocUuid)))
         }
 
-        for (entry in entries) {
+        for (entry in data.entries) {
             sql.append(", ").append(prepareValue(entry.value))
         }
         sql.append(")")

@@ -4,8 +4,6 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -14,16 +12,18 @@ import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
 import ch.flavianz.connection.Neo4jConnection
+import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.PolySchema
 import java.util.UUID
 
 class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
     // Neo4j is schemaless — no DDL needed, but we validate the model is registered
-    override fun createCollection(instruction: CreateCollectionInstruction) {
+    override fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
         // No-op: Neo4j doesn't require schema creation.
         // Optionally create an index on ps_id for the label.
         connection.neo4jSession.use { session ->
-            val label = collectionLabel(instruction.collectionModel.name)
+            val label = collectionLabel(collectionName)
             session.run("CREATE INDEX IF NOT EXISTS FOR (n:`$label`) ON (n.ps_id)")
         }
     }
@@ -32,18 +32,16 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         // No-op: relationships are created implicitly on insertConnection.
     }
 
-    override fun insertDocument(uuid: UUID, instruction: InsertObjectInstruction) {
-        val collectionRef = instruction.collectionPath.toCollectionRef()
-        val label = collectionLabel(collectionRef.leafName())
+    override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
+        val label = collectionLabel(collection.name)
         val params = mutableMapOf<String, Any?>("ps_id" to uuid.toString())
-        for ((key, value) in instruction.data) {
+        for ((key, value) in data) {
             params["ps_f_$key"] = value.toNeo4j()
         }
 
         connection.neo4jSession.use { session ->
-            if (collectionRef.segments.size > 1) {
-                val parentUuid = instruction.collectionPath.parentDoc().uuid.toString()
-                val parentLabel = collectionLabel(collectionRef.segments[collectionRef.segments.size - 2].name)
+            if (collection.hasParentCollection()) {
+                val parentLabel = collectionLabel(collection.name)
                 // Create child node and link to parent via ps_parent relationship
                 session.run(
                     """
@@ -52,7 +50,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                     SET child = ${'$'}props
                     CREATE (parent)-[:ps_parent]->(child)
                     """.trimIndent(),
-                    mapOf("parentId" to parentUuid, "props" to params)
+                    mapOf("parentId" to parentDocUuid, "props" to params)
                 )
             } else {
                 session.run(

@@ -2,19 +2,19 @@ package ch.flavianz.driver
 
 import ch.flavianz.data.PolyData
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
 import java.util.UUID
 
 interface DatabaseDriver {
-    fun createCollection(instruction: CreateCollectionInstruction)
+    fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String? = null)
     fun createConnection(connection: ConnectionModel)
 
-    fun insertDocument(uuid: UUID, instruction: InsertObjectInstruction)
+    fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID? = null)
     fun updateDocument(instruction: UpdateObjectInstruction)
     fun insertConnection(
         connection: ConnectionModel,

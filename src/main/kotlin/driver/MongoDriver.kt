@@ -3,10 +3,10 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
+import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
+import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
@@ -23,12 +23,7 @@ import org.bson.conversions.Bson
 import java.util.UUID
 
 class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
-    override fun createCollection(instruction: CreateCollectionInstruction) {
-        val collectionModel = instruction.collectionModel
-
-        val collectionName = collectionModel.name
-
-        //TODO: change name to hashName (probably)
+    override fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
         mongoDatabase.createCollection(collectionName)
     }
 
@@ -36,24 +31,21 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         // nothing to do
     }
 
-    override fun insertDocument(uuid: UUID, instruction: InsertObjectInstruction) {
+    override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
         val document = Document().append("_id", uuid)
-        for (field in instruction.data) {
+        for (field in data) {
             document.append("ps_f_${field.key}", prepareValue(field.value))
         }
 
-        val collectionRef = instruction.collectionPath.toCollectionRef()
-        if (instruction.collectionPath.hasParentDoc()) {
-            val parentCollection = instruction.collectionPath.parentDoc().parentCollection()
-            val parentCollectionName = parentCollection.toCollectionRef().leafName()
-            val mongoParentCollection = mongoDatabase.getCollection(parentCollectionName)
+        if (collection.hasParentCollection()) {
+            val mongoParentCollection = mongoDatabase.getCollection(collection.parentCollection!!)
             mongoParentCollection.updateOne(
-                Filters.eq("_id", instruction.collectionPath.parentDoc().uuid),
-                Updates.push("ps_sub_${collectionRef.leafName()}", document)
+                Filters.eq("_id", parentDocUuid),
+                Updates.push("ps_sub_${collection.name}", document)
             )
         }
 
-        mongoDatabase.getCollection(collectionRef.leafName()).insertOne(document)
+        mongoDatabase.getCollection(collection.name).insertOne(document)
     }
 
     override fun updateDocument(instruction: UpdateObjectInstruction) {

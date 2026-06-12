@@ -2,8 +2,6 @@ package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyValue
-import ch.flavianz.instructions.CreateCollectionInstruction
-import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.*
 import ch.flavianz.query.Condition
@@ -27,6 +25,9 @@ class PostgresDriverIntegrationTests {
     private val orderSchema = mapOf("item" to DataType.STRING, "price" to DataType.INT)
     private val connectionSchema = mapOf("quantity" to DataType.INT)
 
+    private val userModel = CollectionModel("test_users", userSchema, mutableListOf("test_orders"), null)
+    private val orderModel = CollectionModel("test_orders", orderSchema, mutableListOf(), "test_users")
+
     private var connection: Connection? = null
     private var driver: PostgresDriver? = null
 
@@ -49,8 +50,8 @@ class PostgresDriverIntegrationTests {
         // Reset and populate schema registry in DatabaseManager
         DatabaseManager.initCollections(
             listOf(
-                CollectionModel("test_users", userSchema, mutableListOf("test_orders")),
-                CollectionModel("test_orders", orderSchema)
+                userModel,
+                orderModel
             )
         )
         DatabaseManager.initConnections(
@@ -89,12 +90,9 @@ class PostgresDriverIntegrationTests {
         val driver = this.driver ?: return
 
         // 1. Create collections
-        driver.createCollection(CreateCollectionInstruction(CollectionModel("test_users", userSchema)))
-        driver.createCollection(
-            CreateCollectionInstruction(
-                CollectionModel("test_orders", orderSchema),
+        driver.createCollection("test_users", userSchema)
+        driver.createCollection("test_orders", orderSchema,
                 parentCollectionName = "test_users"
-            )
         )
 
         // 2. Create connection
@@ -108,19 +106,10 @@ class PostgresDriverIntegrationTests {
 
         // 3. Insert Objects
         val userUuid = UUID.randomUUID()
-        val insertUserInstruction = InsertObjectInstruction(
-            CollectionPath("test_users"),
-            mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(30))
-        )
-        driver.insertDocument(userUuid, insertUserInstruction)
+        driver.insertDocument(userModel, userUuid, mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(30)))
 
         val orderUuid = UUID.randomUUID()
-        val orderPath = CollectionPath("test_users").doc(userUuid).sub("test_orders")
-        val insertOrderInstruction = InsertObjectInstruction(
-            orderPath,
-            (mapOf("item" to PolyValue.of("Laptop"), "price" to PolyValue.of(1200)))
-        )
-        driver.insertDocument(orderUuid, insertOrderInstruction)
+        driver.insertDocument(orderModel, orderUuid, mapOf("item" to PolyValue.of("Laptop"), "price" to PolyValue.of(1200)), userUuid)
 
         // Insert Connection record directly using SQL (as connection table is updated manually or via query in app design)
         connection!!.prepareStatement(
@@ -192,22 +181,18 @@ class PostgresDriverIntegrationTests {
     fun testPostgresDriverQueryWithConditions() {
         val driver = this.driver ?: return
 
-        driver.createCollection(CreateCollectionInstruction(CollectionModel("test_users", userSchema)))
+        driver.createCollection("test_users", userSchema)
 
         val user1 = UUID.randomUUID()
         driver.insertDocument(
-            user1, InsertObjectInstruction(
-                CollectionPath("test_users"),
-                (mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(25)))
-            )
+            userModel,
+            user1, mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(25))
         )
 
         val user2 = UUID.randomUUID()
         driver.insertDocument(
-            user2, InsertObjectInstruction(
-                CollectionPath("test_users"),
-                (mapOf("name" to PolyValue.of("Bob"), "age" to PolyValue.of(35)))
-            )
+            userModel,
+            user2, mapOf("name" to PolyValue.of("Bob"), "age" to PolyValue.of(35))
         )
 
         // Query: from (test_users u where age > 30)

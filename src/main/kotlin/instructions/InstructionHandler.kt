@@ -5,16 +5,9 @@ import ch.flavianz.core.DatabaseManager
 class InstructionHandler {
     fun handle(instruction: Instruction) {
         when (instruction) {
-            is CreateCollectionInstruction -> {
-                DatabaseManager.createCollection(instruction)
-            }
 
             is CreateConnectionInstruction -> {
                 DatabaseManager.createConnection(instruction.connection)
-            }
-
-            is InsertObjectInstruction -> {
-                DatabaseManager.insertDocument(instruction)
             }
 
             is UpdateObjectInstruction -> {

@@ -3,10 +3,8 @@ package ch.flavianz.core
 import ch.flavianz.data.PolyData
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
-import ch.flavianz.instructions.CreateCollectionInstruction
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.instructions.InsertObjectInstruction
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.PolySchema
@@ -31,20 +29,20 @@ object DatabaseManager {
         this.connections = connections.associateBy { it.name }.toMutableMap()
     }
 
-    fun createCollection(instruction: CreateCollectionInstruction) {
-        if (instruction.parentCollectionName != null) {
-            check(existsCollection(instruction.parentCollectionName))
-            { "parent collection ${instruction.parentCollectionName} does not exist" }
-            check(!existsCollection(instruction.collectionModel.name))
-            { "collection ${instruction.collectionModel.name} already exists" }
+    fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String? = null) {
+        if (parentCollectionName != null) {
+            check(existsCollection(parentCollectionName))
+            { "parent collection $parentCollectionName does not exist" }
+            check(!existsCollection(collectionName))
+            { "collection $collectionName already exists" }
         } else {
-            check(!existsCollection(instruction.collectionModel.name))
-            { " collection ${instruction.collectionModel.name} already exists" }
+            check(!existsCollection(collectionName))
+            { " collection $collectionName already exists" }
         }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(instruction) }
+        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(collectionName, schema, parentCollectionName) }
 
-        registerCollection(instruction.collectionModel, instruction.parentCollectionName)
+        registerCollection(collectionName, schema, parentCollectionName)
     }
 
     fun createConnection(connection: ConnectionModel) {
@@ -59,14 +57,14 @@ object DatabaseManager {
         registerConnection(connection)
     }
 
-    fun registerCollection(collectionModel: CollectionModel, parentCollectionName: String? = null) {
+    fun registerCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
         if (parentCollectionName != null) {
             check(existsCollection(parentCollectionName)) { "Parent Collection $parentCollectionName does not exist" }
         }
-        check(!existsCollection(collectionModel.name)) { "Collection ${collectionModel.name} already exists" }
-        collections[collectionModel.name] = collectionModel
+        check(!existsCollection(collectionName)) { "Collection $collectionName already exists" }
+        collections[collectionName] = CollectionModel(collectionName, schema, mutableListOf(), parentCollectionName)
         if (parentCollectionName != null) {
-            getCollectionModel(parentCollectionName).childCollections.add(collectionModel.name)
+            getCollectionModel(parentCollectionName).childCollections.add(collectionName)
         }
     }
 
@@ -74,17 +72,21 @@ object DatabaseManager {
         connections[connection.name] = connection
     }
 
-    fun insertDocument(insertObjectInstruction: InsertObjectInstruction): UUID {
-        val collectionRef = insertObjectInstruction.collectionPath.toCollectionRef()
+    fun insertDocument(collectionName: String, data: PolyData, parentDocUuid: UUID? = null): UUID {
+        check(existsCollection(collectionName)) { "collection $collectionName does not exist" }
+        val collectionModel = getCollectionModel(collectionName)
+        check(dataMatchesSchema(data, collectionModel.schema))
+        { "insertion data does not match schema of collection $collectionName" }
 
-        check(existsCollection(collectionRef.leafName())) { "collection ${collectionRef.leafName()} does not exist" }
-        val schema = getCollectionModel(collectionRef).schema
-        check(dataMatchesSchema(insertObjectInstruction.data, schema))
-        { "insertion data does not match schema of collection $collectionRef" }
+        if(collectionModel.hasParentCollection()) {
+            checkNotNull(collectionModel.parentCollection) { "collection $collectionName has a parent collection, specify a parent document"}
+        } else {
+            check(parentDocUuid == null) { "collection $collectionName does not have a parent collection" }
+        }
 
         val objectUuid = UUID.randomUUID()
 
-        DriverManager.getInstance().execute { (DatabaseDriver::insertDocument)(objectUuid, insertObjectInstruction) }
+        DriverManager.getInstance().execute { (DatabaseDriver::insertDocument)(collectionModel, objectUuid, data, parentDocUuid) }
         return objectUuid
     }
 

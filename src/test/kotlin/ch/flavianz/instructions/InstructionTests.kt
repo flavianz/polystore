@@ -31,10 +31,8 @@ class InstructionTests {
     @Test
     fun testCreateCollectionInstructionSuccess() {
         val schema = mapOf("name" to DataType.STRING, "age" to DataType.INT)
-        val collectionModel = CollectionModel("users", schema)
-        val instruction = CreateCollectionInstruction(collectionModel)
 
-        handler.handle(instruction)
+        DatabaseManager.createCollection("users", schema)
 
         assertTrue(DatabaseManager.existsCollection(CollectionRef("users")))
         val registeredModel = DatabaseManager.getCollectionModel(CollectionRef("users"))
@@ -45,14 +43,10 @@ class InstructionTests {
     @Test
     fun testCreateCollectionInstructionSubcollectionSuccess() {
         val parentSchema = mapOf("name" to DataType.STRING)
-        val parentModel = CollectionModel("companies", parentSchema)
-        handler.handle(CreateCollectionInstruction(parentModel))
+        DatabaseManager.createCollection("companies", parentSchema)
 
         val childSchema = mapOf("title" to DataType.STRING)
-        val childModel = CollectionModel("jobs", childSchema)
-        val instruction = CreateCollectionInstruction(childModel, parentCollectionName = "companies")
-
-        handler.handle(instruction)
+        DatabaseManager.createCollection("jobs", childSchema, "companies")
 
         val childRef = CollectionRef("companies").sub("jobs")
         assertTrue(DatabaseManager.existsCollection(childRef))
@@ -63,22 +57,19 @@ class InstructionTests {
     @Test
     fun testCreateCollectionInstructionDuplicateRoot() {
         val schema = mapOf("name" to DataType.STRING)
-        val model = CollectionModel("users", schema)
-        handler.handle(CreateCollectionInstruction(model))
+        DatabaseManager.createCollection("users", schema)
 
         assertFailsWith<IllegalStateException> {
-            handler.handle(CreateCollectionInstruction(model))
+            DatabaseManager.createCollection("users", schema)
         }
     }
 
     @Test
     fun testCreateCollectionInstructionParentDoesNotExist() {
         val schema = mapOf("name" to DataType.STRING)
-        val model = CollectionModel("jobs", schema)
-        val instruction = CreateCollectionInstruction(model, parentCollectionName = "nonexistent")
 
         assertFailsWith<IllegalStateException> {
-            handler.handle(instruction)
+            DatabaseManager.createCollection("jobs", schema, "nonexistent")
         }
     }
 
@@ -86,8 +77,8 @@ class InstructionTests {
     fun testCreateConnectionInstructionSuccess() {
         // Create two collections
         val schema = mapOf("name" to DataType.STRING)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
-        handler.handle(CreateCollectionInstruction(CollectionModel("groups", schema)))
+        DatabaseManager.createCollection("users", schema)
+        DatabaseManager.createCollection("groups", schema)
 
         // Create connection
         val connectionDataSchema = mapOf("role" to DataType.STRING)
@@ -111,7 +102,7 @@ class InstructionTests {
     @Test
     fun testCreateConnectionInstructionMissingCollection() {
         val schema = mapOf("name" to DataType.STRING)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
+        DatabaseManager.createCollection("users", schema)
 
         val connectionModel = ConnectionModel(
             name = "belongs_to",
@@ -128,8 +119,8 @@ class InstructionTests {
     @Test
     fun testCreateConnectionInstructionDuplicateName() {
         val schema = mapOf("name" to DataType.STRING)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
-        handler.handle(CreateCollectionInstruction(CollectionModel("groups", schema)))
+        DatabaseManager.createCollection("users", schema)
+        DatabaseManager.createCollection("groups", schema)
 
         val connectionModel = ConnectionModel(
             name = "belongs_to",
@@ -148,66 +139,61 @@ class InstructionTests {
     @Test
     fun testInsertObjectInstructionSuccess() {
         val schema = mapOf("name" to DataType.STRING, "age" to DataType.INT)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
+        DatabaseManager.createCollection("users", schema)
 
         val doc = mapOf(
                     "name" to PolyValue.of("Alice"),
                     "age" to PolyValue.of(30)
                 )
 
-        val instruction = InsertObjectInstruction(CollectionPath("users"), doc)
-
         // Should not throw, driver execute is no-op
-        handler.handle(instruction)
+        DatabaseManager.insertDocument("users", doc)
     }
 
     @Test
     fun testInsertObjectInstructionMissingCollection() {
         val doc = mapOf("name" to PolyValue.of("Alice"))
-        val instruction = InsertObjectInstruction(CollectionPath("users"), doc)
 
         assertFailsWith<IllegalStateException> {
-            handler.handle(instruction)
+            DatabaseManager.insertDocument("users", doc)
         }
     }
 
     @Test
     fun testInsertObjectInstructionTypeMismatch() {
         val schema = mapOf("name" to DataType.STRING, "age" to DataType.INT)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
+        DatabaseManager.createCollection("users", schema)
 
         // 'age' is passed as String instead of Int
         val doc = mapOf(
                     "name" to PolyValue.of("Alice"),
                     "age" to PolyValue.of("thirty")
                 )
-        val instruction = InsertObjectInstruction(CollectionPath("users"), doc)
 
         assertFailsWith<IllegalStateException> {
-            handler.handle(instruction)
+            DatabaseManager.insertDocument("users", doc)
         }
     }
 
     @Test
     fun testInsertObjectInstructionFieldCountMismatch() {
         val schema = mapOf("name" to DataType.STRING, "age" to DataType.INT)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
+        DatabaseManager.createCollection("users", schema)
 
         // Missing 'age' field
         val doc = mapOf(
                     "name" to PolyValue.of("Alice")
                 )
-        val instruction = InsertObjectInstruction(CollectionPath("users"), doc)
 
         assertFailsWith<IllegalStateException> {
-            handler.handle(instruction)
+            DatabaseManager.insertDocument("users", doc)
         }
     }
 
     @Test
     fun testUpdateObjectInstructionSuccess() {
         val schema = mapOf("name" to DataType.STRING, "age" to DataType.INT)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
+        DatabaseManager.createCollection("users", schema)
 
         val docId = UUID.randomUUID()
         val updateDoc = mapOf(
@@ -235,7 +221,7 @@ class InstructionTests {
     @Test
     fun testUpdateObjectInstructionUnknownField() {
         val schema = mapOf("name" to DataType.STRING, "age" to DataType.INT)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
+        DatabaseManager.createCollection("users", schema)
 
         val docId = UUID.randomUUID()
         val updateDoc = mapOf(
@@ -253,7 +239,7 @@ class InstructionTests {
     fun testQueryInstructionValidationSuccessButDriverNotConnected() {
         // Query: from users take users.name
         val schema = mapOf("name" to DataType.STRING)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
+        DatabaseManager.createCollection("users", schema)
 
         val parser = QueryParser("from users take users.name")
         val queryInstruction = QueryInstruction(parser.parse())
@@ -277,7 +263,7 @@ class InstructionTests {
     @Test
     fun testQueryInstructionValidationFailureInvalidFieldInCondition() {
         val schema = mapOf("name" to DataType.STRING)
-        handler.handle(CreateCollectionInstruction(CollectionModel("users", schema)))
+        DatabaseManager.createCollection("users", schema)
 
         // Query filtering by an unknown field
         val parser = QueryParser("from (users u where age = 30) take u.name")
