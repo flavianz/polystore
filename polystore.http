@@ -1,0 +1,16 @@
+### Create collection
+POST http://localhost:8080/collection/create
+Content-Type: application/json
+
+{
+  "name": "pandas",
+  "fields": [
+    {
+      "name": "name",
+      "type": "string"
+    }, {
+      "name": "age",
+      "type": "int"
+    }
+  ]
+}

@@ -1,19 +1,32 @@
 package ch.flavianz
 
 import ch.flavianz.core.DatabaseManager
+import ch.flavianz.instructions.CreateCollectionInstruction
+import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.DataType
 import ch.flavianz.query.QueryParser
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.call
+import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
+import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import java.util.Locale
+import java.util.Locale.getDefault
 
 fun startServer() {
     embeddedServer(Netty, port = 8080) {
+        install(ContentNegotiation) {
+            json()
+        }
         routing {
             get("/query") {
                 val queryString = call.request.queryParameters["q"]
@@ -33,6 +46,39 @@ fun startServer() {
                     }
                 )
             }
+            post("/collection/create") {
+                val body = runCatching { call.receive<CreateCollectionRequest>() }.getOrElse {
+                    return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+                }
+
+                val result = runCatching {
+                    DatabaseManager.createCollection(CreateCollectionInstruction(
+                        CollectionModel(
+                            body.name,
+                            body.fields.associate { it.name to DataType.valueOf(it.type.uppercase()) }
+                        ),
+                        body.parentCollection
+                    ))
+                }
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.Created, "Collection '${body.name}' created") },
+                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
+                )
+            }
         }
     }.start(wait = true)
 }
+
+@kotlinx.serialization.Serializable
+data class CreateCollectionRequest(
+    val name: String,
+    val fields: List<FieldDefinition>,
+    val parentCollection: String? = null
+)
+
+@kotlinx.serialization.Serializable
+data class FieldDefinition(
+    val name: String,
+    val type: String  // or your PolyValue type enum
+)
