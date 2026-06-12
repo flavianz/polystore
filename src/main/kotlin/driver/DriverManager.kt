@@ -1,6 +1,7 @@
 package ch.flavianz.driver
 
 import ch.flavianz.connection.MongoConnection
+import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.data.PolyData
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
@@ -10,10 +11,12 @@ import java.sql.Connection
 class DriverManager private constructor() {
     var postgresDriver: PostgresDriver? = null
     var mongoDriver: MongoDriver? = null
+    var neo4jDriver: Neo4jDriver? = null
 
     fun execute(a: DatabaseDriver.() -> Unit) {
         postgresDriver?.a()
         mongoDriver?.a()
+        neo4jDriver?.a()
     }
 
     fun initPostgres(jdbcConnection: Connection): DriverManager {
@@ -23,6 +26,11 @@ class DriverManager private constructor() {
 
     fun initMongo(mongoConnection: MongoConnection): DriverManager {
         this.mongoDriver = MongoDriver(mongoConnection.mongoDatabase)
+        return this
+    }
+
+    fun initNeo4j(neo4jConnection: Neo4jConnection): DriverManager {
+        this.neo4jDriver = Neo4jDriver(neo4jConnection)
         return this
     }
 

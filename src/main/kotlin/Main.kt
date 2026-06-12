@@ -3,6 +3,7 @@ package ch.flavianz
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
+import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.data.PolyValue
 import ch.flavianz.driver.DriverManager
@@ -34,6 +35,12 @@ fun main() {
             database = "polystore"
         )
     )
+    manager.register(
+        Neo4jConnection(
+            username = "neo4j",
+            password = "password"
+        )
+    )
 
     manager.connectAll()
 
@@ -44,10 +51,12 @@ fun main() {
 
     val pg = manager.get<PostgresConnection>("PostgreSQL[polystore]")
     val mongo = manager.get<MongoConnection>("MongoDB[polystore]")
+    val neo4j = manager.get<Neo4jConnection>("Neo4j[neo4j]")
 
     DriverManager.initialize {
         initPostgres(pg.jdbcConnection)
         initMongo(mongo)
+        initNeo4j(neo4j)
     }
 
     DatabaseManager.initCollections(
