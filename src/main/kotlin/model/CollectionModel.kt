@@ -10,3 +10,12 @@ data class CollectionModel(
 }
 
 typealias PolySchema = Map<String, DataType>
+
+fun PolySchema.toJson(): String {
+    return "[${entries.joinToString(",") { "{\"name\": \"${it.key}\", \"type\": \"${it.value}\"}" }}]"
+}
+
+data class DatabaseSchema(
+    val collections: List<CollectionModel>,
+    val connections: List<ConnectionModel>
+)

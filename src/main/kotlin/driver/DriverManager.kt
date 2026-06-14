@@ -3,12 +3,13 @@ package ch.flavianz.driver
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.data.PolyData
+import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
 import java.sql.Connection
 
-class DriverManager private constructor() {
+object DriverManager {
     var postgresDriver: PostgresDriver? = null
     var mongoDriver: MongoDriver? = null
     var neo4jDriver: Neo4jDriver? = null
@@ -20,17 +21,23 @@ class DriverManager private constructor() {
     }
 
     fun initPostgres(jdbcConnection: Connection): DriverManager {
-        this.postgresDriver = PostgresDriver(jdbcConnection)
+        val driver = PostgresDriver(jdbcConnection)
+        driver.init()
+        this.postgresDriver = driver
         return this
     }
 
     fun initMongo(mongoConnection: MongoConnection): DriverManager {
-        this.mongoDriver = MongoDriver(mongoConnection.mongoDatabase)
+        val driver = MongoDriver(mongoConnection.mongoDatabase)
+        driver.init()
+        this.mongoDriver = driver
         return this
     }
 
     fun initNeo4j(neo4jConnection: Neo4jConnection): DriverManager {
-        this.neo4jDriver = Neo4jDriver(neo4jConnection)
+        val driver = Neo4jDriver(neo4jConnection)
+        driver.init()
+        this.neo4jDriver = driver
         return this
     }
 
@@ -42,19 +49,30 @@ class DriverManager private constructor() {
         return (this.mongoDriver ?: throw NotImplementedError("postgres not connected")).count(query.path, terminal)
     }
 
-    companion object {
-        @Volatile
-        private var instance: DriverManager? = null
-
-        fun initialize(block: DriverManager.() -> Unit): DriverManager {
-            check(instance == null) { "DriverManager is already initialized" }
-            return synchronized(this) {
-                check(instance == null) { "DriverManager is already initialized" }
-                DriverManager().apply(block).also { instance = it }
+    fun parseDatabaseSchema(): DatabaseSchema {
+        val schemas = mutableListOf<DatabaseSchema>()
+        mongoDriver?.getDatabaseSchema().let {
+            if (it != null) {
+                schemas.add(it)
             }
         }
-
-        fun getInstance(): DriverManager =
-            checkNotNull(instance) { "DriverManager is not initialized. Call initialize() first." }
+        postgresDriver?.getDatabaseSchema().let {
+            if (it != null) {
+                println(it)
+                schemas.add(it)
+            }
+        }
+        neo4jDriver?.getDatabaseSchema().let {
+            if (it != null) {
+                schemas.add(it)
+            }
+        }
+        if(schemas.isEmpty()) {
+            throw IllegalStateException("no source connected to parse schema from")
+        }
+        if(schemas.distinct().size > 1) {
+            throw IllegalStateException("not all connected sources have the same schema")
+        }
+        return schemas.first()
     }
 }

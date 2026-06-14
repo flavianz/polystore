@@ -6,6 +6,8 @@ import ch.flavianz.data.PolyValue
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
+import ch.flavianz.model.DataType
+import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -505,6 +507,46 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         terminal: PolyTerminal.Count
     ): PolyResult.Count {
         TODO("Not yet implemented")
+    }
+
+    override fun init() {
+        val existsCollections = mongoDatabase.listCollections()
+            .filter(Document("name", "ps_config_collections"))
+            .first() != null
+        if(!existsCollections) {
+            mongoDatabase.createCollection("ps_config_collections")
+        }
+        val existsConnections = mongoDatabase.listCollections()
+            .filter(Document("name", "ps_config_connections"))
+            .first() != null
+        if(!existsConnections) {
+            mongoDatabase.createCollection("ps_config_connections")
+        }
+    }
+
+    override fun getDatabaseSchema(): DatabaseSchema {
+        val collectionDocs = mongoDatabase.getCollection("ps_config_collections").find().toList()
+        val connectionDocs = mongoDatabase.getCollection("ps_config_connections").find().toList()
+
+        fun parseFields(fields: List<*>): PolySchema {
+            return fields.filterIsInstance<Document>()
+                .associate {field -> field["name"] as String to DataType.valueOf((field["type"] as String).uppercase()) }
+        }
+
+        val collections = collectionDocs.map { CollectionModel(
+            it["name"] as String,
+            parseFields(it["fields"] as List<*>),
+            mutableListOf(),
+            null
+        ) }
+        val connections = connectionDocs.map { ConnectionModel(
+            it["name"] as String,
+            it["collection1"] as String,
+            it["collection2"] as String,
+            parseFields(it["fields"] as List<*>),
+        ) }
+
+        return DatabaseSchema(collections, connections)
     }
 
 

@@ -4,6 +4,7 @@ import ch.flavianz.data.PolyData
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.query.PolyResult
@@ -25,4 +26,7 @@ interface DatabaseDriver {
 
     fun take(path: QueryPath, terminal: PolyTerminal.Take): List<PolyData>
     fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count
+
+    fun init()
+    fun getDatabaseSchema(): DatabaseSchema
 }

@@ -7,13 +7,18 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.DataType
+import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
+import ch.flavianz.model.toJson
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
+import ch.flavianz.server.FieldDefinition
+import kotlinx.serialization.json.Json
 import java.sql.Connection
 import java.util.UUID
 import kotlin.collections.component1
@@ -48,6 +53,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(")")
 
         connection.prepareStatement(sql.toString()).execute()
+
+        registerCollection(collectionName, schema, parentCollectionName)
     }
 
     override fun createConnection(connection: ConnectionModel) {
@@ -80,6 +87,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(")")
 
         this.connection.prepareStatement(sql.toString()).execute()
+
+        registerConnection(connection.name, connection.collection1Name, connection.collection2Name, connection.connectionDataSchema)
     }
 
     override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
@@ -268,6 +277,60 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         return PolyResult.Count(rs.getInt("ps_count"))
     }
 
+    override fun init() {
+        connection.prepareStatement("""create table if not exists public.ps_config_collections
+(
+    name text not null primary key,
+    fields jsonb not null,
+    parent_collection text references public.ps_config_collections
+);
+
+""")
+        connection.prepareStatement("""create table if not exists ps_config_connections
+(
+    name text not null primary key,
+    collection1 text not null references ps_config_collections,
+    collection2 text not null references ps_config_collections,
+    fields jsonb not null
+);
+
+""").execute()
+    }
+
+    override fun getDatabaseSchema(): DatabaseSchema {
+        val collectionsResult = connection.prepareStatement("SELECT * FROM ps_config_collections").executeQuery()
+        val connectionsResult = connection.prepareStatement("SELECT * FROM ps_config_connections").executeQuery()
+
+        val collections = buildList {
+            while (collectionsResult.next()) {
+                val name = collectionsResult.getString("name")
+                val schema = Json.decodeFromString<List<FieldDefinition>>(collectionsResult.getString("fields"))
+                val parentCollection = collectionsResult.getString("parent_collection")
+                add(CollectionModel(name,
+                    schema.associate { it.name to DataType.valueOf(it.type.uppercase()) }, mutableListOf(), parentCollection = parentCollection))
+            }
+        }
+        // add child collections to schema
+        for(collection in collections) {
+            if(collection.parentCollection != null) {
+                val parentCollection = collections.firstOrNull { it.name == collection.parentCollection }
+                checkNotNull(parentCollection) { "Parent collection ${collection.parentCollection} not found" }
+                parentCollection.childCollections.add(collection.name)
+            }
+        }
+
+        val connections = buildList {
+            while (connectionsResult.next()) {
+                val name = connectionsResult.getString("name")
+                val collection1 = connectionsResult.getString("collection1")
+                val collection2 = connectionsResult.getString("collection2")
+                val connectionDataSchema = Json.decodeFromString<List<FieldDefinition>>(connectionsResult.getString("fields"))
+                add(ConnectionModel(name, collection1, collection2, connectionDataSchema.associate { it.name to DataType.valueOf(it.type.uppercase()) }))
+            }
+        }
+        return DatabaseSchema(collections, connections)
+    }
+
     private fun appendFromAndJoins(sql: StringBuilder, path: QueryPath) {
         val firstNode = path.segments.first() as QuerySegment.Collection
         val firstCol = CollectionRef(firstNode.name)
@@ -412,5 +475,28 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             }
         }
     }
-}
 
+    private fun registerCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
+        val sql = StringBuilder()
+        sql.append("INSERT INTO ps_config_collections VALUES (")
+        sql.append(prepareValue(PolyValue.of(collectionName))).append(", ")
+        sql.append("'").append(schema.toJson()).append("', ")
+        if(parentCollectionName != null) {
+            sql.append(prepareValue(PolyValue.of(parentCollectionName)))
+        } else {
+            sql.append("null")
+        }
+        sql.append(")")
+        connection.prepareStatement(sql.toString()).execute()
+    }
+
+    private fun registerConnection(connectionName: String, collection1Name: String, collection2Name: String, schema: PolySchema) {
+        val sql = StringBuilder()
+        sql.append("INSERT INTO ps_config_collections VALUES (")
+        sql.append(prepareValue(PolyValue.of(connectionName))).append(", ")
+        sql.append(prepareValue(PolyValue.of(collection1Name))).append(", ")
+        sql.append(prepareValue(PolyValue.of(collection2Name))).append(", ")
+        sql.append("'").append(schema.toJson()).append("')")
+        connection.prepareStatement(sql.toString()).execute()
+    }
+}

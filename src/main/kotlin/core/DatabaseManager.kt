@@ -40,7 +40,7 @@ object DatabaseManager {
             { " collection $collectionName already exists" }
         }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::createCollection)(collectionName, schema, parentCollectionName) }
+        DriverManager.execute { (DatabaseDriver::createCollection)(collectionName, schema, parentCollectionName) }
 
         registerCollection(collectionName, schema, parentCollectionName)
     }
@@ -52,7 +52,7 @@ object DatabaseManager {
         check(existsCollection(connection.collection2Name))
         { "connection collection ${connection.collection2Name} does not exist" }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::createConnection)(connection) }
+        DriverManager.execute { (DatabaseDriver::createConnection)(connection) }
 
         registerConnection(connection)
     }
@@ -86,7 +86,7 @@ object DatabaseManager {
 
         val objectUuid = UUID.randomUUID()
 
-        DriverManager.getInstance().execute { (DatabaseDriver::insertDocument)(collectionModel, objectUuid, data, parentDocUuid) }
+        DriverManager.execute { (DatabaseDriver::insertDocument)(collectionModel, objectUuid, data, parentDocUuid) }
         return objectUuid
     }
 
@@ -98,7 +98,7 @@ object DatabaseManager {
         check(schemaContainsFields(updateObjectInstruction.data, schema))
         { "update data does not match schema of collection $collectionRef" }
 
-        DriverManager.getInstance().execute { (DatabaseDriver::updateDocument)(updateObjectInstruction) }
+        DriverManager.execute { (DatabaseDriver::updateDocument)(updateObjectInstruction) }
     }
 
     fun insertConnection(
@@ -121,7 +121,7 @@ object DatabaseManager {
                 connection.connectionDataSchema
             )
         ) { "connection data does not match schema" }
-        DriverManager.getInstance().execute {
+        DriverManager.execute {
             (DatabaseDriver::insertConnection)(
                 connection,
                 if (collection1Name == connection.collection1Name) collection1Name else collection2Name,
@@ -212,11 +212,11 @@ object DatabaseManager {
                 }
 
                 PolyResult.Documents(
-                    DriverManager.getInstance().take(PolyQuery(QueryPath(segments), terminal), terminal)
+                    DriverManager.take(PolyQuery(QueryPath(segments), terminal), terminal)
                 )
             }
 
-            is PolyTerminal.Count -> DriverManager.getInstance().count(query, terminal)
+            is PolyTerminal.Count -> DriverManager.count(query, terminal)
         }
     }
 

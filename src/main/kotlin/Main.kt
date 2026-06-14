@@ -3,7 +3,6 @@ package ch.flavianz
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
-import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
@@ -31,12 +30,12 @@ fun main() {
             database = "polystore"
         )
     )
-    manager.register(
+    /*manager.register(
         Neo4jConnection(
             username = "neo4j",
             password = "password"
         )
-    )
+    )*/
 
     manager.connectAll()
 
@@ -47,134 +46,21 @@ fun main() {
 
     val pg = manager.get<PostgresConnection>("PostgreSQL[polystore]")
     val mongo = manager.get<MongoConnection>("MongoDB[polystore]")
-    val neo4j = manager.get<Neo4jConnection>("Neo4j[neo4j]")
+    //val neo4j = manager.get<Neo4jConnection>("Neo4j[neo4j]")
 
-    DriverManager.initialize {
-        initPostgres(pg.jdbcConnection)
-        initMongo(mongo)
-        initNeo4j(neo4j)
-    }
+    DriverManager.initPostgres(pg.jdbcConnection)
+    DriverManager.initMongo(mongo)
+
+    val databaseSchema = DriverManager.parseDatabaseSchema()
+    println(databaseSchema)
+
 
     DatabaseManager.initCollections(
-        listOf(
-            /*CollectionModel(
-                "hospitals",
-                mapOf(
-                    "name" to DataType.STRING,
-                    "patientCount" to DataType.INT,
-                    "address" to DataType.STRING
-                ),
-                mutableListOf("departments")
-            ),
-            CollectionModel(
-                "departments",
-                mapOf(
-                    "type" to DataType.STRING,
-                    "capacity" to DataType.INT,
-                    "building" to DataType.STRING
-                ),
-                mutableListOf("doctors")
-            ),
-            CollectionModel(
-                "doctors",
-                mapOf(
-                    "first" to DataType.STRING,
-                    "age" to DataType.INT,
-                    "last" to DataType.STRING
-                ),
-                mutableListOf("patients")
-            ),
-            CollectionModel(
-                "patients",
-                mapOf(
-                    "first" to DataType.STRING,
-                    "age" to DataType.INT,
-                    "last" to DataType.STRING
-                )
-            ),
-            CollectionModel(
-                "buildings",
-                mapOf(
-                    "address" to DataType.STRING,
-                    "built_in" to DataType.INT,
-                    "name" to DataType.STRING
-                ),
-                mutableListOf("rooms")
-            ),
-            CollectionModel(
-                "rooms",
-                mapOf(
-                    "tag" to DataType.STRING,
-                    "number" to DataType.INT,
-                    "nurse" to DataType.STRING
-                )
-            )
-            /*CollectionRef("users") to CollectionModel(
-                "users", ObjectSchema(
-                    mapOf(
-                        "name" to DataType.STRING,
-                        "age" to DataType.INT,
-                    )
-                )
-            ),
-            CollectionRef("posts") to CollectionModel(
-                "posts", ObjectSchema(
-                    mapOf("content" to DataType.STRING, "date" to DataType.INT)
-                )
-            )*/*/
-            CollectionModel(
-                "schools", mapOf(
-                    "name" to DataType.STRING,
-                    "address" to DataType.STRING,
-                    "student_count" to DataType.INT
-                ), mutableListOf(), null
-            ),
-            CollectionModel(
-                "students", mapOf(
-                    "first" to DataType.STRING,
-                    "last" to DataType.STRING,
-                    "age" to DataType.INT
-                ),
-                mutableListOf("schools"), null
-            ),
-            CollectionModel(
-                "courses", mapOf(
-                    "subject" to DataType.STRING,
-                    "teacher" to DataType.STRING,
-                    "difficulty" to DataType.INT
-                ), mutableListOf(), null
-            )
-        )
+        databaseSchema.collections
     )
 
     DatabaseManager.initConnections(
-        listOf(
-            /*"treated_in" to ConnectionModel(
-                "treated_in",
-                CollectionRef("hospitals", "departments", "doctors", "patients"),
-                CollectionRef("buildings", "rooms"),
-                ObjectSchema(mapOf("since" to DataType.INT, "price" to DataType.INT))
-            )
-            "posted" to ConnectionModel(
-                "posted",
-                CollectionRef("users"),
-                CollectionRef("posts"),
-                ObjectSchema(
-                    mapOf(
-                        "connection_data" to DataType.STRING
-                    )
-                )
-            )*/
-            ConnectionModel(
-                "studies",
-                "students",
-                "courses",
-                mapOf(
-                    "grade" to DataType.INT,
-                    "year" to DataType.INT
-                )
-            )
-        )
+        databaseSchema.connections
     )
 
     // Don't disconnect - keep connections alive for the server

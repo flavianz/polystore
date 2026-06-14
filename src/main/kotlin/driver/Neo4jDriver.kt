@@ -13,6 +13,7 @@ import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import java.util.UUID
 
@@ -148,6 +149,14 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
             val result = session.run(query).single()
             PolyResult.Count(result["ps_count"].asInt())
         }
+    }
+
+    override fun init() {
+        TODO("Not yet implemented")
+    }
+
+    override fun getDatabaseSchema(): DatabaseSchema {
+        TODO("Not yet implemented")
     }
 
     // ── Cypher builders ───────────────────────────────────────────────────────
