@@ -58,7 +58,6 @@ object DriverManager {
         }
         postgresDriver?.getDatabaseSchema().let {
             if (it != null) {
-                println(it)
                 schemas.add(it)
             }
         }
@@ -67,10 +66,10 @@ object DriverManager {
                 schemas.add(it)
             }
         }
-        if(schemas.isEmpty()) {
+        if (schemas.isEmpty()) {
             throw IllegalStateException("no source connected to parse schema from")
         }
-        if(schemas.distinct().size > 1) {
+        if (schemas.distinct().size > 1) {
             throw IllegalStateException("not all connected sources have the same schema")
         }
         return schemas.first()

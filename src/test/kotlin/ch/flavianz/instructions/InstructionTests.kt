@@ -14,15 +14,6 @@ class InstructionTests {
 
     @BeforeTest
     fun setUp() {
-        // Initialize DriverManager with a null PostgresDriver if not already initialized
-        try {
-            DriverManager.getInstance()
-        } catch (_: IllegalStateException) {
-            DriverManager.initialize {
-                // postgresDriver remains null for unit tests
-            }
-        }
-
         // Reset DatabaseManager state before each test
         DatabaseManager.initCollections(listOf())
         DatabaseManager.initConnections(listOf())
@@ -142,9 +133,9 @@ class InstructionTests {
         DatabaseManager.createCollection("users", schema)
 
         val doc = mapOf(
-                    "name" to PolyValue.of("Alice"),
-                    "age" to PolyValue.of(30)
-                )
+            "name" to PolyValue.of("Alice"),
+            "age" to PolyValue.of(30)
+        )
 
         // Should not throw, driver execute is no-op
         DatabaseManager.insertDocument("users", doc)
@@ -166,9 +157,9 @@ class InstructionTests {
 
         // 'age' is passed as String instead of Int
         val doc = mapOf(
-                    "name" to PolyValue.of("Alice"),
-                    "age" to PolyValue.of("thirty")
-                )
+            "name" to PolyValue.of("Alice"),
+            "age" to PolyValue.of("thirty")
+        )
 
         assertFailsWith<IllegalStateException> {
             DatabaseManager.insertDocument("users", doc)
@@ -182,8 +173,8 @@ class InstructionTests {
 
         // Missing 'age' field
         val doc = mapOf(
-                    "name" to PolyValue.of("Alice")
-                )
+            "name" to PolyValue.of("Alice")
+        )
 
         assertFailsWith<IllegalStateException> {
             DatabaseManager.insertDocument("users", doc)
@@ -197,8 +188,8 @@ class InstructionTests {
 
         val docId = UUID.randomUUID()
         val updateDoc = mapOf(
-                    "age" to PolyValue.of(31)
-                )
+            "age" to PolyValue.of(31)
+        )
         val path = CollectionPath("users").doc(docId)
         val instruction = UpdateObjectInstruction(path, updateDoc)
 
@@ -225,8 +216,8 @@ class InstructionTests {
 
         val docId = UUID.randomUUID()
         val updateDoc = mapOf(
-                    "nonexistent" to PolyValue.of("value")
-                )
+            "nonexistent" to PolyValue.of("value")
+        )
         val path = CollectionPath("users").doc(docId)
         val instruction = UpdateObjectInstruction(path, updateDoc)
 

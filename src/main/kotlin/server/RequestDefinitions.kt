@@ -41,6 +41,7 @@ fun JsonElement.toPolyValue(): PolyValue = when (this) {
         doubleOrNull != null -> PolyValue.of(double)
         else -> throw IllegalArgumentException("Unknown primitive: $this")
     }
+
     is JsonArray -> throw IllegalArgumentException("Arrays not supported")
     is JsonObject -> throw IllegalArgumentException("Nested objects not supported")
 }

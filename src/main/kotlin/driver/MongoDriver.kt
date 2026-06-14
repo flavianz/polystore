@@ -11,6 +11,7 @@ import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
+import ch.flavianz.model.toJson
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyResult
@@ -27,10 +28,17 @@ import java.util.UUID
 class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     override fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
         mongoDatabase.createCollection(collectionName)
+
+        registerCollection(collectionName, schema, parentCollectionName)
     }
 
     override fun createConnection(connection: ConnectionModel) {
-        // nothing to do
+        registerConnection(
+            connection.name,
+            connection.collection1Name,
+            connection.collection2Name,
+            connection.connectionDataSchema
+        )
     }
 
     override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
@@ -513,13 +521,13 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         val existsCollections = mongoDatabase.listCollections()
             .filter(Document("name", "ps_config_collections"))
             .first() != null
-        if(!existsCollections) {
+        if (!existsCollections) {
             mongoDatabase.createCollection("ps_config_collections")
         }
         val existsConnections = mongoDatabase.listCollections()
             .filter(Document("name", "ps_config_connections"))
             .first() != null
-        if(!existsConnections) {
+        if (!existsConnections) {
             mongoDatabase.createCollection("ps_config_connections")
         }
     }
@@ -530,21 +538,25 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
         fun parseFields(fields: List<*>): PolySchema {
             return fields.filterIsInstance<Document>()
-                .associate {field -> field["name"] as String to DataType.valueOf((field["type"] as String).uppercase()) }
+                .associate { field -> field["name"] as String to DataType.valueOf((field["type"] as String).uppercase()) }
         }
 
-        val collections = collectionDocs.map { CollectionModel(
-            it["name"] as String,
-            parseFields(it["fields"] as List<*>),
-            mutableListOf(),
-            null
-        ) }
-        val connections = connectionDocs.map { ConnectionModel(
-            it["name"] as String,
-            it["collection1"] as String,
-            it["collection2"] as String,
-            parseFields(it["fields"] as List<*>),
-        ) }
+        val collections = collectionDocs.map {
+            CollectionModel(
+                it["name"] as String,
+                parseFields(it["fields"] as List<*>),
+                mutableListOf(),
+                it["parent_collection"] as String?
+            )
+        }
+        val connections = connectionDocs.map {
+            ConnectionModel(
+                it["name"] as String,
+                it["collection1"] as String,
+                it["collection2"] as String,
+                parseFields(it["fields"] as List<*>),
+            )
+        }
 
         return DatabaseSchema(collections, connections)
     }
@@ -552,6 +564,51 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
     private fun prepareValue(value: PolyValue): Any? {
         return value.value
+    }
+
+
+    private fun registerCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
+        val mongoCollection = mongoDatabase.getCollection("ps_config_collections")
+        mongoCollection.insertOne(
+            Document(
+                mapOf(
+                    "name" to collectionName,
+                    "fields" to schema.entries.map {
+                        Document(
+                            mapOf(
+                                "name" to it.key,
+                                "type" to it.value
+                            )
+                        )
+                    },
+                    "parent_collection" to parentCollectionName
+                )
+            )
+        )
+    }
+
+    private fun registerConnection(
+        connectionName: String,
+        collection1Name: String,
+        collection2Name: String,
+        schema: PolySchema
+    ) {
+        val mongoCollection = mongoDatabase.getCollection("ps_config_connections")
+        mongoCollection.insertOne(
+            Document(
+                mapOf(
+                    "name" to connectionName,
+                    "collection1" to collection1Name,
+                    "collection2" to collection2Name,
+                    "fields" to schema.entries.map {
+                        Document(
+                            mapOf(
+                                "name" to it.key,
+                                "type" to it.value
+                            )
+                        )
+                    }
+                )))
     }
 }
 

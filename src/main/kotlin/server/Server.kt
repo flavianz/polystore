@@ -49,8 +49,9 @@ fun startServer() {
                 }
 
                 val result = runCatching {
-                    DatabaseManager.createCollection(body.name,
-                            body.fields.associate { it.name to DataType.valueOf(it.type.uppercase()) },
+                    DatabaseManager.createCollection(
+                        body.name,
+                        body.fields.associate { it.name to DataType.valueOf(it.type.uppercase()) },
                         body.parentCollection
                     )
                 }
@@ -66,8 +67,18 @@ fun startServer() {
 
                 val polyFields = body.fields.mapValues { (_, v) -> v.toPolyValue() }
 
-                DatabaseManager.insertDocument(body.collection,polyFields.toMap(), body.parentDocUuid?.let { UUID.fromString(it) })
-                call.respond(HttpStatusCode.Created, "ok")
+                val result = runCatching {
+                    DatabaseManager.insertDocument(
+                        body.collection,
+                        polyFields.toMap(),
+                        body.parentDocUuid?.let { UUID.fromString(it) })
+                }
+
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.Created, "Inserted document") },
+                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
+                )
             }
         }
     }.start(wait = true)

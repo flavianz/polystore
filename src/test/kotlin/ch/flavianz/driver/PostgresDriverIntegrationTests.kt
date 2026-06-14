@@ -46,6 +46,7 @@ class PostgresDriverIntegrationTests {
         val conn = DriverManager.getConnection("jdbc:postgresql://$host:$port/$database", username, password)
         connection = conn
         driver = PostgresDriver(conn)
+        driver?.init()
 
         // Reset and populate schema registry in DatabaseManager
         DatabaseManager.initCollections(
@@ -82,6 +83,8 @@ class PostgresDriverIntegrationTests {
             stmt.execute("DROP TABLE IF EXISTS \"ps_con_test_users__test_bought__test_orders\"")
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_test_orders\"")
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_test_users\"")
+            stmt.execute("DELETE FROM \"ps_config_connections\"")
+            stmt.execute("DELETE FROM \"ps_config_collections\"")
         }
     }
 
@@ -91,8 +94,9 @@ class PostgresDriverIntegrationTests {
 
         // 1. Create collections
         driver.createCollection("test_users", userSchema)
-        driver.createCollection("test_orders", orderSchema,
-                parentCollectionName = "test_users"
+        driver.createCollection(
+            "test_orders", orderSchema,
+            parentCollectionName = "test_users"
         )
 
         // 2. Create connection
@@ -109,7 +113,12 @@ class PostgresDriverIntegrationTests {
         driver.insertDocument(userModel, userUuid, mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(30)))
 
         val orderUuid = UUID.randomUUID()
-        driver.insertDocument(orderModel, orderUuid, mapOf("item" to PolyValue.of("Laptop"), "price" to PolyValue.of(1200)), userUuid)
+        driver.insertDocument(
+            orderModel,
+            orderUuid,
+            mapOf("item" to PolyValue.of("Laptop"), "price" to PolyValue.of(1200)),
+            userUuid
+        )
 
         // Insert Connection record directly using SQL (as connection table is updated manually or via query in app design)
         connection!!.prepareStatement(

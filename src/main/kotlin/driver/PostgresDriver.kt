@@ -88,7 +88,12 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         this.connection.prepareStatement(sql.toString()).execute()
 
-        registerConnection(connection.name, connection.collection1Name, connection.collection2Name, connection.connectionDataSchema)
+        registerConnection(
+            connection.name,
+            connection.collection1Name,
+            connection.collection2Name,
+            connection.connectionDataSchema
+        )
     }
 
     override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
@@ -278,15 +283,18 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     }
 
     override fun init() {
-        connection.prepareStatement("""create table if not exists public.ps_config_collections
+        connection.prepareStatement(
+            """create table if not exists ps_config_collections
 (
     name text not null primary key,
     fields jsonb not null,
-    parent_collection text references public.ps_config_collections
+    parent_collection text references ps_config_collections
 );
 
-""")
-        connection.prepareStatement("""create table if not exists ps_config_connections
+"""
+        ).execute()
+        connection.prepareStatement(
+            """create table if not exists ps_config_connections
 (
     name text not null primary key,
     collection1 text not null references ps_config_collections,
@@ -294,7 +302,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     fields jsonb not null
 );
 
-""").execute()
+"""
+        ).execute()
     }
 
     override fun getDatabaseSchema(): DatabaseSchema {
@@ -306,13 +315,19 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 val name = collectionsResult.getString("name")
                 val schema = Json.decodeFromString<List<FieldDefinition>>(collectionsResult.getString("fields"))
                 val parentCollection = collectionsResult.getString("parent_collection")
-                add(CollectionModel(name,
-                    schema.associate { it.name to DataType.valueOf(it.type.uppercase()) }, mutableListOf(), parentCollection = parentCollection))
+                add(
+                    CollectionModel(
+                        name,
+                        schema.associate { it.name to DataType.valueOf(it.type.uppercase()) },
+                        mutableListOf(),
+                        parentCollection = parentCollection
+                    )
+                )
             }
         }
         // add child collections to schema
-        for(collection in collections) {
-            if(collection.parentCollection != null) {
+        for (collection in collections) {
+            if (collection.parentCollection != null) {
                 val parentCollection = collections.firstOrNull { it.name == collection.parentCollection }
                 checkNotNull(parentCollection) { "Parent collection ${collection.parentCollection} not found" }
                 parentCollection.childCollections.add(collection.name)
@@ -324,8 +339,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 val name = connectionsResult.getString("name")
                 val collection1 = connectionsResult.getString("collection1")
                 val collection2 = connectionsResult.getString("collection2")
-                val connectionDataSchema = Json.decodeFromString<List<FieldDefinition>>(connectionsResult.getString("fields"))
-                add(ConnectionModel(name, collection1, collection2, connectionDataSchema.associate { it.name to DataType.valueOf(it.type.uppercase()) }))
+                val connectionDataSchema =
+                    Json.decodeFromString<List<FieldDefinition>>(connectionsResult.getString("fields"))
+                add(
+                    ConnectionModel(
+                        name,
+                        collection1,
+                        collection2,
+                        connectionDataSchema.associate { it.name to DataType.valueOf(it.type.uppercase()) })
+                )
             }
         }
         return DatabaseSchema(collections, connections)
@@ -481,7 +503,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append("INSERT INTO ps_config_collections VALUES (")
         sql.append(prepareValue(PolyValue.of(collectionName))).append(", ")
         sql.append("'").append(schema.toJson()).append("', ")
-        if(parentCollectionName != null) {
+        if (parentCollectionName != null) {
             sql.append(prepareValue(PolyValue.of(parentCollectionName)))
         } else {
             sql.append("null")
@@ -490,13 +512,19 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         connection.prepareStatement(sql.toString()).execute()
     }
 
-    private fun registerConnection(connectionName: String, collection1Name: String, collection2Name: String, schema: PolySchema) {
+    private fun registerConnection(
+        connectionName: String,
+        collection1Name: String,
+        collection2Name: String,
+        schema: PolySchema
+    ) {
         val sql = StringBuilder()
-        sql.append("INSERT INTO ps_config_collections VALUES (")
+        sql.append("INSERT INTO ps_config_connections VALUES (")
         sql.append(prepareValue(PolyValue.of(connectionName))).append(", ")
         sql.append(prepareValue(PolyValue.of(collection1Name))).append(", ")
         sql.append(prepareValue(PolyValue.of(collection2Name))).append(", ")
         sql.append("'").append(schema.toJson()).append("')")
+
         connection.prepareStatement(sql.toString()).execute()
     }
 }

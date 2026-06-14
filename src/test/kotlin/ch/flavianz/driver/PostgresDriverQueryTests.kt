@@ -90,6 +90,7 @@ class PostgresDriverQueryTests {
         val conn = DriverManager.getConnection("jdbc:postgresql://$host:$port/$database", username, password)
         connection = conn
         driver = PostgresDriver(conn)
+        driver?.init()
 
         DatabaseManager.initCollections(
             listOf(
@@ -126,7 +127,7 @@ class PostgresDriverQueryTests {
         d.createCollection("students", studentSchema)
         d.createCollection(
             "enrollments", enrollmentSchema,
-                parentCollectionName = "students"
+            parentCollectionName = "students"
         )
         d.createCollection("courses", courseSchema)
         d.createCollection("departments", departmentSchema)
@@ -143,41 +144,51 @@ class PostgresDriverQueryTests {
             studentsModel,
             aliceId, mapOf("name" to PolyValue.of("Alice"), "gpa" to PolyValue.of(4))
         )
-        d.insertDocument(studentsModel,
+        d.insertDocument(
+            studentsModel,
             bobId, mapOf("name" to PolyValue.of("Bob"), "gpa" to PolyValue.of(3))
         )
-        d.insertDocument(studentsModel,
+        d.insertDocument(
+            studentsModel,
             carolId, mapOf("name" to PolyValue.of("Carol"), "gpa" to PolyValue.of(2))
         )
 
         // Enrollments (children of students)
         // Alice has two enrollments; Bob has one; Carol has none
-        d.insertDocument(enrollmentsModel,
+        d.insertDocument(
+            enrollmentsModel,
             UUID.randomUUID(), mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(90)), aliceId
         )
-        d.insertDocument(enrollmentsModel,
+        d.insertDocument(
+            enrollmentsModel,
             UUID.randomUUID(), mapOf("semester" to PolyValue.of("Spring"), "grade" to PolyValue.of(85)), aliceId
         )
-        d.insertDocument(enrollmentsModel,
+        d.insertDocument(
+            enrollmentsModel,
             UUID.randomUUID(), mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(70)), bobId
         )
 
         // Courses
-        d.insertDocument(coursesModel,
+        d.insertDocument(
+            coursesModel,
             mathId, mapOf("title" to PolyValue.of("Math"), "credits" to PolyValue.of(4))
         )
-        d.insertDocument(coursesModel,
+        d.insertDocument(
+            coursesModel,
             historyId, mapOf("title" to PolyValue.of("History"), "credits" to PolyValue.of(3))
         )
-        d.insertDocument(coursesModel,
+        d.insertDocument(
+            coursesModel,
             physicsId, mapOf("title" to PolyValue.of("Physics"), "credits" to PolyValue.of(4))
         )
 
         // Departments
-        d.insertDocument( departmentsModel,
+        d.insertDocument(
+            departmentsModel,
             scienceDeptId, mapOf("name" to PolyValue.of("Science"), "budget" to PolyValue.of(500))
         )
-        d.insertDocument(departmentsModel,
+        d.insertDocument(
+            departmentsModel,
             humanitiesDeptId, mapOf("name" to PolyValue.of("Humanities"), "budget" to PolyValue.of(200))
         )
 
@@ -229,6 +240,8 @@ class PostgresDriverQueryTests {
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_courses\"")
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_departments\"")
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_students\"")
+            stmt.execute("DELETE FROM \"ps_config_connections\"")
+            stmt.execute("DELETE FROM \"ps_config_collections\"")
         }
     }
 
@@ -637,7 +650,8 @@ class PostgresDriverQueryTests {
     fun `student with no connections does not appear in join result`() {
         // Insert a student with no attends connections
         val lonelyId = UUID.randomUUID()
-        driver!!.insertDocument(studentsModel,
+        driver!!.insertDocument(
+            studentsModel,
             lonelyId, mapOf("name" to PolyValue.of("Lonely"), "gpa" to PolyValue.of(1))
         )
 

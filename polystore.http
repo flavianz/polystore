@@ -3,14 +3,29 @@ POST http://localhost:8080/collection/create
 Content-Type: application/json
 
 {
-  "name": "pandas",
+  "name": "babies",
   "fields": [
     {
       "name": "name",
       "type": "string"
-    }, {
+    },
+    {
       "name": "age",
       "type": "int"
     }
-  ]
+  ],
+  "parentCollection": "pandas"
+}
+
+### Insert document into collection
+POST http://localhost:8080/document/insert
+Content-Type: application/json
+
+{
+  "collection": "pandas",
+  "fields": {
+    "name": "tim",
+    "age": 15
+  },
+  "parentDocUuid": null
 }
