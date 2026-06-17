@@ -3,11 +3,9 @@ package ch.flavianz
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.connection.ConnectionManager
 import ch.flavianz.connection.MongoConnection
+import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.driver.DriverManager
-import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.DataType
 import ch.flavianz.server.startServer
 
 fun main() {
@@ -30,12 +28,12 @@ fun main() {
             database = "polystore"
         )
     )
-    /*manager.register(
+    manager.register(
         Neo4jConnection(
             username = "neo4j",
             password = "password"
         )
-    )*/
+    )
 
     manager.connectAll()
 
@@ -46,10 +44,11 @@ fun main() {
 
     val pg = manager.get<PostgresConnection>("PostgreSQL[polystore]")
     val mongo = manager.get<MongoConnection>("MongoDB[polystore]")
-    //val neo4j = manager.get<Neo4jConnection>("Neo4j[neo4j]")
+    val neo4j = manager.get<Neo4jConnection>("Neo4j[neo4j]")
 
     DriverManager.initPostgres(pg.jdbcConnection)
     DriverManager.initMongo(mongo)
+    DriverManager.initNeo4j(neo4j)
 
     val databaseSchema = DriverManager.parseDatabaseSchema()
     println(databaseSchema)
@@ -70,155 +69,3 @@ fun main() {
 
     startServer()
 }
-
-/*fun demo() {
-    DatabaseManager.createCollection(
-        CreateCollectionInstruction(
-            CollectionModel(
-                "schools", mapOf(
-                    "name" to DataType.STRING,
-                    "address" to DataType.STRING,
-                    "student_count" to DataType.INT
-                )
-            )
-        )
-    )
-
-    val gymOberwilUUID = DatabaseManager.insertDocument(
-        InsertObjectInstruction(
-            CollectionPath("schools"), mapOf(
-                "name" to PolyValue.of("Gymnasium Oberwil"),
-                "address" to PolyValue.of("Allschwilerstrasse 100"),
-                "student_count" to PolyValue.of(1000)
-            )
-        )
-    )
-    val gymMuttenzUUID = DatabaseManager.insertDocument(
-        InsertObjectInstruction(
-            CollectionPath("schools"), mapOf(
-                "name" to PolyValue.of("Gymnasium Muttenz"),
-                "address" to PolyValue.of("Muttenzerstrasse 30"),
-                "student_count" to PolyValue.of(800)
-            )
-        )
-    )
-
-    println(DatabaseManager.query(QueryParser("from schools s take s.name, s.student_count").parse()))
-
-    DatabaseManager.createCollection(
-        CreateCollectionInstruction(
-            CollectionModel(
-                "students", mapOf(
-                    "first" to DataType.STRING,
-                    "last" to DataType.STRING,
-                    "age" to DataType.INT
-                )
-            ), "schools"
-        )
-    )
-
-
-    val peterUUID = DatabaseManager.insertDocument(
-        InsertObjectInstruction(
-            CollectionPath("schools", gymOberwilUUID.toString(), "students"), mapOf(
-                "first" to PolyValue.of("Peter"),
-                "last" to PolyValue.of("Müller"),
-                "age" to PolyValue.of(17)
-            )
-        )
-    )
-    val hansUUID = DatabaseManager.insertDocument(
-        InsertObjectInstruction(
-            CollectionPath("schools", gymOberwilUUID.toString(), "students"), mapOf(
-                "first" to PolyValue.of("Hans"),
-                "last" to PolyValue.of("Meier"),
-                "age" to PolyValue.of(18)
-            )
-        )
-    )
-    val danielUUID = DatabaseManager.insertDocument(
-        InsertObjectInstruction(
-            CollectionPath("schools", gymMuttenzUUID.toString(), "students"), mapOf(
-                "first" to PolyValue.of("Daniel"),
-                "last" to PolyValue.of("Hofer"),
-                "age" to PolyValue.of(20)
-            )
-        )
-    )
-
-    println(DatabaseManager.query(QueryParser("from (schools s where student_count > 900).(students st) take s.name, st.last").parse()))
-    println(DatabaseManager.query(QueryParser("from (schools s where student_count > 900).(students st where age > 17) take s.name, st.last, st.age").parse()))
-
-    DatabaseManager.createCollection(
-        CreateCollectionInstruction(
-            CollectionModel(
-                "courses", mapOf(
-                    "subject" to DataType.STRING,
-                    "teacher" to DataType.STRING,
-                    "difficulty" to DataType.INT
-                )
-            )
-        )
-    )
-
-    val mathUUID = DatabaseManager.insertDocument(
-        InsertObjectInstruction(
-            CollectionPath("courses"), mapOf(
-                "subject" to PolyValue.of("Math"),
-                "teacher" to PolyValue.of("Wentzlaff"),
-                "difficulty" to PolyValue.of(9)
-            )
-        )
-    )
-    val englishUUID = DatabaseManager.insertDocument(
-        InsertObjectInstruction(
-            CollectionPath("courses"), mapOf(
-                "subject" to PolyValue.of("English"),
-                "teacher" to PolyValue.of("Eberhardt"),
-                "difficulty" to PolyValue.of(5)
-            )
-        )
-    )
-
-    DatabaseManager.createConnection(
-        ConnectionModel(
-            "studies",
-            "students",
-            "courses",
-            mapOf(
-                "grade" to DataType.INT,
-                "year" to DataType.INT
-            )
-        )
-    )
-
-    DatabaseManager.insertConnection(
-        "studies",
-        "students", danielUUID,
-        "courses", mathUUID,
-        mapOf(
-            "grade" to PolyValue.of(5),
-            "year" to PolyValue.of(2025)
-        )
-    )
-    DatabaseManager.insertConnection(
-        "studies",
-        "students", peterUUID,
-        "courses", englishUUID,
-        mapOf(
-            "grade" to PolyValue.of(4),
-            "year" to PolyValue.of(2023)
-        )
-    )
-    DatabaseManager.insertConnection(
-        "studies",
-        "students", hansUUID,
-        "courses", mathUUID,
-        mapOf(
-            "grade" to PolyValue.of(6),
-            "year" to PolyValue.of(2026)
-        )
-    )
-
-    println(DatabaseManager.query(QueryParser("from (schools sc).(students st)-(studies stu)-(courses c) take sc.name, st.last, c.subject, stu.year").parse()))
-}*/

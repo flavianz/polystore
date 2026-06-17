@@ -13,8 +13,12 @@ import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
+import ch.flavianz.server.FieldDefinition
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.UUID
 
 class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
@@ -27,10 +31,12 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
             val label = collectionLabel(collectionName)
             session.run("CREATE INDEX IF NOT EXISTS FOR (n:`$label`) ON (n.ps_id)")
         }
+        registerCollection(collectionName, schema, parentCollectionName)
     }
 
     override fun createConnection(connection: ConnectionModel) {
         // No-op: relationships are created implicitly on insertConnection.
+        registerConnection(connection.name, connection.collection1Name, connection.collection2Name, connection.connectionDataSchema)
     }
 
     override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
@@ -42,20 +48,20 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
         connection.neo4jSession.use { session ->
             if (collection.hasParentCollection()) {
-                val parentLabel = collectionLabel(collection.name)
+                val parentLabel = collectionLabel(collection.parentCollection!!)
                 // Create child node and link to parent via ps_parent relationship
                 session.run(
-                    """
-                    MATCH (parent:`$parentLabel` {ps_id: ${'$'}parentId})
-                    CREATE (child:`$label`)
-                    SET child = ${'$'}props
+                    $$"""
+                    MATCH (parent:`$$parentLabel` {ps_id: $parentId})
+                    CREATE (child:`$$label`)
+                    SET child = $props
                     CREATE (parent)-[:ps_parent]->(child)
                     """.trimIndent(),
-                    mapOf("parentId" to parentDocUuid, "props" to params)
+                    mapOf("parentId" to parentDocUuid.toString(), "props" to params)
                 )
             } else {
                 session.run(
-                    "CREATE (n:`$label`) SET n = \$props",
+                    $$"CREATE (n:`$$label`) SET n = $props",
                     mapOf("props" to params)
                 )
             }
@@ -152,11 +158,100 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     }
 
     override fun init() {
-        TODO("Not yet implemented")
+        connection.neo4jSession.use { session ->
+            session.run(
+                "CREATE INDEX IF NOT EXISTS FOR (n:ps_config_collection) ON (n.name)"
+            )
+            session.run(
+                "CREATE INDEX IF NOT EXISTS FOR (n:ps_config_connection) ON (n.name)"
+            )
+        }
     }
 
     override fun getDatabaseSchema(): DatabaseSchema {
-        TODO("Not yet implemented")
+        return connection.neo4jSession.use { session ->
+            val collectionRecords = session.run(
+                "MATCH (n:ps_config_collection) RETURN n"
+            ).list { it["n"].asNode() }
+
+            val connectionRecords = session.run(
+                "MATCH (n:ps_config_connection) RETURN n"
+            ).list { it["n"].asNode() }
+
+            fun parseFields(raw: String): PolySchema =
+                Json.decodeFromString<List<FieldDefinition>>(raw)
+                    .associate { it.name to DataType.valueOf(it.type.uppercase()) }
+
+            val collections = collectionRecords.map { node ->
+                CollectionModel(
+                    node["name"].asString(),
+                    parseFields(node["fields"].asString()),
+                    mutableListOf(),
+                    if (node.containsKey("parent_collection")) node["parent_collection"].asString() else null
+                )
+            }
+            addChildCollections(collections)
+
+            val connections = connectionRecords.map { node ->
+                ConnectionModel(
+                    node["name"].asString(),
+                    node["collection1"].asString(),
+                    node["collection2"].asString(),
+                    parseFields(node["fields"].asString()),
+                )
+            }
+
+            DatabaseSchema(collections, connections)
+        }
+    }
+
+    private fun registerCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
+        connection.neo4jSession.use { session ->
+            session.run(
+                $$"""
+            CREATE (n:ps_config_collection {
+                name: $name,
+                fields: $fields,
+                parent_collection: $parentCollection
+            })
+            """.trimIndent(),
+                mapOf(
+                    "name" to collectionName,
+                    "fields" to Json.encodeToString(
+                        schema.entries.map { FieldDefinition(it.key, it.value.name.lowercase()) }
+                    ),
+                    "parentCollection" to parentCollectionName
+                )
+            )
+        }
+    }
+
+    private fun registerConnection(
+        connectionName: String,
+        collection1Name: String,
+        collection2Name: String,
+        schema: PolySchema
+    ) {
+        connection.neo4jSession.use { session ->
+            session.run(
+                """
+            CREATE (n:ps_config_connection {
+                name: ${'$'}name,
+                collection1: ${'$'}collection1,
+                collection2: ${'$'}collection2,
+                fields: ${'$'}fields
+            })
+            """.trimIndent(),
+                mapOf(
+                    "name" to connectionName,
+                    "collection1" to collection1Name,
+                    "collection2" to collection2Name,
+                    "fields" to Json.encodeToString(
+                        schema.entries.map { FieldDefinition(it.key, it.value.name.lowercase()) }
+                    )
+                )
+            )
+        }
     }
 
     // ── Cypher builders ───────────────────────────────────────────────────────

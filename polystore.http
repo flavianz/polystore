@@ -24,8 +24,8 @@ Content-Type: application/json
 {
   "collection": "babies",
   "fields": {
-    "name": "lena",
-    "age": 5
+    "name": "marc",
+    "age": 6
   },
-  "parentDocUuid": "f48d6c17-a399-4ac4-9eca-dfded6b1bb2d"
+  "parentDocUuid": "f9d4d338-69ef-4082-87c4-e8c9f80da3e7"
 }

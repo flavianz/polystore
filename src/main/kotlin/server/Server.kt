@@ -77,7 +77,11 @@ fun startServer() {
 
                 result.fold(
                     onSuccess = { call.respond(HttpStatusCode.Created, "Inserted document with UUID $it") },
-                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
+                    onFailure = {
+                        call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed")
+                        print(it)
+                        print(it.stackTraceToString())
+                    }
                 )
             }
         }
