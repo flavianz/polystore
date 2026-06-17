@@ -3,6 +3,7 @@ package ch.flavianz.driver
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.data.PolyData
+import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
@@ -69,9 +70,20 @@ object DriverManager {
         if (schemas.isEmpty()) {
             throw IllegalStateException("no source connected to parse schema from")
         }
+        println("database schema: $schemas")
         if (schemas.distinct().size > 1) {
             throw IllegalStateException("not all connected sources have the same schema")
         }
         return schemas.first()
+    }
+}
+
+fun addChildCollections(collections: List<CollectionModel>) {
+    for (collection in collections) {
+        if (collection.parentCollection != null) {
+            val parentCollection = collections.firstOrNull { it.name == collection.parentCollection }
+            checkNotNull(parentCollection) { "Parent collection ${collection.parentCollection} not found" }
+            parentCollection.childCollections.add(collection.name)
+        }
     }
 }

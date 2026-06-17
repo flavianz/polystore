@@ -11,7 +11,6 @@ import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
-import ch.flavianz.model.toJson
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyResult
@@ -557,6 +556,9 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 parseFields(it["fields"] as List<*>),
             )
         }
+
+        // add child collections to schema
+        addChildCollections(collections)
 
         return DatabaseSchema(collections, connections)
     }

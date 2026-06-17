@@ -22,10 +22,10 @@ POST http://localhost:8080/document/insert
 Content-Type: application/json
 
 {
-  "collection": "pandas",
+  "collection": "babies",
   "fields": {
-    "name": "tim",
-    "age": 15
+    "name": "lena",
+    "age": 5
   },
-  "parentDocUuid": null
+  "parentDocUuid": "f48d6c17-a399-4ac4-9eca-dfded6b1bb2d"
 }
