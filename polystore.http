@@ -24,8 +24,35 @@ Content-Type: application/json
 {
   "collection": "babies",
   "fields": {
-    "name": "marc",
-    "age": 6
+    "name": "remo",
+    "age": 3
   },
-  "parentDocUuid": "f9d4d338-69ef-4082-87c4-e8c9f80da3e7"
+  "parentDocUuid": "574fd740-37d4-4018-80ff-c432bc39bae5"
+}
+
+### Insert document into collection
+POST http://localhost:8080/query/take
+Content-Type: application/json
+
+{
+  "path": [
+    {
+      "type": "collection",
+      "name": "pandas",
+      "condition": null
+    },
+    {
+      "type": "collection",
+      "name": "babies",
+      "condition": null
+    }
+  ],
+  "take": {
+    "pandas": [
+      "name"
+    ]
+  },
+  "collect": [
+    "babies"
+  ]
 }

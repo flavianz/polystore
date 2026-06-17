@@ -36,7 +36,12 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
     override fun createConnection(connection: ConnectionModel) {
         // No-op: relationships are created implicitly on insertConnection.
-        registerConnection(connection.name, connection.collection1Name, connection.collection2Name, connection.connectionDataSchema)
+        registerConnection(
+            connection.name,
+            connection.collection1Name,
+            connection.collection2Name,
+            connection.connectionDataSchema
+        )
     }
 
     override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
@@ -49,13 +54,13 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         connection.neo4jSession.use { session ->
             if (collection.hasParentCollection()) {
                 val parentLabel = collectionLabel(collection.parentCollection!!)
-                // Create child node and link to parent via ps_parent relationship
+                // Create child node and link to parent via ps_parent_of relationship
                 session.run(
                     $$"""
                     MATCH (parent:`$$parentLabel` {ps_id: $parentId})
                     CREATE (child:`$$label`)
                     SET child = $props
-                    CREATE (parent)-[:ps_parent]->(child)
+                    CREATE (parent)-[:ps_parent_of]->(child)
                     """.trimIndent(),
                     mapOf("parentId" to parentDocUuid.toString(), "props" to params)
                 )
@@ -275,8 +280,8 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                     if (i == 0) {
                         sb.append("($alias:`$label`)")
                     } else {
-                        // linked via ps_parent from previous node
-                        sb.append("-[:ps_parent]->($alias:`$label`)")
+                        // linked via ps_parent_of from previous node
+                        sb.append("-[:ps_parent_of]->($alias:`$label`)")
                     }
                 }
 
@@ -360,6 +365,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                                         )
                                     }
                                 }
+
                                 is FieldRef.Named ->
                                     projections.add(
                                         "$cyAlias.`ps_f_${fieldRef.field}` AS `ps_col_${segment.name}__${fieldRef.field}`"
@@ -386,6 +392,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                                         )
                                     }
                                 }
+
                                 is FieldRef.Named ->
                                     projections.add(
                                         "$nodeAlias.`ps_f_${fieldRef.field}` AS `ps_col_${segment.collectionName}__${fieldRef.field}`"
@@ -399,6 +406,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                                             "$relAlias.`ps_f_$f` AS `ps_con_${model.name}__$f`"
                                         )
                                     }
+
                                 is FieldRef.Named ->
                                     projections.add(
                                         "$relAlias.`ps_f_${fieldRef.field}` AS `ps_con_${model.name}__${fieldRef.field}`"
@@ -418,16 +426,22 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         return when (condition) {
             is Condition.Comparison.Equals ->
                 "$cyAlias.`ps_f_${condition.field}` = ${condition.value.toCypherLiteral()}"
+
             is Condition.Comparison.GreaterThan ->
                 "$cyAlias.`ps_f_${condition.field}` > ${condition.value.toCypherLiteral()}"
+
             is Condition.Comparison.LessThan ->
                 "$cyAlias.`ps_f_${condition.field}` < ${condition.value.toCypherLiteral()}"
+
             is Condition.Logic.And ->
                 "(${translateCondition(condition.left, cyAlias)} AND ${translateCondition(condition.right, cyAlias)})"
+
             is Condition.Logic.Or ->
                 "(${translateCondition(condition.left, cyAlias)} OR ${translateCondition(condition.right, cyAlias)})"
+
             is Condition.Not ->
                 "NOT (${translateCondition(condition.condition, cyAlias)})"
+
             is Condition.In ->
                 "$cyAlias.`ps_f_${condition.field}` IN [${condition.list.joinToString(", ") { it.toCypherLiteral() }}]"
         }
@@ -459,8 +473,13 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         isNull -> PolyValue.NullValue
         type().name() == "STRING" -> {
             val s = asString()
-            try { PolyValue.of(UUID.fromString(s)) } catch (_: IllegalArgumentException) { PolyValue.of(s) }
+            try {
+                PolyValue.of(UUID.fromString(s))
+            } catch (_: IllegalArgumentException) {
+                PolyValue.of(s)
+            }
         }
+
         type().name() == "INTEGER" -> PolyValue.of(asInt())
         type().name() == "FLOAT" -> PolyValue.of(asFloat())
         type().name() == "BOOLEAN" -> PolyValue.of(asBoolean())

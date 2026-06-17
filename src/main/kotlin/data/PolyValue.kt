@@ -37,7 +37,7 @@ sealed class PolyValue {
         }
     }
 
-    data class FloatValue(override val value: Float) : PolyValue() {
+    data class FloatValue(override val value: Float) : Number() {
         override val type = DataType.FLOAT
         override fun toString(): String {
             return value.toString()

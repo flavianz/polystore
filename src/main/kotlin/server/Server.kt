@@ -2,6 +2,12 @@ package ch.flavianz.server
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.DataType
+import ch.flavianz.model.QueryPath
+import ch.flavianz.model.QuerySegment
+import ch.flavianz.query.Condition
+import ch.flavianz.query.FieldRef
+import ch.flavianz.query.PolyQuery
+import ch.flavianz.query.PolyTerminal
 import ch.flavianz.query.QueryParser
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -84,7 +90,63 @@ fun startServer() {
                     }
                 )
             }
+            post("/query/take") {
+                val body = call.receive<TakeRequest>()
+
+                val querySegments = mutableListOf<QuerySegment>()
+
+                var i = 0
+                while (i < body.path.size) {
+                    val requestSegment = body.path[i]
+                    when (requestSegment.type) {
+                        "collection" -> querySegments.add(
+                            QuerySegment.Collection(
+                                requestSegment.name,
+                                if (!requestSegment.condition.isNullOrEmpty()) ConditionParser(requestSegment.condition).parse() else null
+                            )
+                        )
+
+                        "connection" -> {
+                            require(i + 1 < body.path.size)
+                            val nextSegment = body.path[i + 1]
+                            require(nextSegment.type == "collection")
+                            querySegments.add(
+                                QuerySegment.Connection(
+                                    requestSegment.name,
+                                    nextSegment.name,
+                                    if (!requestSegment.condition.isNullOrEmpty()) ConditionParser(requestSegment.condition).parse() else null,
+                                    if (!nextSegment.condition.isNullOrEmpty()) ConditionParser(nextSegment.condition).parse() else null
+                                )
+                            )
+                            i++
+                        }
+
+                        else -> throw IllegalArgumentException("unknown segment type")
+                    }
+                    i++
+                }
+                val fieldRefs = (body.take?.flatMap { segment -> segment.value.map { FieldRef.Named(segment.key, it) } }
+                    ?: emptyList()) +
+                        (body.collect?.map { FieldRef.Wildcard(it) } ?: emptyList())
+
+                val polyQuery = PolyQuery(QueryPath(querySegments), PolyTerminal.Take(fieldRefs))
+
+                val result = runCatching {
+                    DatabaseManager.query(
+                        polyQuery
+                    )
+                }
+
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.Created, it.toJson()) },
+                    onFailure = {
+                        call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed")
+                        print(it)
+                        print(it.stackTraceToString())
+                    }
+                )
+            }
         }
     }.start(wait = true)
 }
-

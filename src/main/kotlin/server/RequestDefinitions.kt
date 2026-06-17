@@ -45,3 +45,17 @@ fun JsonElement.toPolyValue(): PolyValue = when (this) {
     is JsonArray -> throw IllegalArgumentException("Arrays not supported")
     is JsonObject -> throw IllegalArgumentException("Nested objects not supported")
 }
+
+@Serializable
+data class TakeRequest(
+    val path: List<RequestQuerySegment>,
+    val take: Map<String, List<String>>?,
+    val collect: List<String>?
+)
+
+@Serializable
+data class RequestQuerySegment(
+    val name: String,
+    val type: String,
+    val condition: String?
+)

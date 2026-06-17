@@ -1,0 +1,224 @@
+package ch.flavianz.server
+
+import ch.flavianz.data.PolyValue
+import ch.flavianz.query.Condition
+import java.util.UUID
+
+class ConditionParser(input: String) {
+    private val tokens = tokenize(input)
+    private var pos = 0
+
+    fun parse(): Condition {
+        val result = parseOr()
+
+        require(pos == tokens.size) {
+            "Unexpected token '${peek()}'"
+        }
+
+        return result
+    }
+
+    private fun parseOr(): Condition {
+        var left = parseAnd()
+
+        while (peek() == "||") {
+            consume()
+            val right = parseAnd()
+            left = Condition.Logic.Or(left, right)
+        }
+
+        return left
+    }
+
+    private fun parseAnd(): Condition {
+        var left = parseUnary()
+
+        while (peek() == "&&") {
+            consume()
+            val right = parseUnary()
+            left = Condition.Logic.And(left, right)
+        }
+
+        return left
+    }
+
+    private fun parseUnary(): Condition {
+        if (peek() == "!") {
+            consume()
+            return Condition.Not(parseUnary())
+        }
+
+        return parsePrimary()
+    }
+
+    private fun parsePrimary(): Condition {
+        if (peek() == "(") {
+            consume()
+
+            val condition = parseOr()
+
+            expect(")")
+            return condition
+        }
+
+        return parseComparison()
+    }
+
+    private fun parseComparison(): Condition {
+        val identifier = consume()
+
+        require(isIdentifier(identifier)) {
+            "Expected identifier, got '$identifier'"
+        }
+
+        val operator = consume().lowercase()
+
+        return when (operator) {
+            "in" -> {
+                expect("[")
+
+                val items = mutableListOf<PolyValue>()
+
+                if (peek() != "]") {
+                    while (true) {
+                        items += consumeValue()
+
+                        if (peek() == "]")
+                            break
+
+                        expect(",")
+                    }
+                }
+
+                expect("]")
+
+                Condition.In(identifier, items)
+            }
+
+            "==" -> {
+                Condition.Comparison.Equals(
+                    identifier,
+                    consumeValue()
+                )
+            }
+
+            "!=" -> {
+                Condition.Not(
+                    Condition.Comparison.Equals(
+                        identifier,
+                        consumeValue()
+                    )
+                )
+            }
+
+            "<" -> {
+                Condition.Comparison.LessThan(
+                    identifier,
+                    consumeNumberValue()
+                )
+            }
+
+            ">" -> {
+                Condition.Comparison.GreaterThan(
+                    identifier,
+                    consumeNumberValue()
+                )
+            }
+
+            else -> error("Unsupported operator '$operator'")
+        }
+    }
+
+    private fun consumeValue(): PolyValue {
+        val token = consume()
+
+        if (token.startsWith("\"") && token.endsWith("\"")) {
+            return PolyValue.of(
+                token.substring(1, token.length - 1)
+            )
+        }
+
+        if (token.equals("true", true))
+            return PolyValue.of(true)
+
+        if (token.equals("false", true))
+            return PolyValue.of(false)
+
+        if (token.equals("null", true))
+            return PolyValue.NullValue
+
+        token.toIntOrNull()?.let {
+            return PolyValue.of(it)
+        }
+
+        token.toFloatOrNull()?.let {
+            return PolyValue.of(it)
+        }
+
+        if (isValidUUID(token)) {
+            return PolyValue.of(UUID.fromString(token))
+        }
+
+        throw IllegalArgumentException("Illegal value '$token'")
+    }
+
+    private fun consumeNumberValue(): PolyValue.Number {
+        val token = consume()
+
+        token.toIntOrNull()?.let {
+            return PolyValue.of(it)
+        }
+
+        token.toFloatOrNull()?.let {
+            return PolyValue.of(it)
+        }
+
+        throw IllegalArgumentException("Expected numeric value, got '$token'")
+    }
+
+    private fun tokenize(input: String): List<String> {
+        val regex = Regex(
+            "\"[^\"]*\"" +
+                    "|&&" +
+                    "|\\|\\|" +
+                    "|==" +
+                    "|!=" +
+                    "|<=" +
+                    "|>=" +
+                    "|[()\\[\\],!<>]" +
+                    "|[a-zA-Z_][a-zA-Z0-9_]*" +
+                    "|\\d+\\.\\d+" +
+                    "|\\d+" +
+                    "|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+        )
+
+        return regex.findAll(input)
+            .map { it.value }
+            .toList()
+    }
+
+    private fun peek(): String =
+        if (pos < tokens.size) tokens[pos] else ""
+
+    private fun consume(): String {
+        require(pos < tokens.size) {
+            "Unexpected end of input"
+        }
+
+        return tokens[pos++]
+    }
+
+    private fun expect(expected: String) {
+        val actual = consume()
+
+        require(actual == expected) {
+            "Expected '$expected', got '$actual'"
+        }
+    }
+
+    private fun isIdentifier(token: String): Boolean =
+        token.matches(Regex("[a-zA-Z_][a-zA-Z0-9_]*"))
+
+    private fun isValidUUID(token: String): Boolean =
+        runCatching { UUID.fromString(token) }.isSuccess
+}

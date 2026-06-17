@@ -70,7 +70,6 @@ object DriverManager {
         if (schemas.isEmpty()) {
             throw IllegalStateException("no source connected to parse schema from")
         }
-        println("database schema: $schemas")
         if (schemas.distinct().size > 1) {
             throw IllegalStateException("not all connected sources have the same schema")
         }
