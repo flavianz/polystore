@@ -141,9 +141,9 @@ class PostgresDriverIntegrationTests {
 
         assertEquals(1, takeResult.size)
         val userRow = takeResult[0]
-        assertEquals(userUuid.toString(), userRow["ps_col_test_users__id"]?.value?.toString())
-        assertEquals("Alice", userRow["ps_col_test_users__name"]?.value)
-        assertEquals(31, userRow["ps_col_test_users__age"]?.value) // updated age
+        assertEquals(userUuid.toString(), userRow["test_users._id"]?.value?.toString())
+        assertEquals("Alice", userRow["test_users.name"]?.value)
+        assertEquals(31, userRow["test_users.age"]?.value) // updated age
 
         // 6. Test count
         val countResult = driver.count(queryPath, PolyTerminal.Count)
@@ -172,18 +172,18 @@ class PostgresDriverIntegrationTests {
         val joinRow = joinResult[0]
 
         // Validate user fields in join
-        assertEquals(userUuid.toString(), joinRow["ps_col_test_users__id"]?.value?.toString())
-        assertEquals("Alice", joinRow["ps_col_test_users__name"]?.value)
-        assertEquals(31, joinRow["ps_col_test_users__age"]?.value)
+        assertEquals(userUuid.toString(), joinRow["test_users._id"]?.value?.toString())
+        assertEquals("Alice", joinRow["test_users.name"]?.value)
+        assertEquals(31, joinRow["test_users.age"]?.value)
 
         // Validate connection fields in join
-        val quantityKey = "ps_con_test_users__test_bought__test_orders__quantity"
+        val quantityKey = "test_bought.quantity"
         assertEquals(5, joinRow[quantityKey]?.value)
 
         // Validate order fields in join
-        assertEquals(orderUuid.toString(), joinRow["ps_col_test_orders__id"]?.value?.toString())
-        assertEquals("Laptop", joinRow["ps_col_test_orders__item"]?.value)
-        assertEquals(1200, joinRow["ps_col_test_orders__price"]?.value)
+        assertEquals(orderUuid.toString(), joinRow["test_orders._id"]?.value?.toString())
+        assertEquals("Laptop", joinRow["test_orders.item"]?.value)
+        assertEquals(1200, joinRow["test_orders.price"]?.value)
     }
 
     @Test
@@ -210,6 +210,6 @@ class PostgresDriverIntegrationTests {
         val result = driver.take(pathWithCond, PolyTerminal.Take(listOf(FieldRef.Wildcard("test_users"))))
 
         assertEquals(1, result.size)
-        assertEquals("Bob", result[0]["ps_col_test_users__name"]?.value)
+        assertEquals("Bob", result[0]["test_users.name"]?.value)
     }
 }
