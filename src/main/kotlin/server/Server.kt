@@ -1,6 +1,7 @@
 package ch.flavianz.server
 
 import ch.flavianz.core.DatabaseManager
+import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -31,24 +32,6 @@ fun startServer() {
             json()
         }
         routing {
-            get("/query") {
-                val queryString = call.request.queryParameters["q"]
-                    ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing 'q'")
-
-                val result = runCatching {
-                    DatabaseManager.query(QueryParser(queryString).parse())
-                }
-
-                result.fold(
-                    onSuccess = {
-                        call.response.headers.append(HttpHeaders.ContentType, ContentType.Application.Json.toString())
-                        call.respond(it.toJson())
-                    },
-                    onFailure = {
-                        call.respond(HttpStatusCode.InternalServerError, it.message ?: "Query failed")
-                    }
-                )
-            }
             post("/collection/create") {
                 val body = runCatching { call.receive<CreateCollectionRequest>() }.getOrElse {
                     return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
@@ -64,6 +47,25 @@ fun startServer() {
 
                 result.fold(
                     onSuccess = { call.respond(HttpStatusCode.Created, "Collection '${body.name}' created") },
+                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
+                )
+            }
+            post("/connection/create") {
+                val body = runCatching { call.receive<CreateConnectionRequest>() }.getOrElse {
+                    return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+                }
+
+                val result = runCatching {
+                    DatabaseManager.createConnection(
+                        ConnectionModel(
+                            body.name, body.collection1Name, body.collection2Name,
+                            body.fields.associate { it.name to DataType.valueOf(it.type.uppercase()) },
+                        )
+                    )
+                }
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.Created, "Connection '${body.name}' created") },
                     onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
                 )
             }
@@ -83,6 +85,42 @@ fun startServer() {
 
                 result.fold(
                     onSuccess = { call.respond(HttpStatusCode.Created, "Inserted document with UUID $it") },
+                    onFailure = {
+                        call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed")
+                        print(it)
+                        print(it.stackTraceToString())
+                    }
+                )
+            }
+
+            post("/connection/insert") {
+                val body = call.receive<InsertConnectionRequest>()
+
+                val polyFields = body.fields.mapValues { (_, v) -> v.toPolyValue() }
+
+                val result = runCatching {
+                    val connection = DatabaseManager.getConnectionModel(body.connection)
+                    assert(connection.collection1Name == body.collection1Name || connection.collection1Name == body.collection2Name)
+                    assert(connection.collection2Name == body.collection1Name || connection.collection2Name == body.collection2Name)
+                    DatabaseManager.insertConnection(
+                        body.connection,
+                        connection.collection1Name,
+                        UUID.fromString(
+                            if (connection.collection1Name == body.collection1Name)
+                                body.collection1Uuid else body.collection2Uuid
+                        ),
+                        connection.collection2Name,
+                        UUID.fromString(
+                            if (connection.collection2Name == body.collection2Name)
+                                body.collection2Uuid else body.collection1Uuid
+                        ),
+                        polyFields.toMap(),
+                    )
+                }
+
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.Created, "Inserted connection with UUID $it") },
                     onFailure = {
                         call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed")
                         print(it)
@@ -130,6 +168,8 @@ fun startServer() {
                         (body.collect?.map { FieldRef.Wildcard(it) } ?: emptyList())
 
                 val polyQuery = PolyQuery(QueryPath(querySegments), PolyTerminal.Take(fieldRefs))
+
+                println(polyQuery)
 
                 val result = runCatching {
                     DatabaseManager.query(

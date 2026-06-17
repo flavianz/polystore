@@ -60,6 +60,7 @@ sealed class PolyResult {
         }.toString()
 
         is Documents -> buildJsonObject {
+            println(polyData)
             put("type", "documents")
             put("data", buildJsonArray {
                 for (row in polyData) {

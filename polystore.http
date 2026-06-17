@@ -3,10 +3,14 @@ POST http://localhost:8080/collection/create
 Content-Type: application/json
 
 {
-  "name": "babies",
+  "name": "patients",
   "fields": [
     {
-      "name": "name",
+      "name": "first",
+      "type": "string"
+    },
+    {
+      "name": "last",
       "type": "string"
     },
     {
@@ -14,7 +18,38 @@ Content-Type: application/json
       "type": "int"
     }
   ],
-  "parentCollection": "pandas"
+  "parentCollection": null
+}
+
+### Create connection
+POST http://localhost:8080/connection/create
+Content-Type: application/json
+
+{
+  "name": "treatments",
+  "collection1Name": "doctors",
+  "collection2Name": "patients",
+  "fields": [
+    {
+      "name": "since",
+      "type": "int"
+    }
+  ]
+}
+
+### Insert connection
+POST http://localhost:8080/connection/insert
+Content-Type: application/json
+
+{
+  "connection": "treatments",
+  "collection1Name": "doctors",
+  "collection1Uuid": "20e61ebb-7981-436e-b1e6-c3dfa5d5d1c6",
+  "collection2Name": "patients",
+  "collection2Uuid": "750d22c1-f44f-47ed-a2fd-525df5198d8a",
+  "fields": {
+    "since": 2020
+  }
 }
 
 ### Insert document into collection
@@ -22,15 +57,16 @@ POST http://localhost:8080/document/insert
 Content-Type: application/json
 
 {
-  "collection": "babies",
+  "collection": "patients",
   "fields": {
-    "name": "remo",
-    "age": 3
+    "first": "ignacio",
+    "last": "moreno",
+    "age": 70
   },
-  "parentDocUuid": "574fd740-37d4-4018-80ff-c432bc39bae5"
+  "parentDocUuid": null
 }
 
-### Insert document into collection
+### Query
 POST http://localhost:8080/query/take
 Content-Type: application/json
 
@@ -38,21 +74,36 @@ Content-Type: application/json
   "path": [
     {
       "type": "collection",
-      "name": "pandas",
+      "name": "hospitals",
       "condition": null
     },
     {
       "type": "collection",
-      "name": "babies",
+      "name": "departments",
+      "condition": null
+    },
+    {
+      "type": "collection",
+      "name": "doctors",
+      "condition": null
+    },
+    {
+      "type": "connection",
+      "name": "treatments",
+      "condition": null
+    },
+    {
+      "type": "collection",
+      "name": "patients",
       "condition": null
     }
   ],
   "take": {
-    "pandas": [
-      "name"
+    "patients": [
+      "first"
     ]
   },
   "collect": [
-    "babies"
+    "hospitals"
   ]
 }

@@ -21,6 +21,14 @@ data class CreateCollectionRequest(
 )
 
 @Serializable
+data class CreateConnectionRequest(
+    val name: String,
+    val collection1Name: String,
+    val collection2Name: String,
+    val fields: List<FieldDefinition>,
+)
+
+@Serializable
 data class FieldDefinition(
     val name: String,
     val type: String  // or your PolyValue type enum
@@ -31,6 +39,16 @@ data class InsertDocumentRequest(
     val collection: String,
     val fields: Map<String, JsonElement>,
     val parentDocUuid: String?
+)
+
+@Serializable
+data class InsertConnectionRequest(
+    val connection: String,
+    val collection1Name: String,
+    val collection1Uuid: String,
+    val collection2Name: String,
+    val collection2Uuid: String,
+    val fields: Map<String, JsonElement>,
 )
 
 fun JsonElement.toPolyValue(): PolyValue = when (this) {
