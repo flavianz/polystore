@@ -187,9 +187,9 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     is FieldRef.Wildcard -> {
                         val schema = DatabaseManager.getCollectionModel(collectionName).schema
                         val pkCol =
-                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_pk")} AS ${quoteIdentifier("${pgTable}__id")}"
+                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_pk")} AS ${quoteIdentifier("${collectionName}._id")}"
                         val fieldCols = schema.keys.map { f ->
-                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${pgTable}__$f")}"
+                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${collectionName}.$f")}"
                         }
                         listOf(pkCol) + fieldCols
                     }
@@ -197,7 +197,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     is FieldRef.Named -> listOf(
                         "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_${fieldRef.field}")} AS ${
                             quoteIdentifier(
-                                "${pgTable}__${fieldRef.field}"
+                                "${collectionName}.${fieldRef.field}"
                             )
                         }"
                     )
@@ -229,14 +229,14 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                             is FieldRef.Wildcard -> {
                                 val schema = connectionModel.connectionDataSchema
                                 schema.keys.map { f ->
-                                    "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${pgTable}__$f")}"
+                                    "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${connectionModel.name}.$f")}"
                                 }
                             }
 
                             is FieldRef.Named -> listOf(
                                 "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_${fieldRef.field}")} AS ${
                                     quoteIdentifier(
-                                        "${pgTable}__${fieldRef.field}"
+                                        "${connectionModel.name}.${fieldRef.field}"
                                     )
                                 }"
                             )
@@ -250,6 +250,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         appendFromAndJoins(sql, path)
         appendWhere(sql, path)
 
+        println(sql.toString())
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
 
         return buildList {
@@ -472,7 +473,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
     private fun quoteIdentifier(name: String): String {
         // Reject anything that's not a safe identifier character
-        require(name.matches("[a-zA-Z_][a-zA-Z0-9_]*".toRegex())) { "Invalid identifier: $name" }
+        require(name.matches("[a-zA-Z_.][a-zA-Z0-9_.]*".toRegex())) { "Invalid identifier: $name" }
         return "\"${name}\""
     }
 
