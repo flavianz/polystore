@@ -12,6 +12,7 @@ import ch.flavianz.query.PolyTerminal
 import ch.flavianz.query.QueryParser
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.call
@@ -27,11 +28,18 @@ import io.ktor.server.routing.routing
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
+import io.ktor.server.plugins.cors.routing.CORS
 
 fun startServer() {
     embeddedServer(Netty, port = 8080) {
         install(ContentNegotiation) {
             json()
+        }
+        install(CORS) {
+            anyHost() // fine for development
+            allowHeader(HttpHeaders.ContentType)
+            allowMethod(HttpMethod.Get)
+            allowMethod(HttpMethod.Post)
         }
         routing {
             post("/collection/create") {
