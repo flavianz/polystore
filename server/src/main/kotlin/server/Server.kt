@@ -24,6 +24,8 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.util.UUID
 
 fun startServer() {
@@ -179,13 +181,18 @@ fun startServer() {
 
 
                 result.fold(
-                    onSuccess = { call.respond(HttpStatusCode.Created, it.toJson()) },
+                    onSuccess = { call.respond(HttpStatusCode.OK, it.toJson()) },
                     onFailure = {
                         call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed")
                         print(it)
                         print(it.stackTraceToString())
                     }
                 )
+            }
+            get("/collections/list") {
+                val collections = DatabaseManager.listCollections()
+                println(Json.encodeToString(collections))
+                call.respond(HttpStatusCode.OK, collections)
             }
         }
     }.start(wait = true)

@@ -1,5 +1,8 @@
 package ch.flavianz.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class CollectionModel(
     val name: String,
     val schema: PolySchema,

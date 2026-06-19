@@ -78,8 +78,8 @@ object DatabaseManager {
         check(dataMatchesSchema(data, collectionModel.schema))
         { "insertion data does not match schema of collection $collectionName" }
 
-        if(collectionModel.hasParentCollection()) {
-            checkNotNull(collectionModel.parentCollection) { "collection $collectionName has a parent collection, specify a parent document"}
+        if (collectionModel.hasParentCollection()) {
+            checkNotNull(collectionModel.parentCollection) { "collection $collectionName has a parent collection, specify a parent document" }
         } else {
             check(parentDocUuid == null) { "collection $collectionName does not have a parent collection" }
         }
@@ -99,6 +99,10 @@ object DatabaseManager {
         { "update data does not match schema of collection $collectionRef" }
 
         DriverManager.execute { (DatabaseDriver::updateDocument)(updateObjectInstruction) }
+    }
+
+    fun listCollections(): List<CollectionModel> {
+        return collections.values.toList()
     }
 
     fun insertConnection(

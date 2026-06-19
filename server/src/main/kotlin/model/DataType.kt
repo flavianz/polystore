@@ -1,5 +1,8 @@
 package ch.flavianz.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class DataType {
     STRING,
     INT,
