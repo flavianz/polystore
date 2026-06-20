@@ -17,7 +17,7 @@ export function ConnectionForm({
     ...props
 }: ComponentProps<"div"> & { onConnect: (ip: string, port: number) => void }) {
     const [ip, setIp] = useState<string>("localhost");
-    const [port, setPort] = useState<number | null>(3000);
+    const [port, setPort] = useState<number | null>(8080);
 
     function connect() {
         if (port === null) {
@@ -68,7 +68,7 @@ export function ConnectionForm({
                                 />
                             </Field>
                             <Field>
-                                <Button onClick={connect}>Login</Button>
+                                <Button onClick={connect}>Connect</Button>
                             </Field>
                         </FieldGroup>
                     </form>
