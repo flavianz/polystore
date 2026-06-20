@@ -22,44 +22,62 @@ export interface CollectionTree {
 
 export function AppSidebar({
     collections,
+    onSelectedCollection,
+    children,
     ...props
-}: React.ComponentProps<typeof Sidebar> & { collections: CollectionTree }) {
+}: React.ComponentProps<typeof Sidebar> & {
+    collections: CollectionTree;
+    onSelectedCollection: (collection: string) => void;
+}) {
     return (
-        <Sidebar {...props}>
-            <SidebarContent>
-                <SidebarGroup>
-                    <SidebarGroupLabel>Collections</SidebarGroupLabel>
-                    <SidebarGroupContent>
-                        <SidebarMenu>
-                            {Object.entries(collections).map((child, index) => {
-                                const [name, children] = child;
-                                return (
-                                    <Tree
-                                        key={index}
-                                        name={name}
-                                        children={children}
-                                    />
-                                );
-                            })}
-                        </SidebarMenu>
-                    </SidebarGroupContent>
-                </SidebarGroup>
-            </SidebarContent>
-            <SidebarRail />
-        </Sidebar>
+        <div className="flex">
+            <Sidebar {...props}>
+                <SidebarContent>
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Collections</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {Object.entries(collections).map(
+                                    (child, index) => {
+                                        const [name, children] = child;
+                                        return (
+                                            <Tree
+                                                key={index}
+                                                name={name}
+                                                children={children}
+                                                onSelectedCollection={
+                                                    onSelectedCollection
+                                                }
+                                            />
+                                        );
+                                    },
+                                )}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                </SidebarContent>
+                <SidebarRail />
+            </Sidebar>
+            {children}
+        </div>
     );
 }
 
 function Tree({
     name,
     children,
+    onSelectedCollection,
 }: {
     name: string;
     children: CollectionTree | null | undefined;
+    onSelectedCollection: (collection: string) => void;
 }) {
     if (!children) {
         return (
-            <SidebarMenuButton className="data-[active=true]:bg-transparent">
+            <SidebarMenuButton
+                className="data-[active=true]:bg-transparent"
+                onClick={() => onSelectedCollection(name)}
+            >
                 <FolderIcon />
                 {name}
             </SidebarMenuButton>
@@ -69,9 +87,7 @@ function Tree({
     return (
         <SidebarMenuItem>
             <SidebarMenuButton
-                onClick={() => {
-                    alert(name);
-                }}
+                onClick={() => onSelectedCollection(name)}
                 className="data-[active=true]:bg-transparent"
             >
                 <FolderIcon />
@@ -80,7 +96,14 @@ function Tree({
             <SidebarMenuSub>
                 {Object.entries(children).map((child, index) => {
                     const [name, children] = child;
-                    return <Tree key={index} name={name} children={children} />;
+                    return (
+                        <Tree
+                            key={index}
+                            name={name}
+                            children={children}
+                            onSelectedCollection={onSelectedCollection}
+                        />
+                    );
                 })}
             </SidebarMenuSub>
         </SidebarMenuItem>

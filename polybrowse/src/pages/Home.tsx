@@ -1,7 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { AppSidebar, type CollectionTree } from "@/components/app-sidebar.tsx";
+import { useState } from "react";
+import { Label } from "@/components/ui/label.tsx";
+import CollectionView from "@/components/collection-view.tsx";
 
 export default function Home({ ip, port }: { ip: string; port: number }) {
+    const [collection, setCollection] = useState<string | null>(null);
+
     const { isPending, error, data } = useQuery({
         queryKey: ["collections"],
         queryFn: () =>
@@ -48,17 +53,24 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
         tree[collection.name] = buildCollectionTree(collection);
     }
 
-    return <AppSidebar collections={tree}></AppSidebar>;
-    // return AppSidebar      (
-    //     <div>
-    //         {(data as CollectionModel[]).map((collection) => (
-    //             <Label key={collection.name}>
-    //                 {collection.name} parent{" "}
-    //                 {collection.parentCollection ?? "no parent"}
-    //             </Label>
-    //         ))}
-    //     </div>
-    // );
+    return (
+        <AppSidebar
+            collections={tree}
+            onSelectedCollection={(collection) => setCollection(collection)}
+        >
+            {!collection ? (
+                <div className="place-items-center justify-center flex">
+                    <Label>No collection selected</Label>
+                </div>
+            ) : (
+                <CollectionView
+                    collection={collection}
+                    ip={ip}
+                    port={port}
+                ></CollectionView>
+            )}
+        </AppSidebar>
+    );
 }
 
 interface CollectionModel {
