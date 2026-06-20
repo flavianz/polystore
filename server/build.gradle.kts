@@ -1,6 +1,8 @@
 plugins {
     kotlin("jvm") version "2.3.10"
+    id("io.ktor.plugin") version "3.1.3"
     kotlin("plugin.serialization") version "2.3.10"
+    application
 }
 
 group = "ch.flavianz"
@@ -33,9 +35,13 @@ dependencies {
 }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(21)
 }
 
 tasks.test {
     useJUnitPlatform()
+}
+
+application {
+    mainClass.set("ch.flavianz.MainKt")
 }
