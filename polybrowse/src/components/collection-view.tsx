@@ -4,38 +4,48 @@ import {
     Card,
     CardAction,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card.tsx";
+import type { CollectionModel } from "@/pages/Home.tsx";
+import { FolderIcon } from "lucide-react";
+
+export interface CollectionPathSegment {
+    type: "collection" | "connection";
+    name: string;
+    condition: string | null;
+}
 
 export default function CollectionView({
     ip,
     port,
-    collection,
+    collectionPath,
+    collections,
 }: {
-    collection: string;
+    collectionPath: CollectionPathSegment[];
     ip: string;
     port: number;
+    collections: CollectionModel[];
 }) {
     const { isPending, error, data } = useQuery({
-        queryKey: ["collection/" + collection],
+        queryKey: ["collection/" + collectionPath],
         queryFn: async () => {
+            console.log(
+                JSON.stringify({
+                    path: collectionPath,
+                    take: null,
+                    collect: collectionPath[collectionPath.length - 1].name,
+                }),
+            );
             const response = await fetch(`http://${ip}:${port}/query/take`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    path: [
-                        {
-                            type: "collection",
-                            name: collection,
-                            condition: null,
-                        },
-                    ],
+                    path: collectionPath,
                     take: null,
-                    collect: [collection],
+                    collect: [collectionPath[collectionPath.length - 1].name],
                 }),
             });
             return response.json();
@@ -49,7 +59,7 @@ export default function CollectionView({
         return "An error has occurred: " + error.message;
     }
 
-    const collections: {
+    const documents: {
         [id: string]: {
             [id: string]: {
                 [id: string]: any;
@@ -58,40 +68,65 @@ export default function CollectionView({
     }[] = data.data;
 
     return (
-        <div className={"p-6"}>
-            <Label></Label>
-            <Card>
+        <div className={"px-6 pt-6 w-full"}>
+            <Card className={"w-full"}>
                 <CardHeader>
-                    <CardTitle>{collection}</CardTitle>
+                    <div className={"flex items-center"}>
+                        <FolderIcon className={"mr-2 w-4 h-4"} />
+                        <CardTitle>
+                            {collectionPath
+                                .map((segment) => segment.name)
+                                .join(" > ")}
+                        </CardTitle>
+                    </div>
                     <CardAction>
-                        <Label>Fetched {collections.length} documents</Label>
+                        <Label>Fetched {documents.length} documents</Label>
                     </CardAction>
                 </CardHeader>
-                <CardContent>
-                    <div className="flex gap-4">
-                        {collections.map((item, key) => {
+                <CardContent className={""}>
+                    <div className="flex gap-4 overflow-x-auto overflow-y-visible">
+                        {documents.map((item, key) => {
+                            const leafName =
+                                collectionPath[collectionPath.length - 1].name;
+                            const childCollections =
+                                collections.find((col) => col.name === leafName)
+                                    ?.childCollections ?? [];
                             return (
-                                <Card key={key}>
-                                    <CardHeader>
-                                        <CardTitle>
-                                            {item[collection]["_id"]}
-                                        </CardTitle>
-                                    </CardHeader>
+                                <Card key={key} className={"m-0.5"}>
                                     <CardContent>
-                                        {Object.entries(item[collection]).map(
+                                        {Object.entries(item[leafName]).map(
                                             ([key, value], index) => {
                                                 return (
                                                     <Label
-                                                        className="text-muted-foreground"
+                                                        className="text-muted-foreground font-mono"
                                                         key={index}
                                                     >
                                                         {key}:{" "}
-                                                        {JSON.stringify(value)}
+                                                        <Label
+                                                            className={
+                                                                "text-primary-foreground"
+                                                            }
+                                                        >
+                                                            {value}
+                                                        </Label>
                                                     </Label>
                                                 );
                                             },
                                         )}
                                     </CardContent>
+                                    {childCollections.length > 0 && (
+                                        <CardContent>
+                                            {childCollections.map((col) => (
+                                                <Card className={"p-4"}>
+                                                    <CardContent
+                                                        className={"p-0"}
+                                                    >
+                                                        <Label>{col}</Label>
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </CardContent>
+                                    )}
                                 </Card>
                             );
                         })}

@@ -63,17 +63,44 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
                     <Label>No collection selected</Label>
                 </div>
             ) : (
-                <CollectionView
-                    collection={collection}
-                    ip={ip}
-                    port={port}
-                ></CollectionView>
+                <div className={"w-full"}>
+                    <CollectionView
+                        collectionPath={[
+                            {
+                                type: "collection",
+                                name: collection,
+                                condition: null,
+                            },
+                        ]}
+                        ip={ip}
+                        port={port}
+                        collections={collections}
+                    />
+                    <CollectionView
+                        collectionPath={[
+                            {
+                                type: "collection",
+                                name: collection,
+                                condition: null,
+                            },
+                            {
+                                type: "collection",
+                                name: "departments",
+                                condition: null,
+                            },
+                        ]}
+                        ip={ip}
+                        port={port}
+                        collections={collections}
+                    />
+                    <div className={"h-6"} />
+                </div>
             )}
         </AppSidebar>
     );
 }
 
-interface CollectionModel {
+export interface CollectionModel {
     name: string;
     schema: {
         [id: string]: string;

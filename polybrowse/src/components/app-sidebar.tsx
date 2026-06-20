@@ -30,7 +30,7 @@ export function AppSidebar({
     onSelectedCollection: (collection: string) => void;
 }) {
     return (
-        <div className="flex">
+        <div className="flex h-screen w-full">
             <Sidebar {...props}>
                 <SidebarContent>
                     <SidebarGroup>
