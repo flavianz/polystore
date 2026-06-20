@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label.tsx";
-import { Card } from "@/components/ui/card.tsx";
+import {
+    Card,
+    CardAction,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from "@/components/ui/card.tsx";
 
 export default function CollectionView({
     ip,
@@ -51,25 +58,46 @@ export default function CollectionView({
     }[] = data.data;
 
     return (
-        <div>
+        <div className={"p-6"}>
             <Label></Label>
-            <div className="flex gap-4">
-                {collections.map((item, key) => {
-                    return (
-                        <Card key={key} className="p-6">
-                            {Object.entries(item[collection]).map(
-                                ([key, value], index) => {
-                                    return (
-                                        <Label key={index}>
-                                            {key}: {JSON.stringify(value)}
-                                        </Label>
-                                    );
-                                },
-                            )}
-                        </Card>
-                    );
-                })}
-            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>{collection}</CardTitle>
+                    <CardAction>
+                        <Label>Fetched {collections.length} documents</Label>
+                    </CardAction>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex gap-4">
+                        {collections.map((item, key) => {
+                            return (
+                                <Card key={key}>
+                                    <CardHeader>
+                                        <CardTitle>
+                                            {item[collection]["_id"]}
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {Object.entries(item[collection]).map(
+                                            ([key, value], index) => {
+                                                return (
+                                                    <Label
+                                                        className="text-muted-foreground"
+                                                        key={index}
+                                                    >
+                                                        {key}:{" "}
+                                                        {JSON.stringify(value)}
+                                                    </Label>
+                                                );
+                                            },
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                </CardContent>
+            </Card>
         </div>
     );
 }
