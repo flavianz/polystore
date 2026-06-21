@@ -7,6 +7,7 @@ import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
+import ch.flavianz.model.DataType
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -39,6 +40,8 @@ object DatabaseManager {
             check(!existsCollection(collectionName))
             { " collection $collectionName already exists" }
         }
+
+        check(!schema.containsKey("_id")) { "_id is reserved" }
 
         DriverManager.execute { (DatabaseDriver::createCollection)(collectionName, schema, parentCollectionName) }
 
@@ -149,7 +152,7 @@ object DatabaseManager {
                     currentCollectionName = segment.name
                     val collectionModel = getCollectionModel(currentCollectionName)
                     if (segment.condition != null) {
-                        validateConditionFields(segment.condition, collectionModel.schema)
+                        validateConditionFields(segment.condition, collectionModel.schema, true)
                     }
                 }
 
@@ -163,7 +166,7 @@ object DatabaseManager {
                     { "connection ${segment.connectionName} does not exist on collection $currentCollectionName" }
 
                     segment.connectionCondition?.let { condition ->
-                        validateConditionFields(condition, connectionModel.connectionDataSchema)
+                        validateConditionFields(condition, connectionModel.connectionDataSchema, false)
                     }
 
                     currentCollectionName =
@@ -171,7 +174,7 @@ object DatabaseManager {
                         else connectionModel.collection1Name
 
                     segment.collectionCondition?.let { condition ->
-                        validateConditionFields(condition, getCollectionModel(currentCollectionName).schema)
+                        validateConditionFields(condition, getCollectionModel(currentCollectionName).schema, true)
                     }
                 }
             }
@@ -274,22 +277,30 @@ object DatabaseManager {
         return true
     }
 
-    private fun validateConditionFields(condition: Condition, schema: PolySchema) {
+    private fun validateConditionFields(condition: Condition, schema: PolySchema, allowIdField: Boolean) {
         when (condition) {
             is Condition.Comparison.Equals, is Condition.Comparison.GreaterThan, is Condition.Comparison.LessThan -> {
-                val fieldType = schema[condition.field]
-                require(fieldType != null) { "Unknown field: ${condition.field}" }
-                check(condition.value.isType(fieldType)) { "condition value ${condition.value} does not match field type $fieldType" }
+                if (!(allowIdField && condition.field == "_id" && condition.value.isType(DataType.UUID))) {
+                    val fieldType = schema[condition.field]
+                    require(fieldType != null) { "Unknown field: ${condition.field}" }
+                    check(condition.value.isType(fieldType)) { "condition value ${condition.value} does not match field type $fieldType" }
+                }
             }
 
             is Condition.Logic.And, is Condition.Logic.Or -> {
-                validateConditionFields(condition.left, schema); validateConditionFields(condition.right, schema)
+                validateConditionFields(condition.left, schema, allowIdField); validateConditionFields(
+                    condition.right,
+                    schema,
+                    allowIdField
+                )
             }
 
-            is Condition.Not -> validateConditionFields(condition.condition, schema)
+            is Condition.Not -> validateConditionFields(condition.condition, schema, allowIdField)
             is Condition.In -> {
-                val fieldType = schema[condition.field]
-                require(fieldType != null) { "Unknown field: ${condition.field}" }
+                if (!(allowIdField && condition.field == "_id")) {
+                    val fieldType = schema[condition.field]
+                    require(fieldType != null) { "Unknown field: ${condition.field}" }
+                }
             }
         }
     }
