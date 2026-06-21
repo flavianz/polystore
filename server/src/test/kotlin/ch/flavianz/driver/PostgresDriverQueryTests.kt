@@ -216,7 +216,7 @@ class PostgresDriverQueryTests {
         val tableName = "ps_con_${col1}__${connName}__${col2}"
         val fk1 = "ps_cfk_$col1"
         val fk2 = "ps_cfk_$col2"
-        val fieldCols = fields.keys.joinToString { "\"ps_f_$it\"" }
+        val fieldCols = fields.keys.joinToString { "\"$it\"" }
         val fieldPlaceholders = fields.values.joinToString { "?" }
         val sql =
             "INSERT INTO \"$tableName\" (\"$fk1\", \"$fk2\", $fieldCols) VALUES ('$id1', '$id2', $fieldPlaceholders)"

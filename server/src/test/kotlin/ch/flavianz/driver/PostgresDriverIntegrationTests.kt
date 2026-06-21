@@ -123,7 +123,7 @@ class PostgresDriverIntegrationTests {
         // Insert Connection record directly using SQL (as connection table is updated manually or via query in app design)
         connection!!.prepareStatement(
             "INSERT INTO \"ps_con_test_users__test_bought__test_orders\" " +
-                    "(\"ps_cfk_test_users\", \"ps_cfk_test_orders\", \"ps_f_quantity\") " +
+                    "(\"ps_cfk_test_users\", \"ps_cfk_test_orders\", \"quantity\") " +
                     "VALUES ('$userUuid', '$orderUuid', 5)"
         ).execute()
 
