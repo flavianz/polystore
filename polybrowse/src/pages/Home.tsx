@@ -2,10 +2,33 @@ import { useQuery } from "@tanstack/react-query";
 import { AppSidebar, type CollectionTree } from "@/components/app-sidebar.tsx";
 import { useState } from "react";
 import { Label } from "@/components/ui/label.tsx";
-import CollectionView from "@/components/collection-view.tsx";
+import QueryView, { type TakeQuery } from "@/components/query-view.tsx";
 
 export default function Home({ ip, port }: { ip: string; port: number }) {
-    const [collection, setCollection] = useState<string | null>(null);
+    const [query, setQuery] = useState<TakeQuery | null>({
+        path: [
+            { type: "collection", name: "hospitals", condition: null },
+            { type: "collection", name: "departments", condition: null },
+            { type: "collection", name: "doctors", condition: null },
+            { type: "connection", name: "treatments", condition: null },
+            { type: "collection", name: "patients", condition: null },
+            /*{
+                type: "connection",
+                connectionName: "treatments",
+                connectionCondition: null,
+                collectionName: "patients",
+                collectionCondition: null,
+            },*/
+        ],
+        collect: [
+            "hospitals",
+            "departments",
+            "doctors",
+            "treatments",
+            "patients",
+        ],
+        take: null,
+    });
 
     const { isPending, error, data } = useQuery({
         queryKey: ["collections"],
@@ -56,42 +79,32 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
     return (
         <AppSidebar
             collections={tree}
-            onSelectedCollection={(collection) => setCollection(collection)}
+            onSelectedCollection={(collection) => {
+                setSegmentPath([
+                    {
+                        type: "collection",
+                        name: collection,
+                        condition: null,
+                    },
+                ]);
+                console.log("p", JSON.stringify(segmentPath));
+            }}
         >
-            {!collection ? (
+            {!query ? (
                 <div className="place-items-center justify-center flex">
                     <Label>No collection selected</Label>
                 </div>
             ) : (
                 <div className={"w-full"}>
-                    <CollectionView
-                        collectionPath={[
-                            {
-                                type: "collection",
-                                name: collection,
-                                condition: null,
-                            },
-                        ]}
+                    <QueryView
+                        query={query}
                         ip={ip}
                         port={port}
                         collections={collections}
-                    />
-                    <CollectionView
-                        collectionPath={[
-                            {
-                                type: "collection",
-                                name: collection,
-                                condition: null,
-                            },
-                            {
-                                type: "collection",
-                                name: "departments",
-                                condition: null,
-                            },
-                        ]}
-                        ip={ip}
-                        port={port}
-                        collections={collections}
+                        onSelectedSubCollection={(
+                            parentDocUuid,
+                            collection,
+                        ) => {}}
                     />
                     <div className={"h-6"} />
                 </div>
