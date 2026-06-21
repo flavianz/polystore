@@ -186,10 +186,10 @@ class ConditionParser(input: String) {
                     "|<=" +
                     "|>=" +
                     "|[()\\[\\],!<>]" +
+                    "|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}" +
                     "|[a-zA-Z_][a-zA-Z0-9_]*" +
                     "|\\d+\\.\\d+" +
-                    "|\\d+" +
-                    "|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+                    "|\\d+"
         )
 
         return regex.findAll(input)
