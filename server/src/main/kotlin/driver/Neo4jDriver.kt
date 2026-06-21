@@ -206,7 +206,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                 )
             }
 
-            DatabaseSchema(collections, connections)
+            DatabaseSchema(collections.toSet(), connections.toSet())
         }
     }
 

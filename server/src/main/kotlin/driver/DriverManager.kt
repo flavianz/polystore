@@ -70,7 +70,12 @@ object DriverManager {
         if (schemas.isEmpty()) {
             throw IllegalStateException("no source connected to parse schema from")
         }
+
         if (schemas.distinct().size > 1) {
+            val connections = schemas[0].connections.filter { !schemas[1].connections.contains(it) }
+            println(connections)
+            val collections = schemas[0].collections.filter { !schemas[1].collections.contains(it) }
+            println(collections)
             throw IllegalStateException("not all connected sources have the same schema")
         }
         return schemas.first()

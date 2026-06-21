@@ -560,7 +560,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         // add child collections to schema
         addChildCollections(collections)
 
-        return DatabaseSchema(collections, connections)
+        return DatabaseSchema(collections.toSet(), connections.toSet())
     }
 
 

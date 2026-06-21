@@ -55,11 +55,11 @@ fun main() {
 
 
     DatabaseManager.initCollections(
-        databaseSchema.collections
+        databaseSchema.collections.toList()
     )
 
     DatabaseManager.initConnections(
-        databaseSchema.connections
+        databaseSchema.connections.toList()
     )
 
     // Don't disconnect - keep connections alive for the server

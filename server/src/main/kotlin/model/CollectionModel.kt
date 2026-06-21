@@ -19,6 +19,6 @@ fun PolySchema.toJson(): String {
 }
 
 data class DatabaseSchema(
-    val collections: List<CollectionModel>,
-    val connections: List<ConnectionModel>
+    val collections: Set<CollectionModel>,
+    val connections: Set<ConnectionModel>
 )

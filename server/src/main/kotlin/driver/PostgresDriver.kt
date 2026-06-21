@@ -34,20 +34,19 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         // ps_col = polystore_collection
         sql.append("CREATE TABLE ").append(quoteIdentifier("ps_col_$collectionName"))
 
-        // ps_pk = polystore_primarykey
-        sql.append(" (").append(quoteIdentifier("ps_pk")).append(" UUID PRIMARY KEY")
+        sql.append(" (").append(quoteIdentifier("_id")).append(" UUID PRIMARY KEY")
 
         if (parentCollectionName != null) {
             // ps_pfk = polystore_parentforeignkey
             sql.append(", ").append(quoteIdentifier("ps_parent_fk")).append(" UUID CONSTRAINT ")
                 .append(quoteIdentifier("${collectionName}_parent_${parentCollectionName}_fk"))
                 .append(" references ").append(quoteIdentifier("ps_col_${parentCollectionName}"))
-                .append(" (").append(quoteIdentifier("ps_pk")).append(")")
+                .append(" (").append(quoteIdentifier("_id")).append(")")
         }
 
         // Add fields from the schema
         for ((name, dataType) in schema) {
-            sql.append(", ps_f_").append(name).append(" ").append(dataType.toPostgresType())
+            sql.append(", ").append(name).append(" ").append(dataType.toPostgresType())
         }
 
         sql.append(")")
@@ -71,17 +70,17 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(" (").append(quoteIdentifier("ps_cfk_$collection1Name")).append(" UUID CONSTRAINT ")
             .append(quoteIdentifier("${connection.name}_con_${collection1Name}_fk"))
             .append(" references ").append(quoteIdentifier("ps_col_${collection1Name}"))
-            .append(" (").append(quoteIdentifier("ps_pk")).append(")")
+            .append(" (").append(quoteIdentifier("_id")).append(")")
         sql.append(", ").append(quoteIdentifier("ps_cfk_$collection2Name")).append(" UUID CONSTRAINT ")
             .append(quoteIdentifier("${connection.name}_con_${collection2Name}_fk"))
             .append(" references ").append(quoteIdentifier("ps_col_${collection2Name}"))
-            .append(" (").append(quoteIdentifier("ps_pk")).append(")")
+            .append(" (").append(quoteIdentifier("_id")).append(")")
 
 
         // Add fields from the schema
         for ((name, dataType) in connection.connectionDataSchema) {
             // f = field
-            sql.append(", ps_f_").append(name).append(" ").append(dataType.toPostgresType())
+            sql.append(", ").append(name).append(" ").append(dataType.toPostgresType())
         }
 
         sql.append(")")
@@ -99,14 +98,14 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
         val sql = StringBuilder()
         sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${collection.name}")).append(" (")
-        sql.append(quoteIdentifier("ps_pk"))
+        sql.append(quoteIdentifier("_id"))
 
         if (parentDocUuid != null) {
             sql.append(", ").append(quoteIdentifier("ps_parent_fk"))
         }
 
         for (entry in data.entries) {
-            sql.append(", ").append(quoteIdentifier("ps_f_${entry.key}"))
+            sql.append(", ").append(quoteIdentifier("${entry.key}"))
         }
         sql.append(") VALUES (").append(prepareValue(PolyValue.of(uuid)))
 
@@ -128,7 +127,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.leafName()}")).append(" SET ")
 
         for (entry in instruction.data.entries) {
-            sql.append(quoteIdentifier("ps_f_${entry.key}")).append(" = ").append(prepareValue(entry.value))
+            sql.append(quoteIdentifier("${entry.key}")).append(" = ").append(prepareValue(entry.value))
                 .append(", ")
         }
         if (instruction.data.isNotEmpty()) {
@@ -136,7 +135,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             sql.deleteRange(sql.length - 2, sql.length)
         }
 
-        sql.append(" WHERE ").append(quoteIdentifier("ps_pk")).append(" = ").append(
+        sql.append(" WHERE ").append(quoteIdentifier("_id")).append(" = ").append(
             prepareValue(
                 PolyValue.of(instruction.documentPath.uuid)
             )
@@ -161,7 +160,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(quoteIdentifier("ps_cfk_${connection.collection2Name}"))
 
         for (entry in connectionData) {
-            sql.append(", ").append(quoteIdentifier("ps_f_${entry.key}"))
+            sql.append(", ").append(quoteIdentifier("${entry.key}"))
         }
         sql.append(") VALUES (")
 
@@ -187,15 +186,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     is FieldRef.Wildcard -> {
                         val schema = DatabaseManager.getCollectionModel(collectionName).schema
                         val pkCol =
-                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_pk")} AS ${quoteIdentifier("${collectionName}._id")}"
+                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("_id")} AS ${quoteIdentifier("${collectionName}._id")}"
                         val fieldCols = schema.keys.map { f ->
-                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${collectionName}.$f")}"
+                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("$f")} AS ${quoteIdentifier("${collectionName}.$f")}"
                         }
                         listOf(pkCol) + fieldCols
                     }
 
                     is FieldRef.Named -> listOf(
-                        "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_${fieldRef.field}")} AS ${
+                        "${quoteIdentifier(pgTable)}.${quoteIdentifier("${fieldRef.field}")} AS ${
                             quoteIdentifier(
                                 "${collectionName}.${fieldRef.field}"
                             )
@@ -229,12 +228,12 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                             is FieldRef.Wildcard -> {
                                 val schema = connectionModel.connectionDataSchema
                                 schema.keys.map { f ->
-                                    "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_$f")} AS ${quoteIdentifier("${connectionModel.name}.$f")}"
+                                    "${quoteIdentifier(pgTable)}.${quoteIdentifier("$f")} AS ${quoteIdentifier("${connectionModel.name}.$f")}"
                                 }
                             }
 
                             is FieldRef.Named -> listOf(
-                                "${quoteIdentifier(pgTable)}.${quoteIdentifier("ps_f_${fieldRef.field}")} AS ${
+                                "${quoteIdentifier(pgTable)}.${quoteIdentifier("${fieldRef.field}")} AS ${
                                     quoteIdentifier(
                                         "${connectionModel.name}.${fieldRef.field}"
                                     )
@@ -345,7 +344,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 )
             }
         }
-        return DatabaseSchema(collections, connections)
+        return DatabaseSchema(collections.toSet(), connections.toSet())
     }
 
     private fun appendFromAndJoins(sql: StringBuilder, path: QueryPath) {
@@ -366,7 +365,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                         .append(" ON ")
                         .append(quoteIdentifier(currTable)).append(".").append(quoteIdentifier("ps_parent_fk"))
                         .append(" = ")
-                        .append(quoteIdentifier(prevTable)).append(".").append(quoteIdentifier("ps_pk"))
+                        .append(quoteIdentifier(prevTable)).append(".").append(quoteIdentifier("_id"))
                 }
 
                 is QuerySegment.Connection -> {
@@ -382,11 +381,11 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                         .append(quoteIdentifier(connTable)).append(".")
                         .append(quoteIdentifier("ps_cfk_${connectionModel.collection1Name}"))
                         .append(" = ")
-                        .append(quoteIdentifier(prevTable)).append(".").append(quoteIdentifier("ps_pk"))
+                        .append(quoteIdentifier(prevTable)).append(".").append(quoteIdentifier("_id"))
                         .append(" JOIN ").append(quoteIdentifier(nextTable))
                         .append(" ON ")
                         .append(quoteIdentifier(nextTable)).append(".")
-                        .append(quoteIdentifier("ps_pk")).append(" = ")
+                        .append(quoteIdentifier("_id")).append(" = ")
                         .append(quoteIdentifier(connTable)).append(".")
                         .append("ps_cfk_${connectionModel.collection2Name}")
                 }
@@ -431,19 +430,19 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
     private fun translateCondition(condition: Condition, tableAlias: String): String {
         return when (condition) {
-            is Condition.Comparison.Equals -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("ps_f_${condition.field}")} = ${
+            is Condition.Comparison.Equals -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("${condition.field}")} = ${
                 prepareValue(
                     condition.value
                 )
             }"
 
-            is Condition.Comparison.GreaterThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("ps_f_${condition.field}")} > ${
+            is Condition.Comparison.GreaterThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("${condition.field}")} > ${
                 prepareValue(
                     condition.value
                 )
             }"
 
-            is Condition.Comparison.LessThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("ps_f_${condition.field}")} < ${
+            is Condition.Comparison.LessThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("${condition.field}")} < ${
                 prepareValue(
                     condition.value
                 )
@@ -465,7 +464,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
             is Condition.Not -> "NOT (${translateCondition(condition.condition, tableAlias)})"
 
-            is Condition.In -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("ps_f_${condition.field}")} IN (${
+            is Condition.In -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("${condition.field}")} IN (${
                 condition.list.joinToString(",") { prepareValue(it) }
             })"
         }
