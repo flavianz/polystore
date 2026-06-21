@@ -2,7 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { AppSidebar, type CollectionTree } from "@/components/app-sidebar.tsx";
 import { useState } from "react";
 import { Label } from "@/components/ui/label.tsx";
-import QueryView, { type TakeQuery } from "@/components/query-view.tsx";
+import QueryView, {
+    type QuerySegment,
+    type TakeQuery,
+} from "@/components/query-view.tsx";
 
 export default function Home({ ip, port }: { ip: string; port: number }) {
     const [query, setQuery] = useState<TakeQuery | null>({
@@ -12,13 +15,6 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
             { type: "collection", name: "doctors", condition: null },
             { type: "connection", name: "treatments", condition: null },
             { type: "collection", name: "patients", condition: null },
-            /*{
-                type: "connection",
-                connectionName: "treatments",
-                connectionCondition: null,
-                collectionName: "patients",
-                collectionCondition: null,
-            },*/
         ],
         collect: [
             "hospitals",
@@ -75,19 +71,23 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
     )) {
         tree[collection.name] = buildCollectionTree(collection);
     }
+    console.log(query);
 
     return (
         <AppSidebar
             collections={tree}
             onSelectedCollection={(collection) => {
-                setSegmentPath([
-                    {
-                        type: "collection",
-                        name: collection,
-                        condition: null,
-                    },
-                ]);
-                console.log("p", JSON.stringify(segmentPath));
+                setQuery({
+                    path: [
+                        {
+                            type: "collection",
+                            name: collection,
+                            condition: null,
+                        },
+                    ],
+                    collect: [collection],
+                    take: null,
+                });
             }}
         >
             {!query ? (
@@ -102,9 +102,48 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
                         port={port}
                         collections={collections}
                         onSelectedSubCollection={(
+                            parentCollection,
                             parentDocUuid,
-                            collection,
-                        ) => {}}
+                            collectionName,
+                        ) => {
+                            const queryPath = [...query.path].slice(
+                                0,
+                                query.path.findIndex(
+                                    (segment: QuerySegment) =>
+                                        segment.name == parentCollection,
+                                ) + 1,
+                            );
+                            if (queryPath.length > 0) {
+                                queryPath[queryPath.length - 1].condition =
+                                    `_id == ${parentDocUuid}`;
+                            }
+                            const remainingSegmentNames = queryPath.map(
+                                (segment) => segment.name,
+                            );
+                            queryPath.push({
+                                type: "collection",
+                                name: collectionName,
+                                condition: null,
+                            });
+                            console.log(remainingSegmentNames, query.collect);
+
+                            setQuery({
+                                path: queryPath,
+                                collect: [
+                                    ...(query.collect ?? []).filter((segment) =>
+                                        remainingSegmentNames.includes(segment),
+                                    ),
+                                    collectionName,
+                                ],
+                                take: Object.fromEntries(
+                                    Object.entries(query.take ?? {}).filter(
+                                        ([segmentName]) =>
+                                            segmentName in
+                                            remainingSegmentNames,
+                                    ),
+                                ),
+                            });
+                        }}
                     />
                     <div className={"h-6"} />
                 </div>
