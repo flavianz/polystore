@@ -1,5 +1,8 @@
 package ch.flavianz.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ConnectionModel(
     val name: String,
     val collection1Name: String,

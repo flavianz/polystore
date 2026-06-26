@@ -109,4 +109,7 @@ Content-Type: application/json
 }
 
 ### List collecions
-GET http://localhost:8080/collections/list
+GET http://localhost:8080/connections/list
+
+### get schema
+GET http://localhost:8080/schema

@@ -8,6 +8,7 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.DataType
+import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -106,6 +107,14 @@ object DatabaseManager {
 
     fun listCollections(): List<CollectionModel> {
         return collections.values.toList()
+    }
+
+    fun listConnections(): List<ConnectionModel> {
+        return connections.values.toList()
+    }
+
+    fun getSchema(): DatabaseSchema {
+        return DatabaseSchema(listCollections().toSet(), listConnections().toSet())
     }
 
     fun insertConnection(

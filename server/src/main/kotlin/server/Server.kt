@@ -202,6 +202,17 @@ fun startServer() {
                 println(Json.encodeToString(collections))
                 call.respond(HttpStatusCode.OK, collections)
             }
+            get("/connections/list") {
+                val connections = DatabaseManager.listConnections()
+                call.respond(HttpStatusCode.OK, connections)
+            }
+            get("/schema") {
+                val schema = DatabaseManager.getSchema()
+                call.respond(HttpStatusCode.OK, schema)
+            }
+            get("/version") {
+                call.respond(HttpStatusCode.OK, "0.0.1")
+            }
         }
     }.start(wait = true)
 }

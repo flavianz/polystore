@@ -6,6 +6,8 @@ import QueryView, {
     type QuerySegment,
     type TakeQuery,
 } from "@/components/query-view.tsx";
+import { Card, CardContent } from "@/components/ui/card";
+import { ChevronRightIcon } from "lucide-react";
 
 export default function Home({ ip, port }: { ip: string; port: number }) {
     const [query, setQuery] = useState<TakeQuery | null>({
@@ -29,9 +31,7 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
     const { isPending, error, data } = useQuery({
         queryKey: ["collections"],
         queryFn: () =>
-            fetch(`http://${ip}:${port}/collections/list`).then((res) =>
-                res.json(),
-            ),
+            fetch(`http://${ip}:${port}/schema`).then((res) => res.json()),
     });
 
     if (isPending) return "Loading...";
@@ -41,7 +41,7 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
         return "An error has occurred: " + error.message;
     }
 
-    const collections = data as CollectionModel[];
+    const schema = data as DatabaseSchema;
 
     function buildCollectionTree(
         collection: CollectionModel,
@@ -54,7 +54,7 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
         } else {
             const childCollections: CollectionTree = {};
             for (const childName of collection.childCollections) {
-                const child = collections.find(
+                const child = schema.collections.find(
                     (item) => item.name === childName,
                 );
                 if (child) {
@@ -66,7 +66,7 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
     }
 
     const tree: CollectionTree = {};
-    for (const collection of collections.filter(
+    for (const collection of schema.collections.filter(
         (collection) => !collection.parentCollection,
     )) {
         tree[collection.name] = buildCollectionTree(collection);
@@ -89,18 +89,41 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
                     take: null,
                 });
             }}
+            ip={ip}
+            port={port}
         >
             {!query ? (
                 <div className="place-items-center justify-center flex">
                     <Label>No collection selected</Label>
                 </div>
             ) : (
-                <div className={"w-full"}>
+                <div className={"px-6 pt-6 w-full"}>
+                    <Card className={"mb-6"}>
+                        <CardContent className={"flex items-center"}>
+                            {query.path.map((segment, index) => {
+                                return (
+                                    <>
+                                        <Card className={"mx-2 py-2"}>
+                                            <CardContent>
+                                                {" "}
+                                                {segment.name}
+                                            </CardContent>
+                                        </Card>
+                                        {index !== query.path.length - 1 && (
+                                            <ChevronRightIcon
+                                                className={"h-4 w-4"}
+                                            />
+                                        )}
+                                    </>
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
                     <QueryView
                         query={query}
                         ip={ip}
                         port={port}
-                        collections={collections}
+                        schema={schema}
                         onSelectedSubCollection={(
                             parentCollection,
                             parentDocUuid,
@@ -125,7 +148,6 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
                                 name: collectionName,
                                 condition: null,
                             });
-                            console.log(remainingSegmentNames, query.collect);
 
                             setQuery({
                                 path: queryPath,
@@ -144,12 +166,72 @@ export default function Home({ ip, port }: { ip: string; port: number }) {
                                 ),
                             });
                         }}
+                        onSelectedConnection={(
+                            parentCollection,
+                            parentDocUuid,
+                            connection,
+                        ) => {
+                            const queryPath = [...query.path].slice(
+                                0,
+                                query.path.findIndex(
+                                    (segment: QuerySegment) =>
+                                        segment.name == parentCollection,
+                                ) + 1,
+                            );
+                            if (queryPath.length > 0) {
+                                queryPath[queryPath.length - 1].condition =
+                                    `_id == ${parentDocUuid}`;
+                            }
+                            const remainingSegmentNames = queryPath.map(
+                                (segment) => segment.name,
+                            );
+                            queryPath.push({
+                                type: "connection",
+                                name: connection.name,
+                                condition: null,
+                            });
+                            queryPath.push({
+                                type: "collection",
+                                name:
+                                    parentCollection ==
+                                    connection.collection1Name
+                                        ? connection.collection2Name
+                                        : connection.collection1Name,
+                                condition: null,
+                            });
+
+                            setQuery({
+                                path: queryPath,
+                                collect: [
+                                    ...(query.collect ?? []).filter((segment) =>
+                                        remainingSegmentNames.includes(segment),
+                                    ),
+                                    connection.name,
+                                    parentCollection ==
+                                    connection.collection1Name
+                                        ? connection.collection2Name
+                                        : connection.collection1Name,
+                                ],
+                                take: Object.fromEntries(
+                                    Object.entries(query.take ?? {}).filter(
+                                        ([segmentName]) =>
+                                            segmentName in
+                                            remainingSegmentNames,
+                                    ),
+                                ),
+                            });
+                        }}
                     />
                     <div className={"h-6"} />
                 </div>
             )}
         </AppSidebar>
     );
+}
+
+export interface DatabaseSchema {
+    collections: CollectionModel[];
+    connections: ConnectionModel[];
 }
 
 export interface CollectionModel {
@@ -159,4 +241,13 @@ export interface CollectionModel {
     };
     childCollections?: string[];
     parentCollection?: string;
+}
+
+export interface ConnectionModel {
+    name: string;
+    collection1Name: string;
+    collection2Name: string;
+    connectionDataSchema: {
+        [id: string]: string;
+    };
 }

@@ -18,6 +18,7 @@ fun PolySchema.toJson(): String {
     return "[${entries.joinToString(",") { "{\"name\": \"${it.key}\", \"type\": \"${it.value}\"}" }}]"
 }
 
+@Serializable
 data class DatabaseSchema(
     val collections: Set<CollectionModel>,
     val connections: Set<ConnectionModel>

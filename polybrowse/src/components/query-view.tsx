@@ -6,25 +6,31 @@ import {
     CardHeader,
     CardTitle,
 } from "@/components/ui/card.tsx";
-import type { CollectionModel } from "@/pages/Home.tsx";
-import { FolderIcon, Link2Icon } from "lucide-react";
+import type { ConnectionModel, DatabaseSchema } from "@/pages/Home.tsx";
+import { ChevronRightIcon, FolderIcon, Link2Icon } from "lucide-react";
 import { Separator } from "@/components/ui/separator.tsx";
 
 export default function QueryView({
     ip,
     port,
     query,
-    collections,
+    schema,
     onSelectedSubCollection,
+    onSelectedConnection,
 }: {
     query: TakeQuery;
     ip: string;
     port: number;
-    collections: CollectionModel[];
+    schema: DatabaseSchema;
     onSelectedSubCollection?: (
         parentCollection: string,
         parentDocUuid: string,
         subCollectionName: string,
+    ) => void;
+    onSelectedConnection?: (
+        parentCollection: string,
+        parentDocUuid: string,
+        connection: ConnectionModel,
     ) => void;
 }) {
     const { isPending, error, data } = useQuery({
@@ -63,7 +69,7 @@ export default function QueryView({
     }
 
     return (
-        <div className={"px-6 pt-6 w-full"}>
+        <div className={"w-full"}>
             {documents.map((doc, index) => {
                 const sortedEntries = query.path.map((segment) => {
                     return (
@@ -78,9 +84,17 @@ export default function QueryView({
                             {sortedEntries.map(
                                 ([segmentName, data], index2) => {
                                     const childCollections =
-                                        collections.find(
+                                        schema.collections.find(
                                             (col) => col.name === segmentName,
                                         )?.childCollections ?? [];
+                                    const connections =
+                                        schema.connections.filter(
+                                            (con) =>
+                                                con.collection1Name ==
+                                                    segmentName ||
+                                                con.collection2Name ==
+                                                    segmentName,
+                                        );
                                     return (
                                         <>
                                             <Card
@@ -135,18 +149,24 @@ export default function QueryView({
                                                             );
                                                         },
                                                     )}
-                                                    {childCollections.length >
-                                                        0 && (
+                                                    {(childCollections.length >
+                                                        0 ||
+                                                        connections.length >
+                                                            0) && (
                                                         <Separator
                                                             className={"my-3"}
                                                         />
                                                     )}
                                                     {childCollections.map(
-                                                        (childCollection) => {
+                                                        (
+                                                            childCollection,
+                                                            index,
+                                                        ) => {
                                                             return (
                                                                 <Card
+                                                                    key={index}
                                                                     className={
-                                                                        "py-4 hover:cursor-pointer"
+                                                                        "py-4 hover:cursor-pointer hover:bg-muted"
                                                                     }
                                                                     onClick={() => {
                                                                         if (
@@ -164,7 +184,7 @@ export default function QueryView({
                                                                 >
                                                                     <CardContent
                                                                         className={
-                                                                            "hover:cursor-pointer"
+                                                                            "hover:cursor-pointer flex justify-between"
                                                                         }
                                                                     >
                                                                         <Label
@@ -176,6 +196,57 @@ export default function QueryView({
                                                                                 childCollection
                                                                             }
                                                                         </Label>
+                                                                        <ChevronRightIcon
+                                                                            className={
+                                                                                "h-4 w-4"
+                                                                            }
+                                                                        />
+                                                                    </CardContent>
+                                                                </Card>
+                                                            );
+                                                        },
+                                                    )}
+                                                    {connections.map(
+                                                        (connection, index) => {
+                                                            return (
+                                                                <Card
+                                                                    key={index}
+                                                                    className={
+                                                                        "py-4 hover:cursor-pointer hover:bg-muted"
+                                                                    }
+                                                                    onClick={() => {
+                                                                        if (
+                                                                            onSelectedConnection
+                                                                        ) {
+                                                                            onSelectedConnection(
+                                                                                segmentName,
+                                                                                data[
+                                                                                    "_id"
+                                                                                ],
+                                                                                connection,
+                                                                            );
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <CardContent
+                                                                        className={
+                                                                            "hover:cursor-pointer flex justify-between"
+                                                                        }
+                                                                    >
+                                                                        <Label
+                                                                            className={
+                                                                                " hover:cursor-pointer"
+                                                                            }
+                                                                        >
+                                                                            {
+                                                                                connection.name
+                                                                            }
+                                                                        </Label>
+                                                                        <ChevronRightIcon
+                                                                            className={
+                                                                                "h-4 w-4"
+                                                                            }
+                                                                        />
                                                                     </CardContent>
                                                                 </Card>
                                                             );
