@@ -13,6 +13,7 @@ import java.util.UUID
 
 interface DatabaseDriver {
     fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String? = null)
+    fun dropCollection(collection: CollectionModel)
     fun createConnection(connection: ConnectionModel)
 
     fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID? = null)

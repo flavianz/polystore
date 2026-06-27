@@ -62,6 +62,23 @@ fun startServer() {
                     onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
                 )
             }
+            post("/collection/drop") {
+                val body = runCatching { call.receive<DropCollectionRequest>() }.getOrElse {
+                    return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+                }
+
+                val result = runCatching {
+                    DatabaseManager.dropCollection(
+                        body.name,
+                        body.recursive
+                    )
+                }
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.Created, "Collection '${body.name}' dropped") },
+                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
+                )
+            }
             post("/connection/create") {
                 val body = runCatching { call.receive<CreateConnectionRequest>() }.getOrElse {
                     return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")

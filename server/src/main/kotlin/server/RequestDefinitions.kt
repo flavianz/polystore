@@ -21,6 +21,12 @@ data class CreateCollectionRequest(
 )
 
 @Serializable
+data class DropCollectionRequest(
+    val name: String,
+    val recursive: Boolean,
+)
+
+@Serializable
 data class CreateConnectionRequest(
     val name: String,
     val collection1Name: String,

@@ -17,7 +17,6 @@ import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.server.FieldDefinition
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
@@ -32,6 +31,23 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
             session.run("CREATE INDEX IF NOT EXISTS FOR (n:`$label`) ON (n.ps_id)")
         }
         registerCollection(collectionName, schema, parentCollectionName)
+    }
+
+    override fun dropCollection(collection: CollectionModel) {
+        dropCollectionRecursive(collection)
+    }
+
+    private fun dropCollectionRecursive(collection: CollectionModel) {
+        for(child in collection.childCollections) {
+            dropCollectionRecursive(DatabaseManager.getCollectionModel(child))
+        }
+        val label = collectionLabel(collection.name)
+        connection.neo4jSession.use { session ->
+            session.run("""
+                MATCH (n:$label)
+                DETACH DELETE n
+            """)
+        }
     }
 
     override fun createConnection(connection: ConnectionModel) {

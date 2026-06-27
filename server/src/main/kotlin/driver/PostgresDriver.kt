@@ -56,6 +56,27 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         registerCollection(collectionName, schema, parentCollectionName)
     }
 
+    override fun dropCollection(collection: CollectionModel) {
+        val sql = StringBuilder()
+        fun appendDropCollectionsRecursive(collection: CollectionModel) {
+            for(child in collection.childCollections) {
+                appendDropCollectionsRecursive(DatabaseManager.getCollectionModel(child))
+            }
+            sql.append(tableDropStatement(collection.name))
+        }
+        appendDropCollectionsRecursive(collection)
+        connection.prepareStatement(sql.toString()).execute()
+        return
+    }
+
+    private fun tableDropStatement(collectionName: String): String {
+        val sql = StringBuilder()
+        sql.append("DROP TABLE ")
+        sql.append(quoteIdentifier("ps_col_${collectionName}"))
+        sql.append(";")
+        return sql.toString()
+    }
+
     override fun createConnection(connection: ConnectionModel) {
         val sql = StringBuilder()
         val collection1Name = connection.collection1Name

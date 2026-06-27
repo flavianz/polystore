@@ -21,6 +21,15 @@ Content-Type: application/json
   "parentCollection": null
 }
 
+### Drop collection
+POST http://localhost:8080/collection/drop
+Content-Type: application/json
+
+{
+  "name": "babies",
+  "recursive": false
+}
+
 ### Create connection
 POST http://localhost:8080/connection/create
 Content-Type: application/json

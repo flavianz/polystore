@@ -49,6 +49,16 @@ object DatabaseManager {
         registerCollection(collectionName, schema, parentCollectionName)
     }
 
+    fun dropCollection(collectionName: String, recursive: Boolean = false) {
+        val collectionModel = getCollectionModel(collectionName)
+        if(collectionModel.childCollections.isNotEmpty() && !recursive) {
+            throw IllegalArgumentException("collection $collectionName cannot be dropped as it has child collections")
+        }
+        DriverManager.execute { (DatabaseDriver::dropCollection)(collectionModel) }
+
+        unregisterCollection(collectionModel)
+    }
+
     fun createConnection(connection: ConnectionModel) {
         check(!connections.containsKey(connection.name)) { "connection ${connection.name} already exists" }
         check(existsCollection(connection.collection1Name))
@@ -70,6 +80,14 @@ object DatabaseManager {
         if (parentCollectionName != null) {
             getCollectionModel(parentCollectionName).childCollections.add(collectionName)
         }
+    }
+
+    fun unregisterCollection(collection: CollectionModel) {
+        for(child in collection.childCollections) {
+            unregisterCollection(getCollectionModel(child))
+            collections.remove(child)
+        }
+        collections[collection.name]?.childCollections?.remove(collection.name)
     }
 
     fun registerConnection(connection: ConnectionModel) {

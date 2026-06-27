@@ -31,6 +31,17 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         registerCollection(collectionName, schema, parentCollectionName)
     }
 
+    override fun dropCollection(collection: CollectionModel) {
+        dropCollectionRecursive(collection)
+    }
+
+    private fun dropCollectionRecursive(collection: CollectionModel) {
+        for(child in collection.childCollections) {
+            dropCollectionRecursive(DatabaseManager.getCollectionModel(child))
+        }
+        mongoDatabase.getCollection(collection.name).drop()
+    }
+
     override fun createConnection(connection: ConnectionModel) {
         registerConnection(
             connection.name,
