@@ -29,6 +29,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import io.ktor.server.plugins.cors.routing.CORS
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 fun startServer() {
     embeddedServer(Netty, port = 8080) {
@@ -191,7 +193,8 @@ fun startServer() {
                 result.fold(
                     onSuccess = { call.respond(HttpStatusCode.OK, it.toJson()) },
                     onFailure = {
-                        call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed")
+                        println("Query failed: ${it.message}")
+                        call.respond(HttpStatusCode.InternalServerError, buildJsonObject {put("message", it.message); put("stack_trace", it.stackTraceToString())})
                         print(it)
                         print(it.stackTraceToString())
                     }

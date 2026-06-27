@@ -54,6 +54,13 @@ export default function QueryView({
         return "An error has occurred: " + error.message;
     }
 
+    if(data.message) {
+        return <div className={"flex flex-col items-center justify-center"}>
+            <Label className={"text-lg"}>Error in query</Label>
+            <Label>{data.message}</Label>
+        </div>
+    }
+
     const documents: {
         [id: string]: {
             [key: string]: never;
