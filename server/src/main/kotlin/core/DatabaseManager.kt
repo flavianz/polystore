@@ -54,6 +54,8 @@ object DatabaseManager {
         if(collectionModel.childCollections.isNotEmpty() && !recursive) {
             throw IllegalArgumentException("collection $collectionName cannot be dropped as it has child collections")
         }
+        val connectedCollections = connections.values.filter { it.collection1Name == collectionName || it.collection2Name == collectionName }
+        require(connectedCollections.isEmpty()) { "collection $collectionName cannot be dropped as it is connected to collections: ${connectedCollections.joinToString()}" }
         DriverManager.execute { (DatabaseDriver::dropCollection)(collectionModel) }
 
         unregisterCollection(collectionModel)
