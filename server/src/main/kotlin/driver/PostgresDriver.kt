@@ -73,8 +73,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         val sql = StringBuilder()
         sql.append("DROP TABLE ")
         sql.append(quoteIdentifier("ps_con_${connectionModel.collection1Name}__${connectionModel.name}__${connectionModel.collection2Name}"))
+        sql.append("; DELETE FROM ps_config_connections WHERE name = ${prepareValue(PolyValue.of(connectionModel.name))};")
         connection.prepareStatement(sql.toString()).execute()
-        sql.append("DELETE FROM ps_config_connections WHERE name = ${prepareValue(PolyValue.of(connectionModel.name))};")
         return
     }
 
