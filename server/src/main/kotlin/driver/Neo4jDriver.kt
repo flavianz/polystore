@@ -58,6 +58,18 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         }
     }
 
+    override fun dropConnection(connectionModel: ConnectionModel) {
+        connection.neo4jSession.use { session ->
+            connection.neo4jSession.use { session ->
+                session.run("""
+                MATCH (n:ps_config_connection)
+                WHERE n.name = '${connectionModel.name}'
+                DETACH DELETE n
+            """)
+            }
+        }
+    }
+
     override fun createConnection(connection: ConnectionModel) {
         // No-op: relationships are created implicitly on insertConnection.
         registerConnection(

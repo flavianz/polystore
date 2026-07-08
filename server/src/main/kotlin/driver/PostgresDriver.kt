@@ -69,6 +69,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         return
     }
 
+    override fun dropConnection(connectionModel: ConnectionModel) {
+        val sql = StringBuilder()
+        sql.append("DROP TABLE ")
+        sql.append(quoteIdentifier("ps_con_${connectionModel.collection1Name}__${connectionModel.name}__${connectionModel.collection2Name}"))
+        connection.prepareStatement(sql.toString()).execute()
+        sql.append("DELETE FROM ps_config_connections WHERE name = ${prepareValue(PolyValue.of(connectionModel.name))};")
+        return
+    }
+
     private fun tableDropStatement(collectionName: String): String {
         val sql = StringBuilder()
         sql.append("DROP TABLE ")

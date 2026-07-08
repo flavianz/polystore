@@ -15,6 +15,7 @@ interface DatabaseDriver {
     fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String? = null)
     fun dropCollection(collection: CollectionModel)
     fun createConnection(connection: ConnectionModel)
+    fun dropConnection(connectionModel: ConnectionModel)
 
     fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID? = null)
     fun updateDocument(instruction: UpdateObjectInstruction)

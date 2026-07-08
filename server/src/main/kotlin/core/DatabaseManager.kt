@@ -71,6 +71,13 @@ object DatabaseManager {
         registerConnection(connection)
     }
 
+    fun dropConnection(connectionName: String) {
+        val connectionModel = getConnectionModel(connectionName)
+        DriverManager.execute { (DatabaseDriver::dropConnection)(connectionModel) }
+
+        unregisterConnection(connectionModel)
+    }
+
     fun registerCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
         if (parentCollectionName != null) {
             check(existsCollection(parentCollectionName)) { "Parent Collection $parentCollectionName does not exist" }
@@ -88,6 +95,10 @@ object DatabaseManager {
             collections.remove(child)
         }
         collections.remove(collection.name)
+    }
+
+    fun unregisterConnection(connection: ConnectionModel) {
+        connections.remove(connection.name)
     }
 
     fun registerConnection(connection: ConnectionModel) {
