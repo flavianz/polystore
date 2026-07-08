@@ -240,10 +240,28 @@ abstract class DriversTest {
         assertEquals(emptySet(), schema2.connections)
         assertEquals(emptySet(), DatabaseManager.listConnections().toSet())
     }
+
+    @Test
+    fun `insert doc and retrieve it`() {
+        DatabaseManager.createCollection("test", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.insertDocument("test", mapOf(
+            "name" to PolyValue.of("Tim"),
+            "age" to PolyValue.of(18),
+        ))
+        val response = DatabaseManager.query(PolyQuery(QueryPath(listOf(QuerySegment.Collection("test"))), PolyTerminal.Take(listOf(
+            FieldRef.Named("test", "name"), FieldRef.Named("test", "age"))))) as PolyResult.Documents
+        assertEquals(setOf(mapOf(
+            "test.name" to PolyValue.of("Tim"),
+            "test.age" to PolyValue.of(18),
+        )), response.polyData.toSet())
+    }
 }
 
 class PostgresDriverTest : DriversTest() {
-    private lateinit var conn: PostgresConnection;
+    private lateinit var conn: PostgresConnection
     override fun initDriver() {
         conn = PostgresConnection(
             host = "localhost",
@@ -269,7 +287,7 @@ class PostgresDriverTest : DriversTest() {
 }
 
 class MongoDriverTest : DriversTest() {
-    private lateinit var conn: MongoConnection;
+    private lateinit var conn: MongoConnection
 
     override fun initDriver() {
         conn = MongoConnection(
@@ -295,7 +313,7 @@ class MongoDriverTest : DriversTest() {
 }
 
 class Neo4jDriverTest : DriversTest() {
-    private lateinit var conn: Neo4jConnection;
+    private lateinit var conn: Neo4jConnection
 
     override fun initDriver() {
         conn = Neo4jConnection(
