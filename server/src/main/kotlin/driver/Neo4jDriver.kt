@@ -17,6 +17,7 @@ import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.server.FieldDefinition
+import com.mongodb.client.model.Filters
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
@@ -45,6 +46,13 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         connection.neo4jSession.use { session ->
             session.run("""
                 MATCH (n:$label)
+                DETACH DELETE n
+            """)
+        }
+        connection.neo4jSession.use { session ->
+            session.run("""
+                MATCH (n:ps_config_collection)
+                WHERE n.name = '${collection.name}'
                 DETACH DELETE n
             """)
         }

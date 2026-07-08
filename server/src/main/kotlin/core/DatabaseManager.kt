@@ -87,7 +87,7 @@ object DatabaseManager {
             unregisterCollection(getCollectionModel(child))
             collections.remove(child)
         }
-        collections[collection.name]?.childCollections?.remove(collection.name)
+        collections.remove(collection.name)
     }
 
     fun registerConnection(connection: ConnectionModel) {

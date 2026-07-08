@@ -28,6 +28,10 @@ object DriverManager {
         return this
     }
 
+    fun detachPostgres() {
+        postgresDriver = null
+    }
+
     fun initMongo(mongoConnection: MongoConnection): DriverManager {
         val driver = MongoDriver(mongoConnection.mongoDatabase)
         driver.init()
@@ -35,11 +39,19 @@ object DriverManager {
         return this
     }
 
+    fun detachMongo() {
+        mongoDriver = null
+    }
+
     fun initNeo4j(neo4jConnection: Neo4jConnection): DriverManager {
         val driver = Neo4jDriver(neo4jConnection)
         driver.init()
         this.neo4jDriver = driver
         return this
+    }
+
+    fun detachNeo4j() {
+        neo4jDriver = null
     }
 
     fun take(query: PolyQuery, terminal: PolyTerminal.Take): List<PolyData> {

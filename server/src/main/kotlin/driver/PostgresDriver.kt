@@ -74,6 +74,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append("DROP TABLE ")
         sql.append(quoteIdentifier("ps_col_${collectionName}"))
         sql.append(";")
+        sql.append("DELETE FROM ps_config_collections WHERE name = ${prepareValue(PolyValue.of(collectionName))};")
         return sql.toString()
     }
 
