@@ -4,9 +4,16 @@ import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.core.DatabaseManager
+import ch.flavianz.data.PolyValue
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
+import ch.flavianz.model.QueryPath
+import ch.flavianz.model.QuerySegment
+import ch.flavianz.query.FieldRef
+import ch.flavianz.query.PolyQuery
+import ch.flavianz.query.PolyResult
+import ch.flavianz.query.PolyTerminal
 import com.mongodb.client.model.Filters
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
@@ -50,19 +57,19 @@ abstract class DriversTest {
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ))
-         val expected = listOf(CollectionModel("test", mapOf(
+         val expected = setOf(CollectionModel("test", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ), mutableListOf(), null))
 
         val schema = DriverManager.parseDatabaseSchema()
-        assertEquals(expected, DatabaseManager.listCollections())
-        assertEquals(expected, schema.collections.toList())
+        assertEquals(expected, DatabaseManager.listCollections().toSet())
+        assertEquals(expected, schema.collections)
 
         DatabaseManager.dropCollection("test")
         val schema2 = DriverManager.parseDatabaseSchema()
-        assertEquals(emptyList(), schema2.collections.toList())
-        assertEquals(emptyList(), DatabaseManager.listCollections())
+        assertEquals(emptySet(), schema2.collections)
+        assertEquals(emptySet(), DatabaseManager.listCollections().toSet())
     }
 
     @Test
@@ -74,8 +81,8 @@ abstract class DriversTest {
         DatabaseManager.createCollection("test_child", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
-        ))
-        val expected = listOf(CollectionModel("test", mapOf(
+        ), "test")
+        val expected = setOf(CollectionModel("test", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ), mutableListOf("test_child"), null), CollectionModel("test_child", mapOf(
@@ -84,11 +91,10 @@ abstract class DriversTest {
         ), mutableListOf(), "test"))
 
         val schema = DriverManager.parseDatabaseSchema()
-        assertEquals(expected, DatabaseManager.listCollections())
-        assertEquals(expected, schema.collections.toList())
+        assertEquals(expected, DatabaseManager.listCollections().toSet())
+        assertEquals(expected, schema.collections)
 
-        DatabaseManager.dropCollection("test")
-        DatabaseManager.dropCollection("test_child")
+        DatabaseManager.dropCollection("test", true)
         val schema2 = DriverManager.parseDatabaseSchema()
         assertEquals(emptyList(), schema2.collections.toList())
         assertEquals(emptyList(), DatabaseManager.listCollections())
@@ -102,32 +108,30 @@ abstract class DriversTest {
         DatabaseManager.createCollection("test_child", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
-        ))
+        ), "test")
         DatabaseManager.createCollection("test_child2", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
-        ))
-        val expected = listOf(CollectionModel("test", mapOf(
+        ), "test_child")
+        val expected = setOf(CollectionModel("test", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ), mutableListOf("test_child"), null), CollectionModel("test_child", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
-        ), mutableListOf("test_child2"), "test"), CollectionModel("test_child", mapOf(
+        ), mutableListOf("test_child2"), "test"), CollectionModel("test_child2", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ), mutableListOf(), "test_child"))
 
         val schema = DriverManager.parseDatabaseSchema()
-        assertEquals(expected, DatabaseManager.listCollections())
-        assertEquals(expected, schema.collections.toList())
+        assertEquals(expected, DatabaseManager.listCollections().toSet())
+        assertEquals(expected, schema.collections)
 
-        DatabaseManager.dropCollection("test")
-        DatabaseManager.dropCollection("test_child")
-        DatabaseManager.dropCollection("test_child2")
+        DatabaseManager.dropCollection("test", true)
         val schema2 = DriverManager.parseDatabaseSchema()
-        assertEquals(emptyList(), schema2.collections.toList())
-        assertEquals(emptyList(), DatabaseManager.listCollections())
+        assertEquals(emptySet(), schema2.collections)
+        assertEquals(emptySet(), DatabaseManager.listCollections().toSet())
     }
 
     @Test
@@ -144,22 +148,22 @@ abstract class DriversTest {
             "name" to DataType.STRING,
             "age" to DataType.INT,
         )))
-        val expected = listOf(ConnectionModel("test", "a", "b", mapOf(
+        val expected = setOf(ConnectionModel("test", "a", "b", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ),))
 
         val schema = DriverManager.parseDatabaseSchema()
-        assertEquals(expected, DatabaseManager.listConnections())
-        assertEquals(expected, schema.connections.toList())
+        assertEquals(expected, DatabaseManager.listConnections().toSet())
+        assertEquals(expected, schema.connections)
 
         DatabaseManager.dropConnection("test")
         DatabaseManager.dropCollection("a")
         DatabaseManager.dropCollection("b")
 
         val schema2 = DriverManager.parseDatabaseSchema()
-        assertEquals(emptyList(), schema2.connections.toList())
-        assertEquals(emptyList(), DatabaseManager.listConnections())
+        assertEquals(emptySet(), schema2.connections)
+        assertEquals(emptySet(), DatabaseManager.listConnections().toSet())
     }
 
     @Test
@@ -180,22 +184,22 @@ abstract class DriversTest {
             "name" to DataType.STRING,
             "age" to DataType.INT,
         )))
-        val expected = listOf(ConnectionModel("test", "a", "c", mapOf(
+        val expected = setOf(ConnectionModel("test", "a", "c", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ),))
 
         val schema = DriverManager.parseDatabaseSchema()
-        assertEquals(expected, DatabaseManager.listConnections())
-        assertEquals(expected, schema.connections.toList())
+        assertEquals(expected, DatabaseManager.listConnections().toSet())
+        assertEquals(expected, schema.connections)
 
         DatabaseManager.dropConnection("test")
         DatabaseManager.dropCollection("a")
         DatabaseManager.dropCollection("b", true)
 
         val schema2 = DriverManager.parseDatabaseSchema()
-        assertEquals(emptyList(), schema2.connections.toList())
-        assertEquals(emptyList(), DatabaseManager.listConnections())
+        assertEquals(emptySet(), schema2.connections)
+        assertEquals(emptySet(), DatabaseManager.listConnections().toSet())
     }
     @Test
     fun `create and drop a connection with two subcollections`() {
@@ -219,22 +223,22 @@ abstract class DriversTest {
             "name" to DataType.STRING,
             "age" to DataType.INT,
         )))
-        val expected = listOf(ConnectionModel("test", "b", "d", mapOf(
+        val expected = setOf(ConnectionModel("test", "b", "d", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ),))
 
         val schema = DriverManager.parseDatabaseSchema()
-        assertEquals(expected, DatabaseManager.listConnections())
-        assertEquals(expected, schema.connections.toList())
+        assertEquals(expected, DatabaseManager.listConnections().toSet())
+        assertEquals(expected, schema.connections)
 
         DatabaseManager.dropConnection("test")
         DatabaseManager.dropCollection("a", true)
-       DatabaseManager.dropCollection("c", true)
+        DatabaseManager.dropCollection("c", true)
 
         val schema2 = DriverManager.parseDatabaseSchema()
-        assertEquals(emptyList(), schema2.connections.toList())
-        assertEquals(emptyList(), DatabaseManager.listConnections())
+        assertEquals(emptySet(), schema2.connections)
+        assertEquals(emptySet(), DatabaseManager.listConnections().toSet())
     }
 }
 
@@ -259,8 +263,8 @@ class PostgresDriverTest : DriversTest() {
 
     override fun cleanUpDatabase() {
         conn.jdbcConnection.createStatement().execute("DROP TABLE IF EXISTS ps_col_test;")
-        conn.jdbcConnection.createStatement().execute("DELETE FROM ps_config_collections;")
         conn.jdbcConnection.createStatement().execute("DELETE FROM ps_config_connections;")
+        conn.jdbcConnection.createStatement().execute("DELETE FROM ps_config_collections;")
     }
 }
 
@@ -311,6 +315,9 @@ class Neo4jDriverTest : DriversTest() {
         conn.neo4jSession.run("MATCH (n:ps_config_collection) WHERE n.name = 'test' DETACH DELETE n").consume()
         conn.neo4jSession.run("MATCH (n:ps_config_collection) WHERE n.name = 'test_child' DETACH DELETE n").consume()
         conn.neo4jSession.run("MATCH (n:ps_config_collection) WHERE n.name = 'test_child2' DETACH DELETE n").consume()
-        conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'test' DETACH DELETE n").consume()
+        conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'a' DETACH DELETE n").consume()
+        conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'b' DETACH DELETE n").consume()
+        conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'c' DETACH DELETE n").consume()
+        conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'c' DETACH DELETE n").consume()
     }
 }
