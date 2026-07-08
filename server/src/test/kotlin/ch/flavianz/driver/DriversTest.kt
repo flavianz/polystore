@@ -5,6 +5,7 @@ import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.CollectionModel
+import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import com.mongodb.client.model.Filters
 import org.junit.jupiter.api.AfterAll
@@ -49,7 +50,7 @@ abstract class DriversTest {
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ))
-        val expected = listOf(CollectionModel("test", mapOf(
+         val expected = listOf(CollectionModel("test", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ), mutableListOf(), null))
@@ -63,6 +64,7 @@ abstract class DriversTest {
         assertEquals(emptyList(), schema2.collections.toList())
         assertEquals(emptyList(), DatabaseManager.listCollections())
     }
+
     @Test
     fun `create and drop a collection with subcollection`() {
         DatabaseManager.createCollection("test", mapOf(
@@ -128,18 +130,111 @@ abstract class DriversTest {
         assertEquals(emptyList(), DatabaseManager.listCollections())
     }
 
-
-
     @Test
-    fun `create collection with subcollection`() {
-        DatabaseManager.createCollection("test", mapOf(
+    fun `create and drop a connection`() {
+        DatabaseManager.createCollection("a", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
         ))
-        assertEquals(DatabaseManager.listCollections(), listOf(CollectionModel("test", mapOf(
+        DatabaseManager.createCollection("b", mapOf(
             "name" to DataType.STRING,
             "age" to DataType.INT,
-        ), mutableListOf(), null)))
+        ))
+        DatabaseManager.createConnection(ConnectionModel("test", "a", "b", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        )))
+        val expected = listOf(ConnectionModel("test", "a", "b", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ),))
+
+        val schema = DriverManager.parseDatabaseSchema()
+        assertEquals(expected, DatabaseManager.listConnections())
+        assertEquals(expected, schema.connections.toList())
+
+        DatabaseManager.dropConnection("test")
+        DatabaseManager.dropCollection("a")
+        DatabaseManager.dropCollection("b")
+
+        val schema2 = DriverManager.parseDatabaseSchema()
+        assertEquals(emptyList(), schema2.connections.toList())
+        assertEquals(emptyList(), DatabaseManager.listConnections())
+    }
+
+    @Test
+    fun `create and drop a connection with subcollection`() {
+        DatabaseManager.createCollection("a", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.createCollection("b", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.createCollection("c", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "b")
+        DatabaseManager.createConnection(ConnectionModel("test", "a", "c", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        )))
+        val expected = listOf(ConnectionModel("test", "a", "c", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ),))
+
+        val schema = DriverManager.parseDatabaseSchema()
+        assertEquals(expected, DatabaseManager.listConnections())
+        assertEquals(expected, schema.connections.toList())
+
+        DatabaseManager.dropConnection("test")
+        DatabaseManager.dropCollection("a")
+        DatabaseManager.dropCollection("b", true)
+
+        val schema2 = DriverManager.parseDatabaseSchema()
+        assertEquals(emptyList(), schema2.connections.toList())
+        assertEquals(emptyList(), DatabaseManager.listConnections())
+    }
+    @Test
+    fun `create and drop a connection with two subcollections`() {
+        DatabaseManager.createCollection("a", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.createCollection("b", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "a")
+        DatabaseManager.createCollection("c", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ),)
+        DatabaseManager.createCollection("d", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "c")
+        DatabaseManager.createConnection(ConnectionModel("test", "b", "d", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        )))
+        val expected = listOf(ConnectionModel("test", "b", "d", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ),))
+
+        val schema = DriverManager.parseDatabaseSchema()
+        assertEquals(expected, DatabaseManager.listConnections())
+        assertEquals(expected, schema.connections.toList())
+
+        DatabaseManager.dropConnection("test")
+        DatabaseManager.dropCollection("a", true)
+       DatabaseManager.dropCollection("c", true)
+
+        val schema2 = DriverManager.parseDatabaseSchema()
+        assertEquals(emptyList(), schema2.connections.toList())
+        assertEquals(emptyList(), DatabaseManager.listConnections())
     }
 }
 
@@ -213,6 +308,9 @@ class Neo4jDriverTest : DriversTest() {
 
     override fun cleanUpDatabase() {
         conn.neo4jSession.run("MATCH (n: test) DETACH DELETE n").consume()
-        conn.neo4jSession.run("MATCH (n:ps_config_collections) WHERE n.name = 'test' DETACH DELETE n").consume()
+        conn.neo4jSession.run("MATCH (n:ps_config_collection) WHERE n.name = 'test' DETACH DELETE n").consume()
+        conn.neo4jSession.run("MATCH (n:ps_config_collection) WHERE n.name = 'test_child' DETACH DELETE n").consume()
+        conn.neo4jSession.run("MATCH (n:ps_config_collection) WHERE n.name = 'test_child2' DETACH DELETE n").consume()
+        conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'test' DETACH DELETE n").consume()
     }
 }
