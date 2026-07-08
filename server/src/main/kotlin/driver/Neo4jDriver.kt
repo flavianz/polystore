@@ -393,18 +393,18 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                             when (fieldRef) {
                                 is FieldRef.Wildcard -> {
                                     projections.add(
-                                        "$cyAlias.ps_id AS `ps_col_${segment.name}__id`"
+                                        "$cyAlias.ps_id AS `${segment.name}._id`"
                                     )
                                     for (f in model.schema.keys) {
                                         projections.add(
-                                            "$cyAlias.`ps_f_$f` AS `ps_col_${segment.name}__$f`"
+                                            "$cyAlias.`ps_f_$f` AS `${segment.name}.$f`"
                                         )
                                     }
                                 }
 
                                 is FieldRef.Named ->
                                     projections.add(
-                                        "$cyAlias.`ps_f_${fieldRef.field}` AS `ps_col_${segment.name}__${fieldRef.field}`"
+                                        "$cyAlias.`ps_f_${fieldRef.field}` AS `${segment.name}.${fieldRef.field}`"
                                     )
                             }
                         }
