@@ -91,6 +91,44 @@ abstract class DriversTest {
         assertEquals(emptyList(), schema2.collections.toList())
         assertEquals(emptyList(), DatabaseManager.listCollections())
     }
+    @Test
+    fun `create and drop a collection with subcollection and 2nd level subcollection`() {
+        DatabaseManager.createCollection("test", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.createCollection("test_child", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.createCollection("test_child2", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        val expected = listOf(CollectionModel("test", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), mutableListOf("test_child"), null), CollectionModel("test_child", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), mutableListOf("test_child2"), "test"), CollectionModel("test_child", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), mutableListOf(), "test_child"))
+
+        val schema = DriverManager.parseDatabaseSchema()
+        assertEquals(expected, DatabaseManager.listCollections())
+        assertEquals(expected, schema.collections.toList())
+
+        DatabaseManager.dropCollection("test")
+        DatabaseManager.dropCollection("test_child")
+        DatabaseManager.dropCollection("test_child2")
+        val schema2 = DriverManager.parseDatabaseSchema()
+        assertEquals(emptyList(), schema2.collections.toList())
+        assertEquals(emptyList(), DatabaseManager.listCollections())
+    }
+
+
 
     @Test
     fun `create collection with subcollection`() {
