@@ -14,6 +14,7 @@ import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResult
 import ch.flavianz.query.PolyTerminal
+import ch.flavianz.query.query
 import com.mongodb.client.model.Filters
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
@@ -257,7 +258,135 @@ abstract class DriversTest {
             "test.name" to PolyValue.of("Tim"),
             "test.age" to PolyValue.of(18),
         )), response.polyData.toSet())
+        DatabaseManager.dropCollection("test")
     }
+
+    @Test
+    fun `insert doc and subdoc and retrieve it`() {
+        DatabaseManager.createCollection("test", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.createCollection("test_child", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "test")
+        val parentUuid = DatabaseManager.insertDocument("test", mapOf(
+            "name" to PolyValue.of("Tim"),
+            "age" to PolyValue.of(18),
+        ))
+        val childUuid = DatabaseManager.insertDocument("test_child", mapOf(
+            "name" to PolyValue.of("Bob"),
+            "age" to PolyValue.of(20),
+        ), parentUuid)
+        val response = DatabaseManager.query(PolyQuery(QueryPath(listOf(QuerySegment.Collection("test"), QuerySegment.Collection("test_child"))), PolyTerminal.Take(listOf(
+            FieldRef.Wildcard("test"), FieldRef.Wildcard("test_child"))))) as PolyResult.Documents
+        assertEquals(setOf(mapOf(
+            "test.name" to PolyValue.of("Tim"),
+            "test.age" to PolyValue.of(18),
+            "test._id" to PolyValue.of(parentUuid),
+            "test_child.name" to PolyValue.of("Bob"),
+            "test_child.age" to PolyValue.of(20),
+            "test_child._id" to PolyValue.of(childUuid),
+        )), response.polyData.toSet())
+        DatabaseManager.dropCollection("test", true)
+    }
+    @Test
+    fun `insert doc and subdoc and subsubdoc and retrieve it`() {
+        DatabaseManager.createCollection("test", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.createCollection("test_child", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "test")
+        DatabaseManager.createCollection("test_child2", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "test_child")
+        val parentUuid = DatabaseManager.insertDocument("test", mapOf(
+            "name" to PolyValue.of("Tim"),
+            "age" to PolyValue.of(18),
+        ))
+        val childUuid = DatabaseManager.insertDocument("test_child", mapOf(
+            "name" to PolyValue.of("Bob"),
+            "age" to PolyValue.of(20),
+        ), parentUuid)
+        val childUuid2 = DatabaseManager.insertDocument("test_child2", mapOf(
+            "name" to PolyValue.of("Tom"),
+            "age" to PolyValue.of(22),
+        ), childUuid)
+        val response = DatabaseManager.query(PolyQuery(QueryPath(listOf(QuerySegment.Collection("test"), QuerySegment.Collection("test_child"), QuerySegment.Collection("test_child2"))), PolyTerminal.Take(listOf(
+            FieldRef.Wildcard("test"), FieldRef.Wildcard("test_child"), FieldRef.Wildcard("test_child2"))))) as PolyResult.Documents
+        assertEquals(setOf(mapOf(
+            "test.name" to PolyValue.of("Tim"),
+            "test.age" to PolyValue.of(18),
+            "test._id" to PolyValue.of(parentUuid),
+            "test_child.name" to PolyValue.of("Bob"),
+            "test_child.age" to PolyValue.of(20),
+            "test_child._id" to PolyValue.of(childUuid),
+            "test_child2.name" to PolyValue.of("Tom"),
+            "test_child2.age" to PolyValue.of(22),
+            "test_child2._id" to PolyValue.of(childUuid2),
+        )), response.polyData.toSet())
+        DatabaseManager.dropCollection("test", true)
+    }
+
+    @Test
+    fun `insert doc and subdoc and subsubdoc and subsubdoc and retrieve it`() {
+        DatabaseManager.createCollection("test", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ))
+        DatabaseManager.createCollection("test_child", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "test")
+        DatabaseManager.createCollection("test_child2", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "test_child")
+        DatabaseManager.createCollection("test_child3", mapOf(
+            "name" to DataType.STRING,
+            "age" to DataType.INT,
+        ), "test_child2")
+        val parentUuid = DatabaseManager.insertDocument("test", mapOf(
+            "name" to PolyValue.of("Tim"),
+            "age" to PolyValue.of(18),
+        ))
+        val childUuid = DatabaseManager.insertDocument("test_child", mapOf(
+            "name" to PolyValue.of("Bob"),
+            "age" to PolyValue.of(20),
+        ), parentUuid)
+        val childUuid2 = DatabaseManager.insertDocument("test_child2", mapOf(
+            "name" to PolyValue.of("Tom"),
+            "age" to PolyValue.of(22),
+        ), childUuid)
+        val childUuid3 = DatabaseManager.insertDocument("test_child3", mapOf(
+            "name" to PolyValue.of("Remo"),
+            "age" to PolyValue.of(30),
+        ), childUuid2)
+        val response = DatabaseManager.query(PolyQuery(QueryPath(listOf(QuerySegment.Collection("test"), QuerySegment.Collection("test_child"), QuerySegment.Collection("test_child2"), QuerySegment.Collection("test_child3"))), PolyTerminal.Take(listOf(
+            FieldRef.Wildcard("test"), FieldRef.Wildcard("test_child"), FieldRef.Wildcard("test_child2"), FieldRef.Wildcard("test_child3"))))) as PolyResult.Documents
+        assertEquals(setOf(mapOf(
+            "test.name" to PolyValue.of("Tim"),
+            "test.age" to PolyValue.of(18),
+            "test._id" to PolyValue.of(parentUuid),
+            "test_child.name" to PolyValue.of("Bob"),
+            "test_child.age" to PolyValue.of(20),
+            "test_child._id" to PolyValue.of(childUuid),
+            "test_child2.name" to PolyValue.of("Tom"),
+            "test_child2.age" to PolyValue.of(22),
+            "test_child2._id" to PolyValue.of(childUuid2),
+            "test_child3.name" to PolyValue.of("Remo"),
+            "test_child3.age" to PolyValue.of(30),
+            "test_child3._id" to PolyValue.of(childUuid3),
+        )), response.polyData.toSet())
+        DatabaseManager.dropCollection("test", true)
+    }
+
+
 }
 
 class PostgresDriverTest : DriversTest() {
