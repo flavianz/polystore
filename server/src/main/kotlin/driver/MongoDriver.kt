@@ -68,6 +68,15 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 Filters.eq("_id", parentDocUuid),
                 Updates.push("ps_sub_${collection.name}", document)
             )
+
+            val parentCollection = DatabaseManager.getCollectionModel(collection.parentCollection)
+            if(parentCollection.hasParentCollection()) {
+                val mongoParentParentCollection = mongoDatabase.getCollection(parentCollection.parentCollection!!)
+                mongoParentParentCollection.updateOne(
+                    Filters.eq("ps_sub_${parentCollection.name}._id", parentDocUuid),
+                    Updates.addToSet("ps_sub_${parentCollection.name}.$.ps_sub_${collection.name}", uuid)
+                )
+            }
         }
 
         mongoDatabase.getCollection(collection.name).insertOne(document)
