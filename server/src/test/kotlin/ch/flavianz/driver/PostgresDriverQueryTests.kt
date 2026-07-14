@@ -258,8 +258,8 @@ class PostgresDriverQueryTests {
             QueryPath(QuerySegment.Collection("students")),
             wildcard("students")
         )
-        assertEquals(3, result.size)
-        val names = result.map { it["students.name"]?.value }.toSet()
+        assertEquals(3, result.data.size)
+        val names = result.data.map { it["students.name"]?.value }.toSet()
         assertEquals(setOf("Alice", "Bob", "Carol"), names)
     }
 
@@ -281,8 +281,8 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(2, result.size)
-        val names = result.map { it["students.name"]?.value }.toSet()
+        assertEquals(2, result.data.size)
+        val names = result.data.map { it["students.name"]?.value }.toSet()
         assertEquals(setOf("Alice", "Bob"), names)
     }
 
@@ -295,8 +295,8 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(2, result.size)
-        val names = result.map { it["students.name"]?.value }.toSet()
+        assertEquals(2, result.data.size)
+        val names = result.data.map { it["students.name"]?.value }.toSet()
         assertEquals(setOf("Bob", "Carol"), names)
     }
 
@@ -313,9 +313,9 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(1, result.size)
-        assertEquals("Bob", result[0]["students.name"]?.value)
-        assertEquals(3, result[0]["students.gpa"]?.value)
+        assertEquals(1, result.data.size)
+        assertEquals("Bob", result.data[0]["students.name"]?.value)
+        assertEquals(3, result.data[0]["students.gpa"]?.value)
     }
 
     @Test
@@ -331,8 +331,8 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(2, result.size)
-        val names = result.map { it["students.name"]?.value }.toSet()
+        assertEquals(2, result.data.size)
+        val names = result.data.map { it["students.name"]?.value }.toSet()
         assertEquals(setOf("Alice", "Carol"), names)
     }
 
@@ -345,7 +345,7 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertTrue(result.isEmpty())
+        assertTrue(result.data.isEmpty())
     }
 
     @Test
@@ -371,7 +371,7 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(4, result.size)
+        assertEquals(4, result.data.size)
     }
 
     @Test
@@ -390,8 +390,8 @@ class PostgresDriverQueryTests {
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
 
-        assertEquals(1, result.size)
-        val row = result[0]
+        assertEquals(1, result.data.size)
+        val row = result.data[0]
 
         // Student fields
         assertEquals("Alice", row["students.name"]?.value)
@@ -418,8 +418,8 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(2, result.size)
-        result.forEach { assertEquals("Alice", it["students.name"]?.value) }
+        assertEquals(2, result.data.size)
+        result.data.forEach { assertEquals("Alice", it["students.name"]?.value) }
     }
 
     @Test
@@ -435,8 +435,8 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(3, result.size)
-        val scores = result.map { it["attends.score"]?.value as Int }
+        assertEquals(3, result.data.size)
+        val scores = result.data.map { it["attends.score"]?.value as Int }
         assertTrue(scores.all { it > 70 })
     }
 
@@ -456,10 +456,10 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(1, result.size)
-        assertEquals("Bob", result[0]["students.name"]?.value)
-        assertEquals(60, result[0]["attends.score"]?.value)
-        assertEquals("Math", result[0]["courses.title"]?.value)
+        assertEquals(1, result.data.size)
+        assertEquals("Bob", result.data[0]["students.name"]?.value)
+        assertEquals(60, result.data[0]["attends.score"]?.value)
+        assertEquals("Math", result.data[0]["courses.title"]?.value)
     }
 
     @Test
@@ -477,8 +477,8 @@ class PostgresDriverQueryTests {
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
         // Rows: Alice-Math, Bob-Math, Carol-Physics → 3 rows
-        assertEquals(3, result.size)
-        val titles = result.map { it["courses.title"]?.value }.toSet()
+        assertEquals(3, result.data.size)
+        val titles = result.data.map { it["courses.title"]?.value }.toSet()
         assertEquals(setOf("Math", "Physics"), titles)
     }
 
@@ -498,7 +498,7 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(4, result.size)
+        assertEquals(4, result.data.size)
     }
 
     @Test
@@ -518,8 +518,8 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(1, result.size)
-        val row = result[0]
+        assertEquals(1, result.data.size)
+        val row = result.data[0]
 
         assertEquals("Alice", row["students.name"]?.value)
         assertEquals(95, row["attends.score"]?.value)
@@ -545,8 +545,8 @@ class PostgresDriverQueryTests {
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
         // Alice-Math-Science, Bob-Math-Science, Carol-Physics-Science → 3 rows
-        assertEquals(3, result.size)
-        result.forEach {
+        assertEquals(3, result.data.size)
+        result.data.forEach {
             assertEquals("Science", it["departments.name"]?.value)
         }
     }
@@ -566,10 +566,10 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(1, result.size)
-        assertEquals("Alice", result[0]["students.name"]?.value)
-        assertEquals("History", result[0]["courses.title"]?.value)
-        assertEquals("Humanities", result[0]["departments.name"]?.value)
+        assertEquals(1, result.data.size)
+        assertEquals("Alice", result.data[0]["students.name"]?.value)
+        assertEquals("History", result.data[0]["courses.title"]?.value)
+        assertEquals("Humanities", result.data[0]["departments.name"]?.value)
     }
 
     @Test
@@ -593,11 +593,11 @@ class PostgresDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(1, result.size)
-        assertEquals("Alice", result[0]["students.name"]?.value)
-        assertEquals(95, result[0]["attends.score"]?.value)
-        assertEquals("Math", result[0]["courses.title"]?.value)
-        assertEquals("Science", result[0]["departments.name"]?.value)
+        assertEquals(1, result.data.size)
+        assertEquals("Alice", result.data[0]["students.name"]?.value)
+        assertEquals(95, result.data[0]["attends.score"]?.value)
+        assertEquals("Math", result.data[0]["courses.title"]?.value)
+        assertEquals("Science", result.data[0]["departments.name"]?.value)
     }
 
     // ── Tests: structural correctness ─────────────────────────────────────────
@@ -613,7 +613,7 @@ class PostgresDriverQueryTests {
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
 
-        val uniqueKeys = result.map { row ->
+        val uniqueKeys = result.data.map { row ->
             Triple(
                 row["students._id"]?.value,
                 row["courses._id"]?.value,
@@ -622,7 +622,7 @@ class PostgresDriverQueryTests {
         }.toSet()
 
         // No duplicate (student, course, department) combinations
-        assertEquals(result.size, uniqueKeys.size)
+        assertEquals(result.data.size, uniqueKeys.size)
     }
 
     @Test
@@ -636,7 +636,7 @@ class PostgresDriverQueryTests {
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
 
-        val bobRows = result.filter { it["students.name"]?.value == "Bob" }
+        val bobRows = result.data.filter { it["students.name"]?.value == "Bob" }
         assertTrue(bobRows.isNotEmpty())
         bobRows.forEach { row ->
             assertEquals(
@@ -663,7 +663,7 @@ class PostgresDriverQueryTests {
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
 
-        val names = result.map { it["ps_col_students__name"]?.value }
+        val names = result.data.map { it["ps_col_students__name"]?.value }
         assertFalse(
             names.contains("Lonely"),
             "A student with no connections should not appear in a join result"
@@ -677,6 +677,6 @@ class PostgresDriverQueryTests {
             QueryPath(QuerySegment.Collection("students")),
             wildcard("students")
         )
-        assertEquals(3, result.size)
+        assertEquals(3, result.data.size)
     }
 }

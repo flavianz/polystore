@@ -11,7 +11,6 @@ import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
@@ -283,8 +282,8 @@ class MongoDriverQueryTests {
             QueryPath(QuerySegment.Collection("students")),
             wildcard("students")
         )
-        assertEquals(3, result.size)
-        val names = result.map { it.str("students", "name") }.toSet()
+        assertEquals(3, result.data.size)
+        val names = result.data.map { it.str("students", "name") }.toSet()
         assertEquals(setOf("Alice", "Bob", "Carol"), names)
     }
 
@@ -297,8 +296,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(2, result.size)
-        val names = result.map { it.str("students", "name") }.toSet()
+        assertEquals(2, result.data.size)
+        val names = result.data.map { it.str("students", "name") }.toSet()
         assertEquals(setOf("Alice", "Bob"), names)
     }
 
@@ -311,8 +310,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(2, result.size)
-        val names = result.map { it.str("students", "name") }.toSet()
+        assertEquals(2, result.data.size)
+        val names = result.data.map { it.str("students", "name") }.toSet()
         assertEquals(setOf("Bob", "Carol"), names)
     }
 
@@ -329,9 +328,9 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(1, result.size)
-        assertEquals("Bob", result[0].str("students", "name"))
-        assertEquals(3, result[0].int("students", "gpa"))
+        assertEquals(1, result.data.size)
+        assertEquals("Bob", result.data[0].str("students", "name"))
+        assertEquals(3, result.data[0].int("students", "gpa"))
     }
 
     @Test
@@ -347,8 +346,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(2, result.size)
-        val names = result.map { it.str("students", "name") }.toSet()
+        assertEquals(2, result.data.size)
+        val names = result.data.map { it.str("students", "name") }.toSet()
         assertEquals(setOf("Alice", "Carol"), names)
     }
 
@@ -360,7 +359,7 @@ class MongoDriverQueryTests {
                 Condition.Comparison.GreaterThan("gpa", PolyValue.of(100))
             )
         )
-        assertTrue(driver!!.take(path, wildcard("students")).isEmpty())
+        assertTrue(driver!!.take(path, wildcard("students")).data.isEmpty())
     }
 
     // ── Tests: subcollection (Kinder) queries ─────────────────────────────────
@@ -375,7 +374,7 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "enrollments"))
-        assertEquals(3, result.size)
+        assertEquals(3, result.data.size)
     }
 
     @Test
@@ -391,8 +390,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "enrollments"))
-        assertEquals(2, result.size)
-        result.forEach { assertEquals("Alice", it.str("students", "name")) }
+        assertEquals(2, result.data.size)
+        result.data.forEach { assertEquals("Alice", it.str("students", "name")) }
     }
 
     @Test
@@ -408,8 +407,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "enrollments"))
-        assertEquals(2, result.size)
-        result.forEach { assertEquals("Fall", it.str("enrollments", "semester")) }
+        assertEquals(2, result.data.size)
+        result.data.forEach { assertEquals("Fall", it.str("enrollments", "semester")) }
     }
 
     @Test
@@ -425,9 +424,9 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "enrollments"))
-        assertEquals(1, result.size)
-        assertEquals("Alice", result[0].str("students", "name"))
-        assertEquals(90, result[0].int("enrollments", "grade"))
+        assertEquals(1, result.data.size)
+        assertEquals("Alice", result.data[0].str("students", "name"))
+        assertEquals(90, result.data[0].int("enrollments", "grade"))
     }
 
     @Test
@@ -440,7 +439,7 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "enrollments"))
-        val names = result.map { it.str("students", "name") }
+        val names = result.data.map { it.str("students", "name") }
         assertFalse(names.contains("Carol"))
     }
 
@@ -453,7 +452,7 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "enrollments"))
-        val bobRows = result.filter { it.str("students", "name") == "Bob" }
+        val bobRows = result.data.filter { it.str("students", "name") == "Bob" }
         assertEquals(1, bobRows.size)
         // Bob's row must carry Bob's gpa, not Alice's
         assertEquals(3, bobRows[0].int("students", "gpa"))
@@ -472,7 +471,7 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(4, result.size)
+        assertEquals(4, result.data.size)
     }
 
     @Test
@@ -491,8 +490,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(1, result.size)
-        val row = result[0]
+        assertEquals(1, result.data.size)
+        val row = result.data[0]
         assertEquals("Alice", row.str("students", "name"))
         assertEquals(4, row.int("students", "gpa"))
         assertEquals(95, row.int("attends", "score"))
@@ -513,8 +512,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(2, result.size)
-        result.forEach { assertEquals("Alice", it.str("students", "name")) }
+        assertEquals(2, result.data.size)
+        result.data.forEach { assertEquals("Alice", it.str("students", "name")) }
     }
 
     @Test
@@ -529,10 +528,9 @@ class MongoDriverQueryTests {
                 )
             )
         )
-        println(PolyResultData.Documents(driver!!.take(path, wildcard("students", "attends", "courses"))))
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(3, result.size)
-        result.forEach {
+        assertEquals(3, result.data.size)
+        result.data.forEach {
             assertTrue((it.int("attends", "score") ?: 0) > 70)
         }
     }
@@ -553,10 +551,10 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(1, result.size)
-        assertEquals("Bob", result[0].str("students", "name"))
-        assertEquals(60, result[0].int("attends", "score"))
-        assertEquals("Math", result[0].str("courses", "title"))
+        assertEquals(1, result.data.size)
+        assertEquals("Bob", result.data[0].str("students", "name"))
+        assertEquals(60, result.data[0].int("attends", "score"))
+        assertEquals("Math", result.data[0].str("courses", "title"))
     }
 
     @Test
@@ -572,8 +570,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertEquals(3, result.size)
-        val titles = result.map { it.str("courses", "title") }.toSet()
+        assertEquals(3, result.data.size)
+        val titles = result.data.map { it.str("courses", "title") }.toSet()
         assertEquals(setOf("Math", "Physics"), titles)
     }
 
@@ -593,7 +591,7 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        assertFalse(result.any { it.str("students", "name") == "Lonely" })
+        assertFalse(result.data.any { it.str("students", "name") == "Lonely" })
     }
 
     // ── Tests: two-hop connection queries ────────────────────────────────────
@@ -609,7 +607,7 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(4, result.size)
+        assertEquals(4, result.data.size)
     }
 
     @Test
@@ -629,8 +627,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(1, result.size)
-        val row = result[0]
+        assertEquals(1, result.data.size)
+        val row = result.data[0]
         assertEquals("Alice", row.str("students", "name"))
         assertEquals(95, row.int("attends", "score"))
         assertEquals("Math", row.str("courses", "title"))
@@ -653,8 +651,8 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(3, result.size)
-        result.forEach { assertEquals("Science", it.str("departments", "name")) }
+        assertEquals(3, result.data.size)
+        result.data.forEach { assertEquals("Science", it.str("departments", "name")) }
     }
 
     @Test
@@ -671,10 +669,10 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(1, result.size)
-        assertEquals("Alice", result[0].str("students", "name"))
-        assertEquals("History", result[0].str("courses", "title"))
-        assertEquals("Humanities", result[0].str("departments", "name"))
+        assertEquals(1, result.data.size)
+        assertEquals("Alice", result.data[0].str("students", "name"))
+        assertEquals("History", result.data[0].str("courses", "title"))
+        assertEquals("Humanities", result.data[0].str("departments", "name"))
     }
 
     @Test
@@ -697,11 +695,11 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
-        assertEquals(1, result.size)
-        assertEquals("Alice", result[0].str("students", "name"))
-        assertEquals(95, result[0].int("attends", "score"))
-        assertEquals("Math", result[0].str("courses", "title"))
-        assertEquals("Science", result[0].str("departments", "name"))
+        assertEquals(1, result.data.size)
+        assertEquals("Alice", result.data[0].str("students", "name"))
+        assertEquals(95, result.data[0].int("attends", "score"))
+        assertEquals("Math", result.data[0].str("courses", "title"))
+        assertEquals("Science", result.data[0].str("departments", "name"))
     }
 
     // ── Tests: structural correctness ─────────────────────────────────────────
@@ -718,7 +716,7 @@ class MongoDriverQueryTests {
         val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
 
         // Use FieldRef.Named to pull _id fields for uniqueness check
-        val uniqueKeys = result.map { row ->
+        val uniqueKeys = result.data.map { row ->
             Triple(
                 row["students._id"]?.value,
                 row["courses._id"]?.value,
@@ -726,9 +724,7 @@ class MongoDriverQueryTests {
             )
         }.toSet()
 
-        println(PolyResultData.Documents(result))
-
-        assertEquals(result.size, uniqueKeys.size)
+        assertEquals(result.data.size, uniqueKeys.size)
     }
 
     @Test
@@ -740,7 +736,7 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students", "attends", "courses"))
-        val bobRows = result.filter { it.str("students", "name") == "Bob" }
+        val bobRows = result.data.filter { it.str("students", "name") == "Bob" }
         assertTrue(bobRows.isNotEmpty())
         bobRows.forEach { row ->
             assertEquals(
@@ -756,7 +752,7 @@ class MongoDriverQueryTests {
             QueryPath(QuerySegment.Collection("students")),
             wildcard("students")
         )
-        assertEquals(3, result.size)
+        assertEquals(3, result.data.size)
     }
 
     @Test
@@ -775,7 +771,7 @@ class MongoDriverQueryTests {
             )
         )
         val result = driver!!.take(path, wildcard("students"))
-        assertEquals(1, result.size)
-        assertEquals(5, result[0].int("students", "gpa"))
+        assertEquals(1, result.data.size)
+        assertEquals(5, result.data[0].int("students", "gpa"))
     }
 }

@@ -2,7 +2,6 @@ package ch.flavianz.instructions
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyValue
-import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.*
 import ch.flavianz.query.QueryParser
 import java.util.UUID
