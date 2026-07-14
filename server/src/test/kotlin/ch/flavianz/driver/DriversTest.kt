@@ -592,6 +592,8 @@ class PostgresDriverTest : DriversTest() {
         conn.jdbcConnection.createStatement().execute("DROP TABLE IF EXISTS ps_col_test;")
         conn.jdbcConnection.createStatement().execute("DELETE FROM ps_config_connections;")
         conn.jdbcConnection.createStatement().execute("DELETE FROM ps_config_collections;")
+        DatabaseManager.initConnections(emptyList())
+        DatabaseManager.initCollections(emptyList())
     }
 }
 
@@ -618,6 +620,8 @@ class MongoDriverTest : DriversTest() {
         conn.mongoDatabase.getCollection("test").drop()
         conn.mongoDatabase.getCollection("ps_config_collections").deleteMany(Filters.empty())
         conn.mongoDatabase.getCollection("ps_config_connections").deleteMany(Filters.empty())
+        DatabaseManager.initConnections(emptyList())
+        DatabaseManager.initCollections(emptyList())
     }
 }
 
@@ -646,5 +650,7 @@ class Neo4jDriverTest : DriversTest() {
         conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'b' DETACH DELETE n").consume()
         conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'c' DETACH DELETE n").consume()
         conn.neo4jSession.run("MATCH (n:ps_config_connection) WHERE n.name = 'c' DETACH DELETE n").consume()
+        DatabaseManager.initConnections(emptyList())
+        DatabaseManager.initCollections(emptyList())
     }
 }

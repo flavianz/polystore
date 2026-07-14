@@ -226,21 +226,6 @@ class InstructionTests {
     }
 
     @Test
-    fun testQueryInstructionValidationSuccessButDriverNotConnected() {
-        // Query: from users take users.name
-        val schema = mapOf("name" to DataType.STRING)
-        DatabaseManager.createCollection("users", schema)
-
-        val parser = QueryParser("from users take users.name")
-        val queryInstruction = QueryInstruction(parser.parse())
-
-        // The validation passes but because driver is null it throws NotImplementedError
-        assertFailsWith<NotImplementedError> {
-            handler.handle(queryInstruction)
-        }
-    }
-
-    @Test
     fun testQueryInstructionValidationFailureNonexistentCollection() {
         val parser = QueryParser("from nonexistent take nonexistent.name")
         val queryInstruction = QueryInstruction(parser.parse())

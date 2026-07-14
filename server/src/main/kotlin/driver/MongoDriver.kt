@@ -736,7 +736,7 @@ private class MongoPolyCompleteDocument(doc: Document) : MongoPolyDocument(doc) 
     }
 
     fun getConnectionDocuments(name: String): List<MongoPolyConnection> {
-        val subCollection = doc["ps_con_${name}"]
+        val subCollection = doc["ps_con_${name}"] ?: return emptyList()
         check(subCollection is List<*>) { "connection $name does not exist on ${id()}" }
         return subCollection.filterIsInstance<Document>().map { MongoPolyConnection(it) }
     }
@@ -780,7 +780,7 @@ private class MongoPolyConnection(doc: Document) : MongoPolyObject(doc) {
     }
 
     fun getConnectionData(): MongoPolyData {
-        return MongoPolyData(doc["ps_doc"] as Document)
+        return MongoPolyData(doc["ps_rel"] as Document)
     }
 }
 
