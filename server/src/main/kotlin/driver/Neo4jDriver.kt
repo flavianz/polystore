@@ -373,7 +373,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
     /**
      * Builds the RETURN clause, projecting only the requested fields.
-     * Returns Cypher expressions like `n0.ps_f_name AS ps_col_student__name`.
+     * Returns Cypher expressions like `n0.ps_f_name AS student.name`.
      */
     private fun buildReturnClause(
         path: QueryPath,
@@ -420,18 +420,19 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                             when (fieldRef) {
                                 is FieldRef.Wildcard -> {
                                     projections.add(
-                                        "$nodeAlias.ps_id AS `ps_col_${segment.collectionName}__id`"
+                                        "$nodeAlias.ps_id AS `" +
+                                                "${segment.collectionName}._id`"
                                     )
                                     for (f in DatabaseManager.getCollectionModel(segment.collectionName).schema.keys) {
                                         projections.add(
-                                            "$nodeAlias.`ps_f_$f` AS `ps_col_${segment.collectionName}__$f`"
+                                            "$nodeAlias.`ps_f_$f` AS `${segment.collectionName}.$f`"
                                         )
                                     }
                                 }
 
                                 is FieldRef.Named ->
                                     projections.add(
-                                        "$nodeAlias.`ps_f_${fieldRef.field}` AS `ps_col_${segment.collectionName}__${fieldRef.field}`"
+                                        "$nodeAlias.`ps_f_${fieldRef.field}` AS `${segment.collectionName}.${fieldRef.field}`"
                                     )
                             }
                         } else if (segment.connectionName == fieldRef.segment) {
@@ -439,13 +440,13 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                                 is FieldRef.Wildcard ->
                                     for (f in model.connectionDataSchema.keys) {
                                         projections.add(
-                                            "$relAlias.`ps_f_$f` AS `ps_con_${model.name}__$f`"
+                                            "$relAlias.`ps_f_$f` AS `${model.name}.$f`"
                                         )
                                     }
 
                                 is FieldRef.Named ->
                                     projections.add(
-                                        "$relAlias.`ps_f_${fieldRef.field}` AS `ps_con_${model.name}__${fieldRef.field}`"
+                                        "$relAlias.`ps_f_${fieldRef.field}` AS `${model.name}.${fieldRef.field}`"
                                     )
                             }
                         }
