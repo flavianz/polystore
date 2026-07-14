@@ -13,11 +13,17 @@ import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
+import ch.flavianz.query.PolyDriver
+import ch.flavianz.query.PolyExecutionEnvironment
 import ch.flavianz.query.PolyQuery
-import ch.flavianz.query.PolyResult
+import ch.flavianz.query.PolyQueryDuration
+import ch.flavianz.query.PolyQueryResult
+import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
 import java.util.UUID
 import kotlin.collections.iterator
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.nanoseconds
 
 object DatabaseManager {
     private var collections = mutableMapOf<String, CollectionModel>()
@@ -51,10 +57,11 @@ object DatabaseManager {
 
     fun dropCollection(collectionName: String, recursive: Boolean = false) {
         val collectionModel = getCollectionModel(collectionName)
-        if(collectionModel.childCollections.isNotEmpty() && !recursive) {
+        if (collectionModel.childCollections.isNotEmpty() && !recursive) {
             throw IllegalArgumentException("collection $collectionName cannot be dropped as it has child collections")
         }
-        val connectedCollections = connections.values.filter { it.collection1Name == collectionName || it.collection2Name == collectionName }
+        val connectedCollections =
+            connections.values.filter { it.collection1Name == collectionName || it.collection2Name == collectionName }
         require(connectedCollections.isEmpty()) { "collection $collectionName cannot be dropped as it is connected to collections: ${connectedCollections.joinToString()}" }
         DriverManager.execute { (DatabaseDriver::dropCollection)(collectionModel) }
 
@@ -92,7 +99,7 @@ object DatabaseManager {
     }
 
     fun unregisterCollection(collection: CollectionModel) {
-        for(child in collection.childCollections) {
+        for (child in collection.childCollections) {
             unregisterCollection(getCollectionModel(child))
             collections.remove(child)
         }
@@ -181,7 +188,7 @@ object DatabaseManager {
 
     }
 
-    fun query(query: PolyQuery): PolyResult {
+    fun query(query: PolyQuery): PolyQueryResult {
         require(query.path.segments.isNotEmpty()) { "query path cannot be empty" }
         require(query.path.segments[0] is QuerySegment.Collection) { "query path must start with a collection" }
 
@@ -222,6 +229,7 @@ object DatabaseManager {
 
         return when (val terminal = query.terminal) {
             is PolyTerminal.Take -> {
+                val startTime = System.nanoTime()
                 val segments = mutableListOf<QuerySegment>()
                 for (i in query.path.segments.indices) {
                     val segment = query.path.segments[i]
@@ -258,12 +266,27 @@ object DatabaseManager {
                     break
                 }
 
-                PolyResult.Documents(
-                    DriverManager.take(PolyQuery(QueryPath(segments), terminal), terminal)
+                val queryResult = DriverManager.take(PolyQuery(QueryPath(segments), terminal), terminal)
+
+                val elapsedTime = (System.nanoTime() - startTime).nanoseconds
+
+                PolyQueryResult(
+                    PolyResultData.Documents(queryResult.data),
+                    PolyQueryDuration(
+                        queryResult.duration.queryBuildingDuration,
+                        queryResult.duration.queryExecutionDuration,
+                        elapsedTime.minus(queryResult.duration.queryExecutionDuration.plus(queryResult.duration.queryBuildingDuration))
+                    ),
+                    queryResult.executionEnvironment
                 )
             }
-
-            is PolyTerminal.Count -> DriverManager.count(query, terminal)
+            // TODO: implement properly
+            is PolyTerminal.Count -> PolyQueryResult(
+                DriverManager.count(query, terminal), PolyQueryDuration(
+                    Duration.ZERO,
+                    Duration.ZERO, Duration.ZERO
+                ), PolyExecutionEnvironment(PolyDriver.Postgres, listOf())
+            )
         }
     }
 

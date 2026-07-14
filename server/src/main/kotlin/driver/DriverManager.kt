@@ -2,12 +2,14 @@ package ch.flavianz.driver
 
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
-import ch.flavianz.data.PolyData
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
+import ch.flavianz.query.PolyDriver
+import ch.flavianz.query.PolyExecutionEnvironment
 import ch.flavianz.query.PolyQuery
-import ch.flavianz.query.PolyResult
+import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
+import ch.flavianz.query.TakeQueryResult
 import java.sql.Connection
 
 object DriverManager {
@@ -55,14 +57,25 @@ object DriverManager {
     }
 
     fun getActiveDriver(): DatabaseDriver {
-        return postgresDriver ?: mongoDriver ?: neo4jDriver ?: throw IllegalStateException("no driver connected")
+        return neo4jDriver ?: mongoDriver ?: postgresDriver ?: throw IllegalStateException("no driver connected")
     }
 
-    fun take(query: PolyQuery, terminal: PolyTerminal.Take): List<PolyData> {
-        return getActiveDriver().take(query.path, terminal)
+    fun take(query: PolyQuery, terminal: PolyTerminal.Take): TakeQueryResult {
+        val activeDriver = getActiveDriver()
+        val result = activeDriver.take(query.path, terminal)
+        return TakeQueryResult(
+            result.data, result.duration, PolyExecutionEnvironment(
+                when (activeDriver) {
+                    is PostgresDriver -> PolyDriver.Postgres
+                    is MongoDriver -> PolyDriver.Mongo
+                    is Neo4jDriver -> PolyDriver.Neo4j
+                    else -> throw IllegalStateException("unexpected driver detected")
+                }, result.executedQueries
+            )
+        )
     }
 
-    fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResult.Count {
+    fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
         return getActiveDriver().count(query.path, terminal)
     }
 

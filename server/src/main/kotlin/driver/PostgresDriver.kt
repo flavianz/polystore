@@ -15,7 +15,8 @@ import ch.flavianz.model.QuerySegment
 import ch.flavianz.model.toJson
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyResult
+import ch.flavianz.query.PolyDriverQueryDuration
+import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
 import ch.flavianz.server.FieldDefinition
 import kotlinx.serialization.json.Json
@@ -24,6 +25,9 @@ import java.util.UUID
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.measureTimedValue
 
 @Suppress("SqlSourceToSinkFlow")
 class PostgresDriver(val connection: Connection) : DatabaseDriver {
@@ -59,7 +63,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     override fun dropCollection(collection: CollectionModel) {
         val sql = StringBuilder()
         fun appendDropCollectionsRecursive(collection: CollectionModel) {
-            for(child in collection.childCollections) {
+            for (child in collection.childCollections) {
                 appendDropCollectionsRecursive(DatabaseManager.getCollectionModel(child))
             }
             sql.append(tableDropStatement(collection.name))
@@ -207,7 +211,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     }
 
 
-    override fun take(path: QueryPath, terminal: PolyTerminal.Take): List<PolyData> {
+    override fun take(path: QueryPath, terminal: PolyTerminal.Take): TimedDriverResult<List<PolyData>> {
+        val startTime = System.nanoTime()
         val sql = StringBuilder()
 
         val selectClauses = terminal.fields.flatMap { fieldRef ->
@@ -281,15 +286,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         appendWhere(sql, path)
 
         println(sql.toString())
-        val rs = connection.prepareStatement(sql.toString()).executeQuery()
+        val rs = measureTimedValue { connection.prepareStatement(sql.toString()).executeQuery() }
 
-        return buildList {
-            val metaData = rs.metaData
+        val data = buildList {
+            val metaData = rs.value.metaData
             val columnNames = (1..metaData.columnCount).map { metaData.getColumnName(it) }
 
-            while (rs.next()) {
+            while (rs.value.next()) {
                 val fields = columnNames.associateWith { col ->
-                    when (val obj = rs.getObject(col)) {
+                    when (val obj = rs.value.getObject(col)) {
                         null -> PolyValue.NullValue
                         is String -> PolyValue.of(obj)
                         is Int -> PolyValue.of(obj)
@@ -300,9 +305,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 add(fields)
             }
         }
+        val elapsedTime = (System.nanoTime() - startTime).nanoseconds
+        return TimedDriverResult(
+            data,
+            PolyDriverQueryDuration(elapsedTime - rs.duration, rs.duration),
+            listOf(sql.toString())
+        )
     }
 
-    override fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count {
+    override fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResultData.Count {
         val sql = StringBuilder()
         sql.append("SELECT COUNT(*) AS ps_count")
         appendFromAndJoins(sql, path)
@@ -310,7 +321,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
         rs.next()
-        return PolyResult.Count(rs.getInt("ps_count"))
+        return PolyResultData.Count(rs.getInt("ps_count"))
     }
 
     override fun init() {

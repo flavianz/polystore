@@ -9,17 +9,19 @@ import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyResult
+import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
+import ch.flavianz.query.PolyDriverQueryDuration
 import ch.flavianz.server.FieldDefinition
-import com.mongodb.client.model.Filters
 import kotlinx.serialization.json.Json
 import java.util.UUID
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.measureTimedValue
 
 class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
@@ -39,33 +41,39 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     }
 
     private fun dropCollectionRecursive(collection: CollectionModel) {
-        for(child in collection.childCollections) {
+        for (child in collection.childCollections) {
             dropCollectionRecursive(DatabaseManager.getCollectionModel(child))
         }
         val label = collectionLabel(collection.name)
         connection.neo4jSession.use { session ->
-            session.run("""
+            session.run(
+                """
                 MATCH (n:$label)
                 DETACH DELETE n
-            """)
+            """
+            )
         }
         connection.neo4jSession.use { session ->
-            session.run("""
+            session.run(
+                """
                 MATCH (n:ps_config_collection)
                 WHERE n.name = '${collection.name}'
                 DETACH DELETE n
-            """)
+            """
+            )
         }
     }
 
     override fun dropConnection(connectionModel: ConnectionModel) {
         connection.neo4jSession.use { session ->
             connection.neo4jSession.use { session ->
-                session.run("""
+                session.run(
+                    """
                 MATCH (n:ps_config_connection)
                 WHERE n.name = '${connectionModel.name}'
                 DETACH DELETE n
-            """)
+            """
+                )
             }
         }
     }
@@ -158,7 +166,8 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         }
     }
 
-    override fun take(path: QueryPath, terminal: PolyTerminal.Take): List<PolyData> {
+    override fun take(path: QueryPath, terminal: PolyTerminal.Take): TimedDriverResult<List<PolyData>> {
+        val startTime = System.nanoTime()
         val (cypher, aliases) = buildMatchClause(path)
         val returnClause = buildReturnClause(path, terminal.fields, aliases)
         val whereClause = buildWhereClause(path, aliases)
@@ -169,19 +178,29 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
             append(" RETURN $returnClause")
         }
 
-        return connection.neo4jSession.use { session ->
-            val result = session.run(query)
-            result.list { record ->
-                val map = mutableMapOf<String, PolyValue>()
-                for (key in record.keys()) {
-                    map[key] = record[key].toPolyValue()
+        val result = measureTimedValue {
+            connection.neo4jSession.use { session ->
+                session.run(query).list { record ->
+                    val map = mutableMapOf<String, PolyValue>()
+                    for (key in record.keys()) {
+                        map[key] = record[key].toPolyValue()
+                    }
+                    map
                 }
-                map
             }
         }
+
+        val data = result.value
+
+        val elapsedTime = (System.nanoTime() - startTime).nanoseconds
+        return TimedDriverResult(
+            data,
+            PolyDriverQueryDuration(elapsedTime.minus(result.duration), result.duration),
+            listOf(query)
+        )
     }
 
-    override fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count {
+    override fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResultData.Count {
         val (cypher, aliases) = buildMatchClause(path)
         val whereClause = buildWhereClause(path, aliases)
         val lastAlias = aliases.last()
@@ -194,7 +213,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
         return connection.neo4jSession.use { session ->
             val result = session.run(query).single()
-            PolyResult.Count(result["ps_count"].asInt())
+            PolyResultData.Count(result["ps_count"].asInt())
         }
     }
 

@@ -7,7 +7,8 @@ import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
-import ch.flavianz.query.PolyResult
+import ch.flavianz.query.PolyDriverQueryDuration
+import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
 import java.util.UUID
 
@@ -26,9 +27,15 @@ interface DatabaseDriver {
         connectionData: PolyData
     )
 
-    fun take(path: QueryPath, terminal: PolyTerminal.Take): List<PolyData>
-    fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResult.Count
+    fun take(path: QueryPath, terminal: PolyTerminal.Take): TimedDriverResult<List<PolyData>>
+    fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResultData.Count
 
     fun init()
     fun getDatabaseSchema(): DatabaseSchema
 }
+
+data class TimedDriverResult<T>(
+    val data: T,
+    val duration: PolyDriverQueryDuration,
+    val executedQueries: List<String>
+)
