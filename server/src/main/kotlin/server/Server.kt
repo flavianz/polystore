@@ -1,6 +1,7 @@
 package ch.flavianz.server
 
 import ch.flavianz.core.DatabaseManager
+import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.QueryPath
@@ -207,6 +208,77 @@ fun startServer() {
 
                 result.fold(
                     onSuccess = { call.respond(HttpStatusCode.OK, it.toJson()) },
+                    onFailure = {
+                        println("Query failed: ${it.message}")
+                        call.respond(
+                            HttpStatusCode.InternalServerError,
+                            buildJsonObject { put("message", it.message); put("stack_trace", it.stackTraceToString()) })
+                        print(it)
+                        print(it.stackTraceToString())
+                    }
+                )
+            }
+            post("/query/bench") {
+                val body = call.receive<TakeRequest>()
+
+                val querySegments = mutableListOf<QuerySegment>()
+
+                var i = 0
+                while (i < body.path.size) {
+                    val requestSegment = body.path[i]
+                    when (requestSegment.type) {
+                        "collection" -> querySegments.add(
+                            QuerySegment.Collection(
+                                requestSegment.name,
+                                if (!requestSegment.condition.isNullOrEmpty()) ConditionParser(requestSegment.condition).parse() else null
+                            )
+                        )
+
+                        "connection" -> {
+                            require(i + 1 < body.path.size)
+                            val nextSegment = body.path[i + 1]
+                            require(nextSegment.type == "collection")
+                            querySegments.add(
+                                QuerySegment.Connection(
+                                    requestSegment.name,
+                                    nextSegment.name,
+                                    if (!requestSegment.condition.isNullOrEmpty()) ConditionParser(requestSegment.condition).parse() else null,
+                                    if (!nextSegment.condition.isNullOrEmpty()) ConditionParser(nextSegment.condition).parse() else null
+                                )
+                            )
+                            i++
+                        }
+
+                        else -> throw IllegalArgumentException("unknown segment type")
+                    }
+                    i++
+                }
+                val fieldRefs = (body.take?.flatMap { segment -> segment.value.map { FieldRef.Named(segment.key, it) } }
+                    ?: emptyList()) +
+                        (body.collect?.map { FieldRef.Wildcard(it) } ?: emptyList())
+
+                val polyQuery = PolyQuery(QueryPath(querySegments), PolyTerminal.Take(fieldRefs))
+
+                val result = runCatching {
+                    DriverManager.benchmarkTake(polyQuery, polyQuery.terminal as PolyTerminal.Take)
+                }
+
+
+                result.fold(
+                    onSuccess = {
+                        call.respond(HttpStatusCode.OK, buildJsonObject {
+                            for (driver in it) {
+                                put(driver.key, buildJsonObject {
+                                    put("avQueryBuildingDuration", driver.value.queryBuildingDuration.toString())
+                                    put("avQueryExecutionDuration", driver.value.queryExecutionDuration.toString())
+                                    put(
+                                        "avTotalDuration",
+                                        (driver.value.queryExecutionDuration + driver.value.queryBuildingDuration).toString()
+                                    )
+                                })
+                            }
+                        })
+                    },
                     onFailure = {
                         println("Query failed: ${it.message}")
                         call.respond(

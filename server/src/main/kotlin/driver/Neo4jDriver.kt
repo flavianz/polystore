@@ -21,6 +21,7 @@ import ch.flavianz.server.FieldDefinition
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 
 class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
@@ -172,6 +173,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         val returnClause = buildReturnClause(path, terminal.fields, aliases)
         val whereClause = buildWhereClause(path, aliases)
 
+        // TODO: parameterize query with session.run(query, params) for better query caching performance
         val query = buildString {
             append(cypher)
             if (whereClause.isNotBlank()) append(" WHERE $whereClause")
@@ -180,22 +182,25 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
         val result = measureTimedValue {
             connection.neo4jSession.use { session ->
-                session.run(query).list { record ->
-                    val map = mutableMapOf<String, PolyValue>()
-                    for (key in record.keys()) {
-                        map[key] = record[key].toPolyValue()
+                val result = session.run(query)
+                measureTimedValue {
+                    result.list { record ->
+                        val map = mutableMapOf<String, PolyValue>()
+                        for (key in record.keys()) {
+                            map[key] = record[key].toPolyValue()
+                        }
+                        map
                     }
-                    map
                 }
             }
         }
 
-        val data = result.value
+        val data = result.value.value
 
         val elapsedTime = (System.nanoTime() - startTime).nanoseconds
         return TimedDriverResult(
             data,
-            PolyDriverQueryDuration(elapsedTime.minus(result.duration), result.duration),
+            PolyDriverQueryDuration(elapsedTime.minus(result.duration.minus(result.value.duration)), result.duration),
             listOf(query)
         )
     }

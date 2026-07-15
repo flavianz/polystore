@@ -5,12 +5,14 @@ import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.query.PolyDriver
+import ch.flavianz.query.PolyDriverQueryDuration
 import ch.flavianz.query.PolyExecutionEnvironment
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
 import ch.flavianz.query.TakeQueryResult
 import java.sql.Connection
+import kotlin.time.Duration
 
 object DriverManager {
     var postgresDriver: PostgresDriver? = null
@@ -57,7 +59,39 @@ object DriverManager {
     }
 
     fun getActiveDriver(): DatabaseDriver {
-        return neo4jDriver ?: mongoDriver ?: postgresDriver ?: throw IllegalStateException("no driver connected")
+        return mongoDriver ?: postgresDriver ?: neo4jDriver ?: throw IllegalStateException("no driver connected")
+    }
+
+    fun getActiveDrivers(): List<DatabaseDriver> {
+        return buildList {
+            if (mongoDriver != null) {
+                add(mongoDriver!!)
+            }
+            if (postgresDriver != null) {
+                add(postgresDriver!!)
+            }
+            if (neo4jDriver != null) {
+                add(neo4jDriver!!)
+            }
+        }
+    }
+
+    fun benchmarkTake(query: PolyQuery, terminal: PolyTerminal.Take): Map<String, PolyDriverQueryDuration> {
+        return buildMap {
+            for (driver in getActiveDrivers()) {
+                var totalQueryBuildingTime = Duration.ZERO
+                var totalQueryExecutingTime = Duration.ZERO
+                for (i in 0..<100) {
+                    val result = driver.take(query.path, terminal)
+                    totalQueryBuildingTime = totalQueryBuildingTime.plus(result.duration.queryBuildingDuration)
+                    totalQueryExecutingTime = totalQueryExecutingTime.plus(result.duration.queryExecutionDuration)
+                }
+                put(
+                    driver.javaClass.toString(),
+                    PolyDriverQueryDuration(totalQueryBuildingTime.div(100), totalQueryExecutingTime.div(100))
+                )
+            }
+        }
     }
 
     fun take(query: PolyQuery, terminal: PolyTerminal.Take): TakeQueryResult {

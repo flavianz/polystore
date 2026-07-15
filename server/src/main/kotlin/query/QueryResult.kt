@@ -6,6 +6,7 @@ import ch.flavianz.query.PolyResultData.Count
 import ch.flavianz.query.PolyResultData.Documents
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -31,7 +32,11 @@ class PolyQueryResult(
         })
         put("env", buildJsonObject {
             put("driver", executionEnvironment.driver.toString())
-            put("executedQueries", buildJsonArray { executionEnvironment.executedQueries })
+            put("executedQueries", buildJsonArray {
+                for (string in executionEnvironment.executedQueries) {
+                    add(string)
+                }
+            })
         })
         put("data", resultData.toJson())
     }.toString()
