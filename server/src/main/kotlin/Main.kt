@@ -14,7 +14,7 @@ fun main() {
     // Register both connections
     manager.register(
         PostgresConnection(
-            host = "localhost",
+            host = "127.0.0.1",
             port = 5432,
             database = "polystore",
             username = "postgres",
@@ -23,7 +23,7 @@ fun main() {
     )
     manager.register(
         MongoConnection(
-            host = "localhost",
+            host = "127.0.0.1",
             port = 27017,
             database = "polystore"
         )

@@ -9,7 +9,7 @@ import org.neo4j.driver.Session
  * Manages a connection to a Neo4j database via the official Kotlin driver.
  */
 class Neo4jConnection(
-    private val host: String = "localhost",
+    private val host: String = "127.0.0.1",
     private val port: Int = 7687,
     private val database: String = "neo4j",
     private val username: String? = null,
