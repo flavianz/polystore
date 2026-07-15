@@ -67,7 +67,6 @@ sealed class PolyResultData {
         }
 
         is Documents -> buildJsonObject {
-            println(polyData)
             put("type", "documents")
             put("data", buildJsonArray {
                 for (row in polyData) {
@@ -75,7 +74,6 @@ sealed class PolyResultData {
                         val segments = row.entries.groupBy { it.key.split(".").first() }
                         for (segment in segments) {
                             put(segment.key, buildJsonObject {
-                                println(segment.value)
                                 for ((key, value) in segment.value) {
                                     val subKey = key.split(".")[1]
                                     when (value) {

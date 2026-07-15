@@ -198,8 +198,6 @@ fun startServer() {
 
                 val polyQuery = PolyQuery(QueryPath(querySegments), PolyTerminal.Take(fieldRefs))
 
-                println(polyQuery)
-
                 val result = runCatching {
                     DatabaseManager.query(
                         polyQuery
@@ -211,7 +209,9 @@ fun startServer() {
                     onSuccess = { call.respond(HttpStatusCode.OK, it.toJson()) },
                     onFailure = {
                         println("Query failed: ${it.message}")
-                        call.respond(HttpStatusCode.InternalServerError, buildJsonObject {put("message", it.message); put("stack_trace", it.stackTraceToString())})
+                        call.respond(
+                            HttpStatusCode.InternalServerError,
+                            buildJsonObject { put("message", it.message); put("stack_trace", it.stackTraceToString()) })
                         print(it)
                         print(it.stackTraceToString())
                     }
@@ -219,7 +219,6 @@ fun startServer() {
             }
             get("/collections/list") {
                 val collections = DatabaseManager.listCollections()
-                println(Json.encodeToString(collections))
                 call.respond(HttpStatusCode.OK, collections)
             }
             get("/connections/list") {

@@ -285,7 +285,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         appendFromAndJoins(sql, path)
         appendWhere(sql, path)
 
-        println(sql.toString())
         val rs = measureTimedValue { connection.prepareStatement(sql.toString()).executeQuery() }
 
         val data = buildList {

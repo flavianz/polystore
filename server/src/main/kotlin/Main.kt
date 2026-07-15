@@ -51,8 +51,6 @@ fun main() {
     DriverManager.initNeo4j(neo4j)
 
     val databaseSchema = DriverManager.parseDatabaseSchema()
-    println(databaseSchema)
-
 
     DatabaseManager.initCollections(
         databaseSchema.collections.toList()
