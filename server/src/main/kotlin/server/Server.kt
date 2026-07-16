@@ -269,12 +269,19 @@ fun startServer() {
                         call.respond(HttpStatusCode.OK, buildJsonObject {
                             for (driver in it) {
                                 put(driver.key, buildJsonObject {
-                                    put("avQueryBuildingDuration", driver.value.queryBuildingDuration.toString())
-                                    put("avQueryExecutionDuration", driver.value.queryExecutionDuration.toString())
+                                    put("avQueryBuildingDuration", driver.value.first.queryBuildingDuration.toString())
+                                    put(
+                                        "avQueryExecutionDuration",
+                                        driver.value.first.queryExecutionDuration.toString()
+                                    )
                                     put(
                                         "avTotalDuration",
-                                        (driver.value.queryExecutionDuration + driver.value.queryBuildingDuration).toString()
+                                        (driver.value.first.queryExecutionDuration + driver.value.first.queryBuildingDuration).toString()
                                     )
+                                    put(
+                                        "csv",
+                                        driver.value.second.map { "${it.queryBuildingDuration.inWholeMicroseconds};${it.queryExecutionDuration.inWholeMicroseconds}" }
+                                            .joinToString(separator = "\n"))
                                 })
                             }
                         })

@@ -76,19 +76,28 @@ object DriverManager {
         }
     }
 
-    fun benchmarkTake(query: PolyQuery, terminal: PolyTerminal.Take): Map<String, PolyDriverQueryDuration> {
+    fun benchmarkTake(
+        query: PolyQuery,
+        terminal: PolyTerminal.Take
+    ): Map<String, Pair<PolyDriverQueryDuration, List<PolyDriverQueryDuration>>> {
         return buildMap {
             for (driver in getActiveDrivers()) {
                 var totalQueryBuildingTime = Duration.ZERO
                 var totalQueryExecutingTime = Duration.ZERO
-                for (i in 0..<100) {
-                    val result = driver.take(query.path, terminal)
-                    totalQueryBuildingTime = totalQueryBuildingTime.plus(result.duration.queryBuildingDuration)
-                    totalQueryExecutingTime = totalQueryExecutingTime.plus(result.duration.queryExecutionDuration)
+                val singleMeasurements = buildList {
+                    for (i in 0..<100) {
+                        val result = driver.take(query.path, terminal)
+                        totalQueryBuildingTime = totalQueryBuildingTime.plus(result.duration.queryBuildingDuration)
+                        totalQueryExecutingTime = totalQueryExecutingTime.plus(result.duration.queryExecutionDuration)
+                        add(result.duration)
+                    }
                 }
                 put(
                     driver.javaClass.toString(),
-                    PolyDriverQueryDuration(totalQueryBuildingTime.div(100), totalQueryExecutingTime.div(100))
+                    Pair(
+                        PolyDriverQueryDuration(totalQueryBuildingTime.div(100), totalQueryExecutingTime.div(100)),
+                        singleMeasurements
+                    )
                 )
             }
         }
