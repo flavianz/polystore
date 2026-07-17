@@ -407,11 +407,11 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
         val condition = if (segment.condition == null) Filters.empty() else conditionToFilter(segment.condition)
         val result = measureTimedValue {
-            mongoCollection.find(condition)
+            mongoCollection.find(condition).toList()
         }
 
         return TimedQueryValue(
-            result.value.map { MongoPolyCompleteDocument(it) }.toList(),
+            result.value.map { MongoPolyCompleteDocument(it) },
             result.duration,
             "list $mongoCollection with ${condition?.toString() ?: "no condition"}"
         )
@@ -426,15 +426,15 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             val condition =
                 if (parentSegment.condition == null) Filters.empty() else conditionToFilter(parentSegment.condition)
             val parentDocs = measureTimedValue {
-                mongoParentCollection.find(condition).map {
-                    MongoPolyCompleteDocument(
-                        it
-                    )
-                }
+                mongoParentCollection.find(condition).toList()
             }
 
             return TimedQueryValue(
-                parseSubDocs(parentDocs.value.toList(), subSegment.name),
+                parseSubDocs(parentDocs.value.map {
+                    MongoPolyCompleteDocument(
+                        it
+                    )
+                }, subSegment.name),
                 parentDocs.duration,
                 "list $mongoParentCollection with ${condition?.toString() ?: "no condition"}"
             )
@@ -450,12 +450,12 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 )
             )
             val parentDocs = measureTimedValue {
-                mongoParentCollection.find(condition)
+                mongoParentCollection.find(condition).toList()
             }
 
             // manually filter sub docs to avoid false positives (required)
             val allSubDocs =
-                parseSubDocs(parentDocs.value.map { MongoPolyCompleteDocument(it) }.toList(), subSegment.name)
+                parseSubDocs(parentDocs.value.map { MongoPolyCompleteDocument(it) }, subSegment.name)
             return TimedQueryValue(allSubDocs.map { subDoc ->
                 subDoc.key to subDoc.value.filter { doc ->
                     checkCondition(
@@ -494,7 +494,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         val collection = mongoDatabase.getCollection(segment.collectionName)
         val collectionDocs = measureTimedValue {
             collection
-                .find(if (filters.isNotEmpty()) Filters.and(filters) else Filters.empty())
+                .find(if (filters.isNotEmpty()) Filters.and(filters) else Filters.empty()).toList()
         }
         val result = buildMap {
             collectionDocs.value.forEach { parentDoc ->
