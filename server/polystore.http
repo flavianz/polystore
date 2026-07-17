@@ -26,8 +26,16 @@ POST http://localhost:8080/collection/drop
 Content-Type: application/json
 
 {
-  "name": "babies",
-  "recursive": false
+  "name": "patients",
+  "recursive": true
+}
+
+### Drop connection
+POST http://localhost:8080/connection/drop
+Content-Type: application/json
+
+{
+  "name": "treatments"
 }
 
 ### Create connection

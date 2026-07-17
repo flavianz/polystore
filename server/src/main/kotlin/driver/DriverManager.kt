@@ -11,8 +11,9 @@ import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
 import ch.flavianz.query.TakeQueryResult
+import ch.flavianz.stat.DriverSpecificData
 import java.sql.Connection
-import kotlin.time.Duration
+import kotlin.collections.mutableListOf
 
 object DriverManager {
     var postgresDriver: PostgresDriver? = null
@@ -79,28 +80,17 @@ object DriverManager {
     fun benchmarkTake(
         query: PolyQuery,
         terminal: PolyTerminal.Take
-    ): Map<String, Pair<PolyDriverQueryDuration, List<PolyDriverQueryDuration>>> {
-        return buildMap {
-            for (driver in getActiveDrivers()) {
-                var totalQueryBuildingTime = Duration.ZERO
-                var totalQueryExecutingTime = Duration.ZERO
-                val singleMeasurements = buildList {
-                    for (i in 0..<100) {
-                        val result = driver.take(query.path, terminal)
-                        totalQueryBuildingTime = totalQueryBuildingTime.plus(result.duration.queryBuildingDuration)
-                        totalQueryExecutingTime = totalQueryExecutingTime.plus(result.duration.queryExecutionDuration)
-                        add(result.duration)
-                    }
-                }
-                put(
-                    driver.javaClass.toString(),
-                    Pair(
-                        PolyDriverQueryDuration(totalQueryBuildingTime.div(100), totalQueryExecutingTime.div(100)),
-                        singleMeasurements
-                    )
-                )
+    ): DriverSpecificData<List<PolyDriverQueryDuration>> {
+        val postgres = mutableListOf<PolyDriverQueryDuration>()
+        val mongo = mutableListOf<PolyDriverQueryDuration>()
+        val neo4j = mutableListOf<PolyDriverQueryDuration>()
+        for (i in 0..<1100) {
+            for (driver in listOf(Pair(postgresDriver, postgres), Pair(mongoDriver, mongo), Pair(neo4jDriver, neo4j))) {
+                val result = driver.first!!.take(query.path, terminal)
+                driver.second.add(result.duration)
             }
         }
+        return DriverSpecificData(postgres, mongo, neo4j)
     }
 
     fun take(query: PolyQuery, terminal: PolyTerminal.Take): TakeQueryResult {

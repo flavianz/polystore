@@ -6,17 +6,13 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
-import ch.flavianz.query.Condition
 import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyTerminal
-import ch.flavianz.query.QueryParser
-import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -96,6 +92,22 @@ fun startServer() {
 
                 result.fold(
                     onSuccess = { call.respond(HttpStatusCode.Created, "Connection '${body.name}' created") },
+                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
+                )
+            }
+
+            post("/connection/drop") {
+                val body = runCatching { call.receive<DropConnectionRequest>() }.getOrElse {
+                    return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+                }
+
+                val result = runCatching {
+                    DatabaseManager.dropConnection(
+                        body.name)
+                }
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.Created, "Connection '${body.name}' dropped") },
                     onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
                 )
             }
@@ -266,25 +278,7 @@ fun startServer() {
 
                 result.fold(
                     onSuccess = {
-                        call.respond(HttpStatusCode.OK, buildJsonObject {
-                            for (driver in it) {
-                                put(driver.key, buildJsonObject {
-                                    put("avQueryBuildingDuration", driver.value.first.queryBuildingDuration.toString())
-                                    put(
-                                        "avQueryExecutionDuration",
-                                        driver.value.first.queryExecutionDuration.toString()
-                                    )
-                                    put(
-                                        "avTotalDuration",
-                                        (driver.value.first.queryExecutionDuration + driver.value.first.queryBuildingDuration).toString()
-                                    )
-                                    put(
-                                        "csv",
-                                        driver.value.second.map { "${it.queryBuildingDuration.inWholeMicroseconds};${it.queryExecutionDuration.inWholeMicroseconds}" }
-                                            .joinToString(separator = "\n"))
-                                })
-                            }
-                        })
+                        call.respond(HttpStatusCode.OK)
                     },
                     onFailure = {
                         println("Query failed: ${it.message}")

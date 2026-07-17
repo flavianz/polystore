@@ -21,7 +21,6 @@ import ch.flavianz.server.FieldDefinition
 import kotlinx.serialization.json.Json
 import java.util.UUID
 import kotlin.time.Duration.Companion.nanoseconds
-import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 
 class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {

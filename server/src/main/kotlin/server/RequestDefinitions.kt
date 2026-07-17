@@ -34,6 +34,12 @@ data class CreateConnectionRequest(
     val fields: List<FieldDefinition>,
 )
 
+
+@Serializable
+data class DropConnectionRequest(
+    val name: String
+)
+
 @Serializable
 data class FieldDefinition(
     val name: String,
