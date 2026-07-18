@@ -1,59 +1,36 @@
 package ch.flavianz.stat
 
-import net.datafaker.Faker
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyValue
-import ch.flavianz.driver.DriverManager
-import ch.flavianz.model.DataType
-import ch.flavianz.model.QueryPath
-import ch.flavianz.model.QuerySegment
-import ch.flavianz.query.Condition
-import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyQuery
-import ch.flavianz.query.PolyTerminal
+import net.datafaker.Faker
 import java.io.File
 import java.util.Random
-import java.util.UUID
 import kotlin.collections.mutableListOf
 
 object Benchmark {
-    val runId = 0;
-    val faker = Faker(Random(55L))
+    val seed = Random(55L)
+    const val RUN_ID = 1
+    val faker = Faker(seed)
     val measurements = mutableListOf<DurationMeasurement>()
-    /*fun startBenchmark() {
-        val queryDurationStats = mutableListOf<QueryStats>()
-        queryDurationStats.add(bench1())
-        queryDurationStats.add(bench2())
-        queryDurationStats.add(bench3())
-
-        val csv = buildString {
-            append("query;collection size;depth;filter count;driver;build average;build 90th percentile;build 95th percentile;build 99th percentile; build min; build max; build std deviation; build coefficient of variation;exec average;exec 90th percentile;exec 95th percentile;exec 99th percentile; exec min; build max; exec std deviation; exec coefficient of variation\n")
-            for (stat in queryDurationStats) {
-                for (driverPair in listOf(
-                    Pair(stat.durationStats.postgres, "postgres"),
-                    Pair(stat.durationStats.mongo, "mongo"),
-                    Pair(stat.durationStats.neo4j, "neo4j")
-                )) {
-                    val driver = driverPair.first
-                    append("${stat.name};${stat.collectionSize};${stat.depth};${stat.filterCount};${driverPair.second};${driver.buildingStats.avg};${driver.buildingStats.percentile90};${driver.buildingStats.percentile95};${driver.buildingStats.percentile99};${driver.buildingStats.min};${driver.buildingStats.max};${driver.buildingStats.stdDeviation};${driver.buildingStats.coefficientOfVariation};")
-                    append("${driver.executionStats.avg};${driver.executionStats.percentile90};${driver.executionStats.percentile95};${driver.executionStats.percentile99};${driver.executionStats.min};${driver.executionStats.max};${driver.executionStats.stdDeviation};${driver.executionStats.coefficientOfVariation}\n")
-                }
-            }
-        }
-
-        File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\query bench\\${UUID.randomUUID()}.csv").writeText(
-            csv
-        )
-
-        println()
-        println("completed benchmark")
-    }*/
 
     fun startBenchmark() {
-        for (bench in listOf(BenchEnvironment1(runId))) {
-            bench.init()
-            measurements.addAll(BenchEnvironment1(runId).bench())
-            bench.cleanUp()
+        for (connection in DatabaseManager.listConnections()) {
+            DatabaseManager.dropConnection(connection.name)
+        }
+        for (collection in DatabaseManager.listCollections()) {
+            if (DatabaseManager.existsCollection(collection.name)) {
+                DatabaseManager.dropCollection(collection.name, true)
+            }
+
+        }
+        for (env in listOf(
+            BenchEnvironmentSimpleCollection(RUN_ID, 100),
+            BenchEnvironmentSubCollection(RUN_ID, 100),
+            BenchEnvironmentDeepSubCollection(RUN_ID, 100),
+            BenchEnvironmentConnection(RUN_ID, 100),
+        )) {
+            env.init()
+            measurements.addAll(env.bench())
+            env.cleanUp()
         }
         println("completed bench, preparing file...")
         val csv = buildString {
@@ -63,7 +40,7 @@ object Benchmark {
                 append("\n")
             }
         }
-        File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\query bench\\run-${runId}.csv").writeText(
+        File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\bench-data-raw.csv").appendText(
             csv
         )
     }

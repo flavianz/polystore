@@ -98,10 +98,13 @@ object DatabaseManager {
         }
     }
 
-    fun unregisterCollection(collection: CollectionModel) {
+    fun unregisterCollection(collection: CollectionModel, isOriginal: Boolean = true) {
         for (child in collection.childCollections) {
-            unregisterCollection(getCollectionModel(child))
+            unregisterCollection(getCollectionModel(child), false)
             collections.remove(child)
+        }
+        if (isOriginal && collection.hasParentCollection()) {
+            getCollectionModel(collection.parentCollection!!).childCollections.remove(collection.name)
         }
         collections.remove(collection.name)
     }
