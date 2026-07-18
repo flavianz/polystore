@@ -292,14 +292,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             val columnNames = (1..metaData.columnCount).map { metaData.getColumnName(it) }
 
             while (rs.value.next()) {
-                val fields = columnNames.associateWith { col ->
-                    when (val obj = rs.value.getObject(col)) {
-                        null -> PolyValue.NullValue
-                        is String -> PolyValue.of(obj)
-                        is Int -> PolyValue.of(obj)
-                        is UUID -> PolyValue.of(obj)
-                        else -> throw IllegalStateException("Unexpected type ${obj::class} for column $col")
-                    }
+                val fields = columnNames.associateWith {
+                    PolyValue.of(rs.value.getObject(it))
                 }
                 add(fields)
             }
