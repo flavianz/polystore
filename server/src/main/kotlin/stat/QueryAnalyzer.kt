@@ -8,7 +8,7 @@ import kotlin.math.floor
 import kotlin.math.sqrt
 import kotlin.time.Duration
 
-fun analyzeQuery(name: String, query: PolyQuery): DriverSpecificData<QueryStats> {
+/*fun analyzeQuery(name: String, query: PolyQuery): DriverSpecificData<QueryDurationStats> {
     val data = DriverManager.benchmarkTake(query, query.terminal as PolyTerminal.Take)
     val ignoredPostgresData = data.postgres.subList(0, 100)
     val ignoredMongoData = data.mongo.subList(0, 100)
@@ -18,19 +18,19 @@ fun analyzeQuery(name: String, query: PolyQuery): DriverSpecificData<QueryStats>
     val neo4jData = data.neo4j.subList(100, data.neo4j.size)
 
     return DriverSpecificData(
-        QueryStats(
+        QueryDurationStats(
             name,
             calculateQueryStats(postgresData.map { it.queryBuildingDuration }),
             calculateQueryStats(postgresData.map { it.queryExecutionDuration }),
             calculateQueryStats(ignoredPostgresData.map { it.queryBuildingDuration }),
             calculateQueryStats(ignoredPostgresData.map { it.queryExecutionDuration })
-        ), QueryStats(
+        ), QueryDurationStats(
             name,
             calculateQueryStats(mongoData.map { it.queryBuildingDuration }),
             calculateQueryStats(mongoData.map { it.queryExecutionDuration }),
             calculateQueryStats(ignoredMongoData.map { it.queryBuildingDuration }),
             calculateQueryStats(ignoredMongoData.map { it.queryExecutionDuration })
-        ), QueryStats(
+        ), QueryDurationStats(
             name,
             calculateQueryStats(neo4jData.map { it.queryBuildingDuration }),
             calculateQueryStats(neo4jData.map { it.queryExecutionDuration }),
@@ -40,7 +40,7 @@ fun analyzeQuery(name: String, query: PolyQuery): DriverSpecificData<QueryStats>
     )
 }
 
-fun calculateQueryStats(data: List<Duration>): QueryStatData {
+fun calculateQueryStats(data: List<Duration>): QueryDurationStatData {
     val microSecondData = data.map { it.inWholeMicroseconds }
     val avg = microSecondData.average()
     val percentile90 = microSecondData.percentile(90.0)
@@ -51,7 +51,17 @@ fun calculateQueryStats(data: List<Duration>): QueryStatData {
     val stdDeviation = microSecondData.standardDeviation()
     val coefficientOfVariation = microSecondData.coefficientOfVariation()
 
-    return QueryStatData(microSecondData, avg, percentile90, percentile95, percentile99, min, max, stdDeviation, coefficientOfVariation)
+    return QueryDurationStatData(
+        microSecondData,
+        avg,
+        percentile90,
+        percentile95,
+        percentile99,
+        min,
+        max,
+        stdDeviation,
+        coefficientOfVariation
+    )
 }
 
 fun List<Long>.standardDeviation(): Double {
@@ -95,4 +105,4 @@ fun List<Long>.percentile(percentile: Double): Double {
 
     val fraction = index - lower
     return sorted[lower] + fraction * (sorted[upper] - sorted[lower])
-}
+}*/

@@ -2,8 +2,6 @@ package ch.flavianz.query
 
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
-import ch.flavianz.query.PolyResultData.Count
-import ch.flavianz.query.PolyResultData.Documents
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
@@ -54,14 +52,22 @@ data class PolyQueryDuration(
 )
 
 data class PolyExecutionEnvironment(
-    val driver: PolyDriver,
+    val driver: DriverType,
     val executedQueries: List<String>
 )
 
-enum class PolyDriver {
+enum class DriverType {
     Postgres,
     Mongo,
-    Neo4j
+    Neo4j;
+
+    override fun toString(): String {
+        return when (this) {
+            Postgres -> "postgres"
+            Mongo -> "mongo"
+            Neo4j -> "neo4j"
+        }
+    }
 }
 
 sealed class PolyResultData {

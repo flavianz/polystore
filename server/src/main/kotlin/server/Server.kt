@@ -103,7 +103,8 @@ fun startServer() {
 
                 val result = runCatching {
                     DatabaseManager.dropConnection(
-                        body.name)
+                        body.name
+                    )
                 }
 
                 result.fold(
@@ -230,7 +231,7 @@ fun startServer() {
                     }
                 )
             }
-            post("/query/bench") {
+            /*post("/query/bench") {
                 val body = call.receive<TakeRequest>()
 
                 val querySegments = mutableListOf<QuerySegment>()
@@ -289,7 +290,7 @@ fun startServer() {
                         print(it.stackTraceToString())
                     }
                 )
-            }
+            }*/
             get("/collections/list") {
                 val collections = DatabaseManager.listCollections()
                 call.respond(HttpStatusCode.OK, collections)

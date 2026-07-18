@@ -13,7 +13,7 @@ import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
-import ch.flavianz.query.PolyDriver
+import ch.flavianz.query.DriverType
 import ch.flavianz.query.PolyExecutionEnvironment
 import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyQueryDuration
@@ -285,7 +285,7 @@ object DatabaseManager {
                 DriverManager.count(query, terminal), PolyQueryDuration(
                     Duration.ZERO,
                     Duration.ZERO, Duration.ZERO
-                ), PolyExecutionEnvironment(PolyDriver.Postgres, listOf())
+                ), PolyExecutionEnvironment(DriverType.Postgres, listOf())
             )
         }
     }
