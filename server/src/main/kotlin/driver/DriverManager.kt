@@ -87,7 +87,8 @@ object DriverManager {
         terminal: PolyTerminal.Take
     ): List<DurationMeasurement> {
         val measurements = mutableListOf<DurationMeasurement>()
-        for (i in 0..<1000) {
+        for (i in 0..<100) {
+            if (i % 100 == 0) println("$i von 1000 queries complete")
             for (driver in listOf(
                 Pair(postgresDriver, DriverType.Postgres),
                 Pair(mongoDriver, DriverType.Mongo),

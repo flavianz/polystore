@@ -5,14 +5,16 @@ import net.datafaker.Faker
 import java.io.File
 import java.util.Random
 import kotlin.collections.mutableListOf
+import kotlin.time.Duration.Companion.nanoseconds
 
 object Benchmark {
     val seed = Random(55L)
-    const val RUN_ID = 1
+    const val RUN_ID = 5
     val faker = Faker(seed)
     val measurements = mutableListOf<DurationMeasurement>()
 
     fun startBenchmark() {
+        val start = System.nanoTime()
         for (connection in DatabaseManager.listConnections()) {
             DatabaseManager.dropConnection(connection.name)
         }
@@ -23,18 +25,18 @@ object Benchmark {
 
         }
         for (env in listOf(
-            BenchEnvironmentSimpleCollection(RUN_ID, 100),
-            BenchEnvironmentSimpleCollection(RUN_ID, 5000),
-            BenchEnvironmentSimpleCollection(RUN_ID, 100_000),
-            BenchEnvironmentSubCollection(RUN_ID, 100),
-            BenchEnvironmentSubCollection(RUN_ID, 5000),
-            BenchEnvironmentSubCollection(RUN_ID, 100_000),
-            BenchEnvironmentDeepSubCollection(RUN_ID, 100),
-            BenchEnvironmentDeepSubCollection(RUN_ID, 5000),
-            BenchEnvironmentDeepSubCollection(RUN_ID, 100_000),
-            BenchEnvironmentConnection(RUN_ID, 100),
-            BenchEnvironmentConnection(RUN_ID, 5000),
-            BenchEnvironmentConnection(RUN_ID, 100_000),
+            //BenchEnvironmentSimpleCollection(RUN_ID, 100),
+            //BenchEnvironmentSimpleCollection(RUN_ID, 5000),
+            //BenchEnvironmentSimpleCollection(RUN_ID, 100_000),
+            //BenchEnvironmentSubCollection(RUN_ID, 100),
+            //BenchEnvironmentSubCollection(RUN_ID, 5000),
+            //BenchEnvironmentSubCollection(RUN_ID, 100_000),
+            BenchEnvironmentDeepSubCollection(RUN_ID, 1000),
+            //BenchEnvironmentDeepSubCollection(RUN_ID, 5000),
+            //BenchEnvironmentDeepSubCollection(RUN_ID, 100_000),
+            //BenchEnvironmentConnection(RUN_ID, 100),
+            //BenchEnvironmentConnection(RUN_ID, 5000),
+            //BenchEnvironmentConnection(RUN_ID, 100_000),
         )) {
             env.init()
             measurements.addAll(env.bench())
@@ -42,7 +44,6 @@ object Benchmark {
         }
         println("completed bench, preparing file...")
         val csv = buildString {
-            append("run_id;query_shape;driver;collection_size;depth;filter_count;phase;iteration;duration\n")
             for (measurement in measurements) {
                 append(measurement.toCsvRow())
                 append("\n")
@@ -51,6 +52,7 @@ object Benchmark {
         File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\bench-data-raw.csv").appendText(
             csv
         )
+        println("bench done in ${(System.nanoTime() - start).nanoseconds} s")
     }
 
     /*// all documents from a small collection
