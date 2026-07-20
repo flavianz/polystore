@@ -316,7 +316,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                     )
 
                     docsBySegment[segment.collectionName] =
-                        connectionDocs.values.toList()
+                        connectionDocs.values.distinctBy { it.id() }
                     docsBySegment[segment.connectionName] = connectionDocs.keys.toList()
 
                     i++
