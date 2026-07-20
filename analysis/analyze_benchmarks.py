@@ -230,7 +230,7 @@ def plot_boxplots_by_shape(df: pd.DataFrame, phase: str):
         order = group.groupby("driver")["duration"].median().sort_values().index
         sns.boxplot(data=group, x="driver", y="duration", order=order)
         plt.title(f"{phase} duration - {shape}")
-        plt.ylabel("duration μ")
+        plt.ylabel("duration (μs)")
         plt.tight_layout()
         safe_name = shape.replace(" ", "_")
         plt.savefig(PLOTS_DIR / f"box_{phase}_{safe_name}.png", dpi=150)
