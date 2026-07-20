@@ -107,6 +107,19 @@ object DriverManager {
                         MeasurementPhase.Exec, i, result.duration.queryExecutionDuration
                     )
                 )
+                measurements.add(
+                    DurationMeasurement(
+                        runId,
+                        queryShape,
+                        driver.second,
+                        collectionSize,
+                        depth,
+                        filterCount,
+                        MeasurementPhase.Total,
+                        i,
+                        result.duration.queryBuildingDuration.plus(result.duration.queryExecutionDuration)
+                    )
+                )
             }
         }
 

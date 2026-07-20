@@ -5,12 +5,14 @@ import kotlin.time.Duration
 
 enum class MeasurementPhase {
     Build,
-    Exec;
+    Exec,
+    Total;
 
     override fun toString(): String {
         return when (this) {
             Build -> "build"
             Exec -> "exec"
+            Total -> "total"
         }
     }
 }

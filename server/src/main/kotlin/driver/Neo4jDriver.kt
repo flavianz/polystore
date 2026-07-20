@@ -182,24 +182,22 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         val result = measureTimedValue {
             connection.neo4jSession.use { session ->
                 val result = session.run(query)
-                measureTimedValue {
-                    result.list { record ->
-                        val map = mutableMapOf<String, PolyValue>()
-                        for (key in record.keys()) {
-                            map[key] = record[key].toPolyValue()
-                        }
-                        map
+                result.list { record ->
+                    val map = mutableMapOf<String, PolyValue>()
+                    for (key in record.keys()) {
+                        map[key] = record[key].toPolyValue()
                     }
+                    map
                 }
             }
         }
 
-        val data = result.value.value
+        val data = result.value
 
         val elapsedTime = (System.nanoTime() - startTime).nanoseconds
         return TimedDriverResult(
             data,
-            PolyDriverQueryDuration(elapsedTime.minus(result.duration.minus(result.value.duration)), result.duration),
+            PolyDriverQueryDuration(elapsedTime.minus(result.duration), result.duration),
             listOf(query)
         )
     }
@@ -533,6 +531,9 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         isNull -> PolyValue.NullValue
         type().name() == "STRING" -> {
             val s = asString()
+            if (s.length != 36) {
+                return PolyValue.of(s)
+            }
             try {
                 PolyValue.of(UUID.fromString(s))
             } catch (_: IllegalArgumentException) {

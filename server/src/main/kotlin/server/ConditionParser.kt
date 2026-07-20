@@ -92,7 +92,7 @@ class ConditionParser(input: String) {
 
                 expect("]")
 
-                Condition.In(identifier, items)
+                Condition.In(identifier, items.toSet())
             }
 
             "==" -> {

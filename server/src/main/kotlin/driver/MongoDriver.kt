@@ -307,7 +307,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                     val segmentIds = previousSegmentDocs.map {
                         check(it is MongoPolyDocument)
                         it.id()
-                    }
+                    }.toSet()
 
                     val connectionDocs = logMetrics(
                         fetchConnectionSegment(
@@ -397,7 +397,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     }
 
     private fun withIdCondition(segment: QuerySegment.Collection, ids: List<UUID>): QuerySegment.Collection {
-        val idCondition = Condition.In("_id", ids.map { PolyValue.of(it) })
+        val idCondition = Condition.In("_id", ids.map { PolyValue.of(it) }.toSet())
         return QuerySegment.Collection(
             segment.name,
             if (segment.condition == null) idCondition else Condition.Logic.And(segment.condition, idCondition)
@@ -471,7 +471,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
     private fun fetchConnectionSegment(
         segment: QuerySegment.Connection,
-        startCollectionIds: List<UUID>?
+        startCollectionIds: Set<UUID>?
     ): TimedQueryValue<Map<MongoPolyConnection, MongoPolyCompleteDocument>> {
         val filters = mutableListOf<Bson>()
         if (segment.collectionCondition != null) {
@@ -531,12 +531,12 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                         PolyValue.of(segmentDoc?.getField(field.field))
                     )
 
-                    is FieldRef.Wildcard -> (segmentDoc?.entries()?.entries
-                        ?: emptyList()).filter { it.key.startsWith("ps_f_") || it.key == "_id" }
+                    is FieldRef.Wildcard -> (segmentDoc?.filteredFieldEntries()
+                        ?: emptyList()).filter { it.first.startsWith("ps_f_") || it.first == "_id" }
                         .forEach {
                             put(
-                                "${field.segment}.${if (it.key == "_id") "_id" else it.key.substring(5)}",
-                                PolyValue.of(it.value)
+                                "${field.segment}.${if (it.first == "_id") "_id" else it.first.substring(5)}",
+                                PolyValue.of(it.second)
                             )
                         }
 
@@ -711,8 +711,14 @@ private open class MongoPolyData(doc: Document) : MongoPolyObject(doc) {
         return doc["ps_f_$name"]
     }
 
-    fun entries(): Map<String, Any?> {
-        return doc.filter { it.key == "_id" || it.key.startsWith("ps_f_") }
+    var cachedEntries: List<Pair<String, Any?>>? = null
+
+    fun filteredFieldEntries(): List<Pair<String, Any?>> {
+        if (cachedEntries == null) {
+            cachedEntries = doc.entries.filter { it.key == "_id" || it.key.startsWith("ps_f_") }
+                .map { it.key to it.value }
+        }
+        return cachedEntries!!
     }
 }
 
