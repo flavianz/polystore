@@ -1,0 +1,55 @@
+query_shape,phase,driver_a,driver_b,median_a,median_b,p_value,cliffs_delta
+collection collect 1 filter,exec,mongo,neo4j,2928.0,3195.0,3.1333605256613965e-12,-0.12939019356566978
+collection collect 1 filter,exec,mongo,postgres,2928.0,650.0,0.0,0.7446698832721388
+collection collect 1 filter,exec,neo4j,postgres,3195.0,650.0,0.0,1.0
+collection collect 2 filter,exec,mongo,neo4j,1670.0,2671.0,0.3906514962128238,-0.015911697590152617
+collection collect 2 filter,exec,mongo,postgres,1670.0,588.0,0.0,0.8267908206496942
+collection collect 2 filter,exec,neo4j,postgres,2671.0,588.0,0.0,1.0
+collection collect 3 filter,exec,mongo,neo4j,3405.5,2607.0,0.11739069739253631,-0.02898955072061718
+collection collect 3 filter,exec,mongo,postgres,3405.5,619.0,0.0,0.7465476901831123
+collection collect 3 filter,exec,neo4j,postgres,2607.0,619.0,0.0,0.9999703847659236
+collection collect all,exec,mongo,neo4j,1503.0,5122.0,2.213657762528622e-302,-1.0
+collection collect all,exec,mongo,postgres,1503.0,490.0,1.8315010521608982e-305,1.0
+collection collect all,exec,neo4j,postgres,5122.0,490.0,1.2369478458978043e-304,1.0
+connection collect all,exec,mongo,neo4j,1842.0,3892.0,1.4598003342590232e-300,-1.0
+connection collect all,exec,mongo,postgres,1842.0,816.0,4.9000256966601665e-304,1.0
+connection collect all,exec,neo4j,postgres,3892.0,816.0,4.5536336736618e-307,1.0
+connection filter near node and edge,exec,mongo,neo4j,45385.5,14913.0,0.9977637987893886,-5.209772269803055e-05
+connection filter near node and edge,exec,mongo,postgres,45385.5,4131.5,1.1704009420559302e-161,0.5010256410256411
+connection filter near node and edge,exec,neo4j,postgres,14913.0,4131.5,9.17530997213865e-162,0.5012558708607965
+connection filter on edge property,exec,mongo,neo4j,47299.0,44831.5,0.9106715516368857,-0.0020749506903353057
+connection filter on edge property,exec,mongo,postgres,47299.0,4708.0,5.262927630752898e-161,0.5
+connection filter on edge property,exec,neo4j,postgres,44831.5,4708.0,1.176042306605568e-161,0.5010224852071006
+connection filter on far node,exec,mongo,neo4j,39800.0,1365.5,1.73089718300475e-308,0.696811814616185
+connection filter on far node,exec,mongo,postgres,39800.0,468.0,0.0,1.0
+connection filter on far node,exec,neo4j,postgres,1365.5,468.0,0.0,0.9996772494861472
+deep schema shallow query 2 hop,exec,mongo,neo4j,5398.0,14352.5,5.644876875955554e-160,-0.49837685733070347
+deep schema shallow query 2 hop,exec,mongo,postgres,5398.0,1675.0,1.7455025675204618e-142,0.46997370151216306
+deep schema shallow query 2 hop,exec,neo4j,postgres,14352.5,1675.0,2.7059912115253193e-162,0.5020228796844182
+deep sub collection collect all,exec,mongo,neo4j,1707.0,3530.0,5.3287465467028535e-297,-1.0
+deep sub collection collect all,exec,mongo,postgres,1707.0,699.0,3.7274626098287505e-292,1.0
+deep sub collection collect all,exec,neo4j,postgres,3530.0,699.0,6.72307235781997e-291,1.0
+deep sub collection filter every level,exec,mongo,neo4j,11958.0,12751.5,6.453156487511258e-89,-0.36970151216305064
+deep sub collection filter every level,exec,mongo,postgres,11958.0,3004.0,1.3019845719910645e-160,0.4993809335963182
+deep sub collection filter every level,exec,neo4j,postgres,12751.5,3004.0,4.480496624523194e-161,0.5001099276791584
+deep sub collection leaf filter,exec,mongo,neo4j,16935.5,3896.0,0.245922927540298,0.02146264413204865
+deep sub collection leaf filter,exec,mongo,postgres,16935.5,4330.0,9.677608031629232e-160,0.49800736357659436
+deep sub collection leaf filter,exec,neo4j,postgres,3896.0,4330.0,8.600110994898432e-160,0.49821618491023006
+sub collection collect 1 filter,exec,mongo,neo4j,4971.5,9617.0,4.235726308477262e-160,-0.49857357001972386
+sub collection collect 1 filter,exec,mongo,postgres,4971.5,1748.5,1.664890935132538e-108,0.40921630506245893
+sub collection collect 1 filter,exec,neo4j,postgres,9617.0,1748.5,3.79022160039563e-170,0.5141777777777777
+sub collection collect 2 filter,exec,mongo,neo4j,6180.5,18582.0,1.904141796798755e-159,-0.49754293228139385
+sub collection collect 2 filter,exec,mongo,postgres,6180.5,2248.0,3.2379335956600586e-112,0.4162819197896121
+sub collection collect 2 filter,exec,neo4j,postgres,18582.0,2248.0,1.41091614439178e-161,0.5008983563445102
+sub collection collect 2 filter parent 1 filter,exec,mongo,neo4j,3742.0,4588.5,1.1246965206612845e-17,-0.15830243261012492
+sub collection collect 2 filter parent 1 filter,exec,mongo,postgres,3742.0,1306.0,3.283164474999912e-122,0.4347408284023669
+sub collection collect 2 filter parent 1 filter,exec,neo4j,postgres,4588.5,1306.0,3.7441548358262144e-212,0.5748504930966469
+sub collection collect 2 filter parent 2 filter,exec,mongo,neo4j,3090.0,6271.5,4.461792040667462e-67,-0.3200155240688848
+sub collection collect 2 filter parent 2 filter,exec,mongo,postgres,3090.0,1304.5,4.417894512177263e-101,0.3947547065556301
+sub collection collect 2 filter parent 2 filter,exec,neo4j,postgres,6271.5,1304.5,1.76054343417858e-243,0.6162314266929652
+sub collection collect 3 filter,exec,mongo,neo4j,6579.0,25095.5,3.5499425986899224e-160,-0.4986945430637738
+sub collection collect 3 filter,exec,mongo,postgres,6579.0,3012.5,1.1049250743979107e-118,0.4283171597633136
+sub collection collect 3 filter,exec,neo4j,postgres,25095.5,3012.5,7.504563722934737e-162,0.5013285996055227
+sub collection collect all,exec,mongo,neo4j,827.0,3297.0,4.063945090040909e-304,-1.0
+sub collection collect all,exec,mongo,postgres,827.0,605.0,2.8600913862577226e-156,0.7140958991298368
+sub collection collect all,exec,neo4j,postgres,3297.0,605.0,9.696021078680294e-309,1.0
