@@ -18,6 +18,7 @@ import ch.flavianz.query.PolyResultData
 import ch.flavianz.query.PolyTerminal
 import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
+import com.mongodb.client.model.Projections
 import com.mongodb.client.model.UpdateOptions
 import com.mongodb.client.model.Updates
 import org.bson.Document
@@ -315,7 +316,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                     )
 
                     docsBySegment[segment.collectionName] =
-                        connectionDocs.values.distinctBy { it.id() }
+                        connectionDocs.values.toList()
                     docsBySegment[segment.connectionName] = connectionDocs.keys.toList()
 
                     i++
@@ -333,42 +334,43 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                             docsBySegment[segment.connectionName]!!.map { mapOf(segment.connectionName to it) }
                 }
             } else {
-                completeDocPaths = buildList {
-                    for (docPath in completeDocPaths) {
-                        assert(index >= 1)
-                        val previousDoc = docPath[segments[index - 1].collectionName()]!!
-                        when (segment) {
-                            is QuerySegment.Collection -> {
+                completeDocPaths = when (segment) {
+                    is QuerySegment.Collection -> {
+                        val docsById = docsBySegment[segment.name]!!.associateBy {
+                            check(it is MongoPolyDocument); it.id()
+                        }
+                        buildList {
+                            for (docPath in completeDocPaths!!) {
+                                val previousDoc = docPath[segments[index - 1].collectionName()]!!
                                 check(previousDoc is MongoPolyDocument)
-                                val ids = previousDoc.getSubCollectionIds(segment.name)
-                                val allDocs = docsBySegment[segment.name]!!
-                                for (doc in allDocs.filter { check(it is MongoPolyDocument); it.id() in ids }) {
-                                    add(docPath + (segment.name to doc))
+                                for (id in previousDoc.getSubCollectionIds(segment.name)) {
+                                    docsById[id]?.let { add(docPath + (segment.name to it)) }
                                 }
                             }
+                        }
+                    }
 
-                            is QuerySegment.Connection -> {
-                                check(previousDoc is MongoPolyDocument)
-                                val ids = previousDoc.getConnectedIds(segment.connectionName)
-                                val collectionDocs = docsBySegment[segment.collectionName]!!
-                                val availableRelations = buildMap {
-                                    for (doc in collectionDocs.filter { check(it is MongoPolyDocument); it.id() in ids }) {
-                                        check(doc is MongoPolyCompleteDocument)
-                                        for (con in doc.getConnectionDocuments(segment.connectionName)
-                                            .filter { it.getSubDoc().id() == previousDoc.id() }.filter {
-                                                checkCondition(
-                                                    it.getConnectionData().doc,
-                                                    segment.connectionCondition
-                                                )
-                                            }) {
-                                            put(con, doc)
-                                        }
-                                    }
+                    is QuerySegment.Connection -> {
+                        // Build previousDocId -> [(connectionDoc, ownerDoc)] once
+                        val byPreviousId =
+                            mutableMapOf<Any, MutableList<Pair<MongoPolyConnection, MongoPolyDocument>>>()
+                        for (doc in docsBySegment[segment.collectionName]!!) {
+                            check(doc is MongoPolyCompleteDocument)
+                            for (con in doc.getConnectionDocuments(segment.connectionName)) {
+                                if (checkCondition(con.getConnectionData().doc, segment.connectionCondition)) {
+                                    byPreviousId.getOrPut(con.getSubDoc().id()) { mutableListOf() }
+                                        .add(con to doc)
                                 }
-                                for (relationship in availableRelations) {
+                            }
+                        }
+                        buildList {
+                            for (docPath in completeDocPaths!!) {
+                                val previousDoc = docPath[segments[index - 1].collectionName()]!!
+                                check(previousDoc is MongoPolyDocument)
+                                for ((con, doc) in byPreviousId[previousDoc.id()].orEmpty()) {
                                     add(
-                                        docPath + (segment.collectionName to relationship.value)
-                                                + (segment.connectionName to relationship.key.getConnectionData())
+                                        docPath + (segment.collectionName to doc)
+                                                + (segment.connectionName to con.getConnectionData())
                                     )
                                 }
                             }
@@ -715,8 +717,12 @@ private open class MongoPolyData(doc: Document) : MongoPolyObject(doc) {
 }
 
 private abstract class MongoPolyDocument(doc: Document) : MongoPolyData(doc) {
+    var storedId: UUID? = null
     fun id(): UUID {
-        return doc["_id"] as UUID
+        if (storedId == null) {
+            storedId = doc["_id"] as UUID
+        }
+        return storedId!!
     }
 
     abstract fun getSubCollectionIds(name: String): List<UUID>
