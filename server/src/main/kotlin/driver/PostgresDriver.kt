@@ -285,23 +285,25 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         appendFromAndJoins(sql, path)
         appendWhere(sql, path)
 
-        val rs = measureTimedValue { connection.prepareStatement(sql.toString()).executeQuery() }
+        val data = measureTimedValue {
+            val rs = connection.prepareStatement(sql.toString()).executeQuery()
+            buildList {
+                val metaData = rs.metaData
+                val columnNames = (1..metaData.columnCount).map { metaData.getColumnName(it) }
 
-        val data = buildList {
-            val metaData = rs.value.metaData
-            val columnNames = (1..metaData.columnCount).map { metaData.getColumnName(it) }
-
-            while (rs.value.next()) {
-                val fields = columnNames.associateWith {
-                    PolyValue.of(rs.value.getObject(it))
+                while (rs.next()) {
+                    val fields = columnNames.associateWith {
+                        PolyValue.of(rs.getObject(it))
+                    }
+                    add(fields)
                 }
-                add(fields)
             }
         }
+
         val elapsedTime = (System.nanoTime() - startTime).nanoseconds
         return TimedDriverResult(
-            data,
-            PolyDriverQueryDuration(elapsedTime - rs.duration, rs.duration),
+            data.value,
+            PolyDriverQueryDuration(elapsedTime - data.duration, data.duration),
             listOf(sql.toString())
         )
     }
