@@ -199,6 +199,66 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     ): TimedDriverResult<List<PolyData>> {
         val startTime = System.nanoTime()
         check(path.segments.isNotEmpty()) { "empty query" }
+        if (terminal.fields.isEmpty()) {
+            return TimedDriverResult(
+                emptyList(),
+                PolyDriverQueryDuration(
+                    (System.nanoTime() - startTime).nanoseconds,
+                    Duration.ZERO
+                ), emptyList()
+            )
+        }
+
+        if (path.segments.size == 1) {
+            val segment = path.segments[0]
+            require(segment is QuerySegment.Collection) { "connection segment must be placed before a collection segment" }
+
+            val mongoCollection = mongoDatabase.getCollection(segment.name)
+            val condition = if (segment.condition == null) Filters.empty() else conditionToFilter(segment.condition)
+            val collectionModel = DatabaseManager.getCollectionModel(segment.name)
+
+            val result = measureTimedValue {
+                mongoCollection.find(condition).projection(
+                    Projections.exclude(
+                        collectionModel.childCollections.map { "ps_sub_${it}" } +
+                                collectionModel.getConnectedCollections().map { "ps_con_${it}" }
+                    )
+                ).toList()
+            }
+
+            if (terminal.fields.size == 1 && terminal.fields[0] is FieldRef.Wildcard) {
+                return TimedDriverResult(
+                    result.value.map { doc ->
+                        doc.entries.associate {
+                            "${collectionModel.name}.${if (it.key == "_id") "_id" else it.key.substring(5)}" to PolyValue.of(
+                                it.value
+                            )
+                        }
+                    },
+                    PolyDriverQueryDuration(
+                        (System.nanoTime() - startTime).nanoseconds,
+                        result.duration
+                    ), listOf("list collection ${segment.name} with condition ${segment.condition}")
+                )
+            } else {
+                // assume only take fields
+                // TODO: change terminal system
+                return TimedDriverResult(
+                    result.value.map { doc ->
+                        terminal.fields.associate {
+                            "${it.segment}.${(it as FieldRef.Named).segment}" to PolyValue.of(
+                                doc[if (it.field == "_id") "_id" else "ps_f_${it.field}"]
+                            )
+                        }
+                    },
+                    PolyDriverQueryDuration(
+                        (System.nanoTime() - startTime).nanoseconds,
+                        result.duration
+                    ), listOf("list collection ${segment.name} with condition ${segment.condition}")
+                )
+            }
+        }
+
         val docsBySegment = mutableMapOf<String, List<MongoPolyObject>>()
         val segments = path.segments
         var i = 0
@@ -532,7 +592,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                     )
 
                     is FieldRef.Wildcard -> (segmentDoc?.filteredFieldEntries()
-                        ?: emptyList()).filter { it.first.startsWith("ps_f_") || it.first == "_id" }
+                        ?: emptyList())
                         .forEach {
                             put(
                                 "${field.segment}.${if (it.first == "_id") "_id" else it.first.substring(5)}",
