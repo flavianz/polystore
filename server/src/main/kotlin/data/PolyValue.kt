@@ -63,8 +63,17 @@ sealed class PolyValue {
                 is String -> StringValue(value)
                 is UUID -> UUIDValue(value)
                 is Boolean -> BooleanValue(value)
+                is PolyValue -> value
                 null -> NullValue
                 else -> throw IllegalStateException("unknown return type")
+            }
+        }
+
+        fun ofNumber(value: kotlin.Number): PolyValue.Number {
+            return when (value) {
+                is Int -> PolyValue.of(value)
+                is Float -> PolyValue.of(value)
+                else -> throw IllegalArgumentException("illegal number type")
             }
         }
     }

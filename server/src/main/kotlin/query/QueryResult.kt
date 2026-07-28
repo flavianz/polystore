@@ -135,7 +135,7 @@ sealed class PolyResultData {
     data class Count(val count: Int) : PolyResultData()
 }
 
-data class TakeQueryResult(
+data class GetQueryResult(
     val data: List<PolyData>,
     val duration: PolyDriverQueryDuration,
     val executionEnvironment: PolyExecutionEnvironment

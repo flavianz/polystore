@@ -4,11 +4,14 @@ import ch.flavianz.data.PolyValue
 import ch.flavianz.query.Condition
 import java.util.UUID
 
-class ConditionParser(input: String) {
+class ConditionParser(input: String?) {
     private val tokens = tokenize(input)
     private var pos = 0
 
-    fun parse(): Condition {
+    fun parse(): Condition? {
+        if (tokens.isEmpty()) {
+            return null
+        }
         val result = parseOr()
 
         require(pos == tokens.size) {
@@ -71,9 +74,7 @@ class ConditionParser(input: String) {
             "Expected identifier, got '$identifier'"
         }
 
-        val operator = consume().lowercase()
-
-        return when (operator) {
+        return when (val operator = consume().lowercase()) {
             "in" -> {
                 expect("[")
 
@@ -176,7 +177,10 @@ class ConditionParser(input: String) {
         throw IllegalArgumentException("Expected numeric value, got '$token'")
     }
 
-    private fun tokenize(input: String): List<String> {
+    private fun tokenize(input: String?): List<String> {
+        if (input == null) {
+            return emptyList()
+        }
         val regex = Regex(
             "\"[^\"]*\"" +
                     "|&&" +

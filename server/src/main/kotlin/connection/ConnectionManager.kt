@@ -1,6 +1,5 @@
 package ch.flavianz.connection
 
-
 class ConnectionManager {
 
     private val connections = mutableMapOf<String, DatabaseConnection>()

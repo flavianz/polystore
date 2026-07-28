@@ -77,15 +77,14 @@ fun JsonElement.toPolyValue(): PolyValue = when (this) {
 }
 
 @Serializable
-data class TakeRequest(
-    val path: List<RequestQuerySegment>,
-    val take: Map<String, List<String>>?,
-    val collect: List<String>?
+data class QueryRequest(
+    val path: List<RequestQuerySegment>
 )
 
 @Serializable
 data class RequestQuerySegment(
     val name: String,
     val type: String,
-    val condition: String?
+    val condition: String?,
+    val only: List<String>?,
 )

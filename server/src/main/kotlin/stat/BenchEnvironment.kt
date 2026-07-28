@@ -5,12 +5,12 @@ import ch.flavianz.data.PolyValue
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
-import ch.flavianz.model.QueryPath
-import ch.flavianz.model.QuerySegment
-import ch.flavianz.query.Condition
-import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyQuery
-import ch.flavianz.query.PolyTerminal
+import ch.flavianz.query.and
+import ch.flavianz.query.eq
+import ch.flavianz.query.gt
+import ch.flavianz.query.lt
+import ch.flavianz.query.or
+import ch.flavianz.query.query
 import java.util.UUID
 import kotlin.random.asKotlinRandom
 
@@ -84,98 +84,60 @@ class BenchEnvironmentSimpleCollection(override val runId: Int, override val col
             return
         }
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "collection collect all",
                 collectionSize,
                 depth = 1,
                 filterCount = 0,
-                PolyQuery(
-                    QueryPath(listOf(QuerySegment.Collection("users"))),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users")))
+                query {
+                    collection("users")
+                }
             )
         )
     }
 
     private fun bench2() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "collection collect 1 filter",
                 collectionSize,
                 depth = 1,
                 filterCount = 1,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection(
-                                "users",
-                                Condition.Comparison.GreaterThan("age", PolyValue.of(79))
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users")))
+                query {
+                    collection("users", "age" gt 79)
+                }
             )
         )
     }
 
     private fun bench3() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "collection collect 2 filter",
                 collectionSize,
                 depth = 1,
                 filterCount = 2,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection(
-                                "users",
-                                Condition.Logic.And(
-                                    Condition.Comparison.LessThan("age", PolyValue.of(80)),
-                                    Condition.Comparison.Equals("male", PolyValue.of(true))
-                                )
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users")))
+                query {
+                    collection("users", ("age" lt 80) and ("male" eq true))
+                }
             )
         )
     }
 
     private fun bench4() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "collection collect 3 filter",
                 collectionSize,
                 depth = 1,
                 filterCount = 3,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection(
-                                "users",
-                                Condition.Logic.And(
-                                    Condition.Comparison.LessThan("age", PolyValue.of(80)),
-                                    Condition.Logic.And(
-                                        Condition.Comparison.GreaterThan("age", PolyValue.of(59)),
-                                        Condition.Comparison.Equals("male", PolyValue.of(true))
-                                    )
-                                )
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users")))
+                query {
+                    collection("users", ("age" lt 80) and (("age" gt 59) and ("male" eq true)))
+                }
             )
         )
     }
@@ -252,166 +214,99 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
             return
         }
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "sub collection collect all",
                 collectionSize,
                 depth = 2,
                 filterCount = 0,
-                PolyQuery(
-                    QueryPath(listOf(QuerySegment.Collection("users"), QuerySegment.Collection("children"))),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
+                query {
+                    collection("users")
+                    collection("children")
+                }
             )
         )
     }
 
     private fun bench2() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "sub collection collect 1 filter",
                 collectionSize,
                 depth = 2,
                 filterCount = 1,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Collection(
-                                "children",
-                                Condition.Comparison.GreaterThan("age", PolyValue.of(79))
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
+                query {
+                    collection("users")
+                    collection("children", "age" gt 79)
+                }
             )
         )
     }
 
     private fun bench3() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "sub collection collect 2 filter",
                 collectionSize,
                 depth = 2,
                 filterCount = 2,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Collection(
-                                "children",
-                                Condition.Logic.And(
-                                    Condition.Comparison.LessThan("age", PolyValue.of(80)),
-                                    Condition.Comparison.Equals("male", PolyValue.of(true))
-                                )
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
+                query {
+                    collection("users")
+                    collection("children", ("age" lt 80) and ("male" eq true))
+                }
             )
         )
     }
 
     private fun bench4() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "sub collection collect 3 filter",
                 collectionSize,
                 depth = 2,
                 filterCount = 3,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Collection(
-                                "children",
-                                Condition.Logic.And(
-                                    Condition.Comparison.LessThan("age", PolyValue.of(80)),
-                                    Condition.Logic.Or(
-                                        Condition.Comparison.GreaterThan("age", PolyValue.of(59)),
-                                        Condition.Comparison.Equals("male", PolyValue.of(true))
-                                    )
-                                )
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
+                query {
+                    collection("users")
+                    collection(
+                        "children",
+                        ("age" lt 80) and (("age" gt 59) or ("male" eq true))
+                    )
+                }
             )
         )
     }
 
     private fun bench5() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "sub collection collect 2 filter parent 1 filter",
                 collectionSize,
                 depth = 2,
                 filterCount = 3,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection(
-                                "users",
-                                Condition.Comparison.GreaterThan("age", PolyValue.of(79))
-                            ),
-                            QuerySegment.Collection(
-                                "children",
-                                Condition.Logic.And(
-                                    Condition.Comparison.LessThan("age", PolyValue.of(80)),
-                                    Condition.Comparison.GreaterThan("age", PolyValue.of(59))
-                                )
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
+                query {
+                    collection("users", "age" gt 79)
+                    collection("children", ("age" lt 80) and ("age" gt 59))
+                }
             )
         )
     }
 
     private fun bench6() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "sub collection collect 2 filter parent 2 filter",
                 collectionSize,
                 depth = 2,
                 filterCount = 4,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection(
-                                "users",
-                                Condition.Logic.And(
-                                    Condition.Comparison.LessThan("age", PolyValue.of(80)),
-                                    Condition.Comparison.GreaterThan("age", PolyValue.of(59))
-                                )
-                            ),
-                            QuerySegment.Collection(
-                                "children",
-                                Condition.Logic.And(
-                                    Condition.Comparison.LessThan("age", PolyValue.of(80)),
-                                    Condition.Comparison.GreaterThan("age", PolyValue.of(59))
-                                )
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
+                query {
+                    collection("users", ("age" lt 80) and ("age" gt 59))
+                    collection("children", ("age" lt 80) and ("age" gt 59))
+                }
             )
         )
     }
@@ -507,35 +402,17 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
             return
         }
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "deep sub collection collect all",
                 collectionSize,
                 depth = 3,
                 filterCount = 0,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Collection("children"),
-                            QuerySegment.Collection("grandchildren")
-                        )
-                    ),
-                    PolyTerminal.Take(
-                        listOf(
-                            FieldRef.Wildcard("users"),
-                            FieldRef.Wildcard("children"),
-                            FieldRef.Wildcard("grandchildren")
-                        )
-                    )
-                ),
-                PolyTerminal.Take(
-                    listOf(
-                        FieldRef.Wildcard("users"),
-                        FieldRef.Wildcard("children"),
-                        FieldRef.Wildcard("grandchildren")
-                    )
-                )
+                query {
+                    collection("users")
+                    collection("children")
+                    collection("grandchildren")
+                }
             )
         )
     }
@@ -543,38 +420,17 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
     // 3-hop, filter only on leaf level
     private fun bench2() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "deep sub collection leaf filter",
                 collectionSize,
                 depth = 3,
                 filterCount = 1,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Collection("children"),
-                            QuerySegment.Collection(
-                                "grandchildren",
-                                Condition.Comparison.GreaterThan("age", PolyValue.of(79))
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(
-                        listOf(
-                            FieldRef.Wildcard("users"),
-                            FieldRef.Wildcard("children"),
-                            FieldRef.Wildcard("grandchildren")
-                        )
-                    )
-                ),
-                PolyTerminal.Take(
-                    listOf(
-                        FieldRef.Wildcard("users"),
-                        FieldRef.Wildcard("children"),
-                        FieldRef.Wildcard("grandchildren")
-                    )
-                )
+                query {
+                    collection("users")
+                    collection("children")
+                    collection("grandchildren", "age" gt 79)
+                }
             )
         )
     }
@@ -582,44 +438,17 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
     // 3-hop, filter at every level: worst case for cost compounding
     private fun bench3() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "deep sub collection filter every level",
                 collectionSize,
                 depth = 3,
                 filterCount = 3,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection(
-                                "users",
-                                Condition.Comparison.LessThan("age", PolyValue.of(80))
-                            ),
-                            QuerySegment.Collection(
-                                "children",
-                                Condition.Comparison.Equals("male", PolyValue.of(true))
-                            ),
-                            QuerySegment.Collection(
-                                "grandchildren",
-                                Condition.Comparison.GreaterThan("age", PolyValue.of(59))
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(
-                        listOf(
-                            FieldRef.Wildcard("users"),
-                            FieldRef.Wildcard("children"),
-                            FieldRef.Wildcard("grandchildren")
-                        )
-                    )
-                ),
-                PolyTerminal.Take(
-                    listOf(
-                        FieldRef.Wildcard("users"),
-                        FieldRef.Wildcard("children"),
-                        FieldRef.Wildcard("grandchildren")
-                    )
-                )
+                query {
+                    collection("users", "age" lt 80)
+                    collection("children", "male" eq true)
+                    collection("grandchildren", "age" gt 59)
+                }
             )
         )
     }
@@ -628,25 +457,16 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
     // depth=2 vs depth=3 while collection_size and schema shape are otherwise identical
     private fun bench4() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "deep schema shallow query 2 hop",
                 collectionSize,
                 depth = 2,
                 filterCount = 1,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Collection(
-                                "children",
-                                Condition.Comparison.GreaterThan("age", PolyValue.of(79))
-                            )
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("children")))
+                query {
+                    collection("users")
+                    collection("children", "age" gt 79)
+                }
             )
         )
     }
@@ -742,22 +562,16 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
             return
         }
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "connection collect all",
                 collectionSize,
                 depth = 1,
                 filterCount = 0,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Connection("practices", "hobbies"),
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("hobbies")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("hobbies")))
+                query {
+                    collection("users")
+                    connection("practices", "hobbies")
+                }
             )
         )
     }
@@ -766,26 +580,16 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
     // which is a distinct code path from filtering on node/document fields in most drivers
     private fun bench2() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "connection filter on edge property",
                 collectionSize,
                 depth = 1,
                 filterCount = 1,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Connection(
-                                "practices",
-                                "hobbies",
-                                connectionCondition = Condition.Comparison.GreaterThan("years_active", PolyValue.of(10))
-                            ),
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("hobbies")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("hobbies")))
+                query {
+                    collection("users")
+                    connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
+                }
             )
         )
     }
@@ -793,29 +597,16 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
     // filter on the far-side node (hobbies.name) reached through the connection
     private fun bench3() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "connection filter on far node",
                 collectionSize,
                 depth = 1,
                 filterCount = 1,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection("users"),
-                            QuerySegment.Connection(
-                                "practices",
-                                "hobbies",
-                                collectionCondition = Condition.Comparison.Equals(
-                                    "name",
-                                    PolyValue.of(faker.hobby().activity())
-                                )
-                            ),
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("hobbies")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("hobbies")))
+                query {
+                    collection("users")
+                    connection("practices", "hobbies", collectionCondition = "name" eq faker.hobby().activity())
+                }
             )
         )
     }
@@ -823,29 +614,16 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
     // filters on both the near node and the edge property simultaneously - combined cost
     private fun bench4() {
         durationMeasurements.addAll(
-            DriverManager.benchmarkTake(
+            DriverManager.benchmarkGet(
                 runId,
                 queryShape = "connection filter near node and edge",
                 collectionSize,
                 depth = 1,
                 filterCount = 2,
-                PolyQuery(
-                    QueryPath(
-                        listOf(
-                            QuerySegment.Collection(
-                                "users",
-                                Condition.Comparison.LessThan("age", PolyValue.of(80))
-                            ),
-                            QuerySegment.Connection(
-                                "practices",
-                                "hobbies",
-                                connectionCondition = Condition.Comparison.GreaterThan("years_active", PolyValue.of(10))
-                            ),
-                        )
-                    ),
-                    PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("hobbies")))
-                ),
-                PolyTerminal.Take(listOf(FieldRef.Wildcard("users"), FieldRef.Wildcard("hobbies")))
+                query {
+                    collection("users", "age" lt 80)
+                    connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
+                }
             )
         )
     }

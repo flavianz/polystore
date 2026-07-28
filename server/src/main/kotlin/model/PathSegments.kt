@@ -20,14 +20,17 @@ sealed class PathSegment {
 sealed class QuerySegment {
     data class Collection(
         val name: String,
-        val condition: Condition? = null
+        val condition: Condition? = null,
+        val only: List<String>? = null
     ) : QuerySegment()
 
     data class Connection(
         val connectionName: String,
         val collectionName: String,
         val connectionCondition: Condition? = null,
-        val collectionCondition: Condition? = null
+        val collectionCondition: Condition? = null,
+        val connectionOnly: List<String>? = null,
+        val collectionOnly: List<String>? = null,
     ) : QuerySegment()
 
     fun collectionName(): String {

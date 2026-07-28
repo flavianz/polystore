@@ -8,12 +8,8 @@ import ch.flavianz.data.PolyValue
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
-import ch.flavianz.model.QueryPath
-import ch.flavianz.model.QuerySegment
-import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.PolyTerminal
+import ch.flavianz.query.query
 import com.mongodb.client.model.Filters
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
@@ -333,15 +329,9 @@ abstract class DriversTest {
                 "age" to PolyValue.of(18),
             )
         )
-        val response = DatabaseManager.query(
-            PolyQuery(
-                QueryPath(listOf(QuerySegment.Collection("test"))), PolyTerminal.Take(
-                    listOf(
-                        FieldRef.Named("test", "name"), FieldRef.Named("test", "age")
-                    )
-                )
-            )
-        )
+        val response = DatabaseManager.get(query {
+            collection("test", only = listOf("name", "age"))
+        })
         assertEquals(
             setOf(
                 mapOf(
@@ -379,16 +369,10 @@ abstract class DriversTest {
                 "age" to PolyValue.of(20),
             ), parentUuid
         )
-        val response = DatabaseManager.query(
-            PolyQuery(
-                QueryPath(listOf(QuerySegment.Collection("test"), QuerySegment.Collection("test_child"))),
-                PolyTerminal.Take(
-                    listOf(
-                        FieldRef.Wildcard("test"), FieldRef.Wildcard("test_child")
-                    )
-                )
-            )
-        )
+        val response = DatabaseManager.get(query {
+            collection("test")
+            collection("test_child")
+        })
         assertEquals(
             setOf(
                 mapOf(
@@ -442,21 +426,11 @@ abstract class DriversTest {
                 "age" to PolyValue.of(22),
             ), childUuid
         )
-        val response = DatabaseManager.query(
-            PolyQuery(
-                QueryPath(
-                    listOf(
-                        QuerySegment.Collection("test"),
-                        QuerySegment.Collection("test_child"),
-                        QuerySegment.Collection("test_child2")
-                    )
-                ), PolyTerminal.Take(
-                    listOf(
-                        FieldRef.Wildcard("test"), FieldRef.Wildcard("test_child"), FieldRef.Wildcard("test_child2")
-                    )
-                )
-            )
-        )
+        val response = DatabaseManager.get(query {
+            collection("test")
+            collection("test_child")
+            collection("test_child2")
+        })
         assertEquals(
             setOf(
                 mapOf(
@@ -525,25 +499,12 @@ abstract class DriversTest {
                 "age" to PolyValue.of(30),
             ), childUuid2
         )
-        val response = DatabaseManager.query(
-            PolyQuery(
-                QueryPath(
-                    listOf(
-                        QuerySegment.Collection("test"),
-                        QuerySegment.Collection("test_child"),
-                        QuerySegment.Collection("test_child2"),
-                        QuerySegment.Collection("test_child3")
-                    )
-                ), PolyTerminal.Take(
-                    listOf(
-                        FieldRef.Wildcard("test"),
-                        FieldRef.Wildcard("test_child"),
-                        FieldRef.Wildcard("test_child2"),
-                        FieldRef.Wildcard("test_child3")
-                    )
-                )
-            )
-        )
+        val response = DatabaseManager.get(query {
+            collection("test")
+            collection("test_child")
+            collection("test_child2")
+            collection("test_child3")
+        })
         assertEquals(
             setOf(
                 mapOf(

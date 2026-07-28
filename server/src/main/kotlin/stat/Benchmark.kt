@@ -8,7 +8,7 @@ import kotlin.time.Duration.Companion.nanoseconds
 
 object Benchmark {
     val seed = Random(55L)
-    const val RUN_ID = 3
+    const val RUN_ID = 4
     val faker = Faker(seed)
 
     fun startBenchmark() {
@@ -24,16 +24,16 @@ object Benchmark {
         }
         for (env in listOf(
             BenchEnvironmentSimpleCollection(RUN_ID, 100),
-            BenchEnvironmentSimpleCollection(RUN_ID, 5000),
+            //BenchEnvironmentSimpleCollection(RUN_ID, 5000),
             //BenchEnvironmentSimpleCollection(RUN_ID, 100_000),
-            BenchEnvironmentSubCollection(RUN_ID, 100),
-            BenchEnvironmentSubCollection(RUN_ID, 5000),
+            //BenchEnvironmentSubCollection(RUN_ID, 100),
+            //BenchEnvironmentSubCollection(RUN_ID, 5000),
             //BenchEnvironmentSubCollection(RUN_ID, 100_000),
-            BenchEnvironmentDeepSubCollection(RUN_ID, 100),
-            BenchEnvironmentDeepSubCollection(RUN_ID, 5000),
+            //BenchEnvironmentDeepSubCollection(RUN_ID, 100),
+            //BenchEnvironmentDeepSubCollection(RUN_ID, 5000),
             //BenchEnvironmentDeepSubCollection(RUN_ID, 100_000),
-            BenchEnvironmentConnection(RUN_ID, 100),
-            BenchEnvironmentConnection(RUN_ID, 5000),
+            //BenchEnvironmentConnection(RUN_ID, 100),
+            //BenchEnvironmentConnection(RUN_ID, 5000),
             //BenchEnvironmentConnection(RUN_ID, 100_000),
         )) {
             env.init()

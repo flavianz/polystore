@@ -4,17 +4,14 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.instructions.UpdateObjectInstruction
-import ch.flavianz.model.QueryPath
+import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
-import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.PolyTerminal
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
+import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
 import ch.flavianz.query.PolyDriverQueryDuration
 import ch.flavianz.server.FieldDefinition
@@ -117,15 +114,15 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         }
     }
 
-    override fun updateDocument(instruction: UpdateObjectInstruction) {
-        val collectionRef = instruction.documentPath.parentCollection().toCollectionRef()
+    override fun updateDocument(documentPath: DocumentPath, data: PolyData) {
+        val collectionRef = documentPath.parentCollection().toCollectionRef()
         val label = collectionLabel(collectionRef.leafName())
-        val uuid = instruction.documentPath.uuid.toString()
-        val updates = instruction.data.entries.joinToString(", ") { (key, _) ->
+        val uuid = documentPath.uuid.toString()
+        val updates = data.entries.joinToString(", ") { (key, _) ->
             "n.`ps_f_$key` = \$ps_f_$key"
         }
         val params = mutableMapOf<String, Any?>("ps_id" to uuid)
-        for ((key, value) in instruction.data) {
+        for ((key, value) in data) {
             params["ps_f_$key"] = value.toNeo4j()
         }
 
@@ -166,14 +163,22 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         }
     }
 
-    override fun take(path: QueryPath, terminal: PolyTerminal.Take): TimedDriverResult<List<PolyData>> {
+    override fun get(query: GetQuery): TimedDriverResult<List<PolyData>> {
         val startTime = System.nanoTime()
-        val (cypher, aliases) = buildMatchClause(path)
-        val returnClause = buildReturnClause(path, terminal.fields, aliases)
-        val whereClause = buildWhereClause(path, aliases)
+        val cypher = buildMatchClause(query)
+        val returnClause = buildReturnClause(query.flatMap {
+            when (it) {
+                is QuerySegment.Collection -> listOf(Triple(it.name, it.only, false))
+                is QuerySegment.Connection -> listOf(
+                    Triple(it.connectionName, it.connectionOnly, true),
+                    Triple(it.collectionName, it.collectionOnly, false)
+                )
+            }
+        })
+        val whereClause = buildWhereClause(query)
 
         // TODO: parameterize query with session.run(query, params) for better query caching performance
-        val query = buildString {
+        val queryString = buildString {
             append(cypher)
             if (whereClause.isNotBlank()) append(" WHERE $whereClause")
             append(" RETURN $returnClause")
@@ -181,7 +186,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
         val result = measureTimedValue {
             connection.neo4jSession.use { session ->
-                val result = session.run(query)
+                val result = session.run(queryString)
                 result.list { record ->
                     val map = mutableMapOf<String, PolyValue>()
                     for (key in record.keys()) {
@@ -198,11 +203,11 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         return TimedDriverResult(
             data,
             PolyDriverQueryDuration(elapsedTime.minus(result.duration), result.duration),
-            listOf(query)
+            listOf(queryString)
         )
     }
 
-    override fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResultData.Count {
+    /*override fun count(path: GetQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
         val (cypher, aliases) = buildMatchClause(path)
         val whereClause = buildWhereClause(path, aliases)
         val lastAlias = aliases.last()
@@ -217,7 +222,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
             val result = session.run(query).single()
             PolyResultData.Count(result["ps_count"].asInt())
         }
-    }
+    }*/
 
     override fun init() {
         connection.neo4jSession.use { session ->
@@ -323,16 +328,13 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
      * Returns the Cypher string and a parallel list of Cypher variable names,
      * one per path segment (Collections → node alias, Connections → rel alias).
      */
-    private fun buildMatchClause(path: QueryPath): Pair<String, List<String>> {
-        val aliases = mutableListOf<String>()
+    private fun buildMatchClause(path: GetQuery): String {
         val sb = StringBuilder("MATCH ")
-        var i = 0
 
-        for (segment in path.segments) {
+        for ((i, segment) in path.withIndex()) {
             when (segment) {
                 is QuerySegment.Collection -> {
-                    val alias = "n$i"
-                    aliases.add(alias)
+                    val alias = segment.name
                     val label = collectionLabel(segment.name)
                     if (i == 0) {
                         sb.append("($alias:`$label`)")
@@ -343,46 +345,40 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                 }
 
                 is QuerySegment.Connection -> {
-                    val conAlias = "r$i"
-                    val nodeAlias = "n$i"
-                    aliases.add(conAlias) // connection segment → rel alias
-                    aliases.add(nodeAlias) // connection segment also owns the target node
+                    val conAlias = segment.connectionName
+                    val nodeAlias = segment.collectionName
                     val model = DatabaseManager.getConnectionModel(segment.connectionName)
                     val targetLabel = collectionLabel(model.collection2Name)
                     sb.append("-[$conAlias:`${model.name}`]->($nodeAlias:`$targetLabel`)")
                 }
             }
-            i++
         }
 
-        return sb.toString() to aliases
+        return sb.toString()
     }
 
     /**
      * Builds the WHERE clause from all conditions in the path.
      */
-    private fun buildWhereClause(path: QueryPath, aliases: List<String>): String {
+    private fun buildWhereClause(path: GetQuery): String {
         val parts = mutableListOf<String>()
         var aliasIndex = 0
 
-        for (segment in path.segments) {
+        for (segment in path) {
             when (segment) {
                 is QuerySegment.Collection -> {
-                    val alias = aliases[aliasIndex]
                     if (segment.condition != null) {
-                        parts.add(translateCondition(segment.condition, alias))
+                        parts.add(translateCondition(segment.condition, segment.name))
                     }
                     aliasIndex++
                 }
 
                 is QuerySegment.Connection -> {
-                    val relAlias = aliases[aliasIndex]
-                    val nodeAlias = aliases[aliasIndex + 1]
                     if (segment.collectionCondition != null) {
-                        parts.add(translateCondition(segment.collectionCondition, nodeAlias))
+                        parts.add(translateCondition(segment.collectionCondition, segment.collectionName))
                     }
                     if (segment.connectionCondition != null) {
-                        parts.add(translateCondition(segment.connectionCondition, relAlias))
+                        parts.add(translateCondition(segment.connectionCondition, segment.connectionName))
                     }
                     aliasIndex += 2
                 }
@@ -392,87 +388,37 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         return parts.joinToString(" AND ")
     }
 
-    /**
-     * Builds the RETURN clause, projecting only the requested fields.
-     * Returns Cypher expressions like `n0.ps_f_name AS student.name`.
-     */
     private fun buildReturnClause(
-        path: QueryPath,
-        fields: List<FieldRef>,
-        aliases: List<String>
+        segments: List<Triple<String, List<String>?, Boolean>>
     ): String {
         val projections = mutableListOf<String>()
 
-        for (fieldRef in fields) {
-            var aliasIndex = 0
-            for (segment in path.segments) {
-                when (segment) {
-                    is QuerySegment.Collection -> {
-                        if (segment.name == fieldRef.segment) {
-                            val cyAlias = aliases[aliasIndex]
-                            val model = DatabaseManager.getCollectionModel(segment.name)
-                            when (fieldRef) {
-                                is FieldRef.Wildcard -> {
-                                    projections.add(
-                                        "$cyAlias.ps_id AS `${segment.name}._id`"
-                                    )
-                                    for (f in model.schema.keys) {
-                                        projections.add(
-                                            "$cyAlias.`ps_f_$f` AS `${segment.name}.$f`"
-                                        )
-                                    }
-                                }
-
-                                is FieldRef.Named ->
-                                    projections.add(
-                                        "$cyAlias.`ps_f_${fieldRef.field}` AS `${segment.name}.${fieldRef.field}`"
-                                    )
-                            }
-                        }
-                        aliasIndex++
+        for (segment in segments) {
+            val (segmentName, only, isConnection) = segment
+            if (only == null) {
+                if (isConnection) {
+                    val model = DatabaseManager.getConnectionModel(segmentName)
+                    for (f in model.connectionDataSchema.keys) {
+                        projections.add(
+                            "$segmentName.`ps_f_$f` AS `$segmentName.$f`"
+                        )
                     }
-
-                    is QuerySegment.Connection -> {
-                        val relAlias = aliases[aliasIndex]
-                        val nodeAlias = aliases[aliasIndex + 1]
-                        val model = DatabaseManager.getConnectionModel(segment.connectionName)
-
-                        if (segment.collectionName == fieldRef.segment) {
-                            when (fieldRef) {
-                                is FieldRef.Wildcard -> {
-                                    projections.add(
-                                        "$nodeAlias.ps_id AS `" +
-                                                "${segment.collectionName}._id`"
-                                    )
-                                    for (f in DatabaseManager.getCollectionModel(segment.collectionName).schema.keys) {
-                                        projections.add(
-                                            "$nodeAlias.`ps_f_$f` AS `${segment.collectionName}.$f`"
-                                        )
-                                    }
-                                }
-
-                                is FieldRef.Named ->
-                                    projections.add(
-                                        "$nodeAlias.`ps_f_${fieldRef.field}` AS `${segment.collectionName}.${fieldRef.field}`"
-                                    )
-                            }
-                        } else if (segment.connectionName == fieldRef.segment) {
-                            when (fieldRef) {
-                                is FieldRef.Wildcard ->
-                                    for (f in model.connectionDataSchema.keys) {
-                                        projections.add(
-                                            "$relAlias.`ps_f_$f` AS `${model.name}.$f`"
-                                        )
-                                    }
-
-                                is FieldRef.Named ->
-                                    projections.add(
-                                        "$relAlias.`ps_f_${fieldRef.field}` AS `${model.name}.${fieldRef.field}`"
-                                    )
-                            }
-                        }
-                        aliasIndex += 2
+                } else {
+                    val model = DatabaseManager.getCollectionModel(segmentName)
+                    projections.add(
+                        "$segmentName.ps_id AS `$segmentName._id`"
+                    )
+                    for (f in model.schema.keys) {
+                        projections.add(
+                            "$segmentName.`ps_f_$f` AS `$segmentName.$f`"
+                        )
                     }
+                }
+            } else {
+                for (f in only) {
+                    projections.add(
+                        "$segmentName.`ps_f_$f` AS `$segmentName.$f`"
+                    )
                 }
             }
         }

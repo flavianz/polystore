@@ -5,24 +5,19 @@ import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
+import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.QueryPath
+import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
-import ch.flavianz.query.DriverType
-import ch.flavianz.query.PolyExecutionEnvironment
-import ch.flavianz.query.PolyQuery
 import ch.flavianz.query.PolyQueryDuration
 import ch.flavianz.query.PolyQueryResult
 import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.PolyTerminal
 import java.util.UUID
 import kotlin.collections.iterator
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
 
 object DatabaseManager {
@@ -135,15 +130,15 @@ object DatabaseManager {
         return objectUuid
     }
 
-    fun updateObject(updateObjectInstruction: UpdateObjectInstruction) {
-        val collectionRef = updateObjectInstruction.documentPath.parentCollection().toCollectionRef()
+    fun updateObject(documentPath: DocumentPath, data: PolyData) {
+        val collectionRef = documentPath.parentCollection().toCollectionRef()
 
         check(existsCollection(collectionRef.leafName())) { "collection $collectionRef does not exist" }
         val schema = getCollectionModel(collectionRef).schema
-        check(schemaContainsFields(updateObjectInstruction.data, schema))
+        check(schemaContainsFields(data, schema))
         { "update data does not match schema of collection $collectionRef" }
 
-        DriverManager.execute { (DatabaseDriver::updateDocument)(updateObjectInstruction) }
+        DriverManager.execute { (DatabaseDriver::updateDocument)(documentPath, data) }
     }
 
     fun listCollections(): List<CollectionModel> {
@@ -191,12 +186,12 @@ object DatabaseManager {
 
     }
 
-    fun query(query: PolyQuery): PolyQueryResult {
-        require(query.path.segments.isNotEmpty()) { "query path cannot be empty" }
-        require(query.path.segments[0] is QuerySegment.Collection) { "query path must start with a collection" }
+    fun get(query: GetQuery): PolyQueryResult {
+        require(query.isNotEmpty()) { "query path cannot be empty" }
+        require(query[0] is QuerySegment.Collection) { "query path must start with a collection" }
 
         var currentCollectionName: String? = null
-        for (segment in query.path.segments) {
+        for (segment in query) {
             when (segment) {
                 is QuerySegment.Collection -> {
                     currentCollectionName = segment.name
@@ -230,67 +225,56 @@ object DatabaseManager {
             }
         }
 
-        return when (val terminal = query.terminal) {
-            is PolyTerminal.Take -> {
-                val startTime = System.nanoTime()
-                val segments = mutableListOf<QuerySegment>()
-                for (i in query.path.segments.indices) {
-                    val segment = query.path.segments[i]
-                    var hasConnectionBeenReplaced = false
-                    val isRelevant = when (segment) {
-                        is QuerySegment.Collection -> terminal.fields.any { it.segment == segment.name } || segment.condition != null
-                        is QuerySegment.Connection -> {
-                            if (terminal.fields.any { it.segment == segment.connectionName } || segment.connectionCondition != null) {
-                                segments.add(query.path.segments[i - 1])
-                                true
-                            } else if (terminal.fields.any { it.segment == segment.collectionName } || segment.collectionCondition != null) {
-                                segments.add(
-                                    QuerySegment.Collection(
-                                        segment.collectionName,
-                                        segment.collectionCondition
-                                    )
-                                )
-                                hasConnectionBeenReplaced = true
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    }
-                    if (!isRelevant) {
-                        continue
-                    }
-                    segments.addAll(
-                        query.path.segments.subList(
-                            if (hasConnectionBeenReplaced) i + 1 else i,
-                            query.path.segments.size
+        val startTime = System.nanoTime()
+        val segments = mutableListOf<QuerySegment>()
+        for (i in query.indices) {
+            val segment = query[i]
+            var hasConnectionBeenReplaced = false
+            val isRelevant = when (segment) {
+                is QuerySegment.Collection -> segment.only?.isNotEmpty() ?: true || segment.condition != null
+                is QuerySegment.Connection -> {
+                    if (segment.connectionOnly?.isNotEmpty() ?: true || segment.connectionCondition != null) {
+                        segments.add(query[i - 1])
+                        true
+                    } else if (segment.collectionOnly?.isNotEmpty() ?: true || segment.collectionCondition != null) {
+                        segments.add(
+                            QuerySegment.Collection(
+                                segment.collectionName,
+                                segment.collectionCondition
+                            )
                         )
-                    )
-                    break
+                        hasConnectionBeenReplaced = true
+                        true
+                    } else {
+                        false
+                    }
                 }
-
-                val queryResult = DriverManager.take(PolyQuery(QueryPath(segments), terminal), terminal)
-
-                val elapsedTime = (System.nanoTime() - startTime).nanoseconds
-
-                PolyQueryResult(
-                    PolyResultData.Documents(queryResult.data),
-                    PolyQueryDuration(
-                        queryResult.duration.queryBuildingDuration,
-                        queryResult.duration.queryExecutionDuration,
-                        elapsedTime.minus(queryResult.duration.queryExecutionDuration.plus(queryResult.duration.queryBuildingDuration))
-                    ),
-                    queryResult.executionEnvironment
-                )
             }
-            // TODO: implement properly
-            is PolyTerminal.Count -> PolyQueryResult(
-                DriverManager.count(query, terminal), PolyQueryDuration(
-                    Duration.ZERO,
-                    Duration.ZERO, Duration.ZERO
-                ), PolyExecutionEnvironment(DriverType.Postgres, listOf())
+            if (!isRelevant) {
+                continue
+            }
+            segments.addAll(
+                query.subList(
+                    if (hasConnectionBeenReplaced) i + 1 else i,
+                    query.size
+                )
             )
+            break
         }
+
+        val queryResult = DriverManager.get(GetQuery(segments))
+
+        val elapsedTime = (System.nanoTime() - startTime).nanoseconds
+
+        return PolyQueryResult(
+            PolyResultData.Documents(queryResult.data),
+            PolyQueryDuration(
+                queryResult.duration.queryBuildingDuration,
+                queryResult.duration.queryExecutionDuration,
+                elapsedTime.minus(queryResult.duration.queryExecutionDuration.plus(queryResult.duration.queryBuildingDuration))
+            ),
+            queryResult.executionEnvironment
+        )
     }
 
     fun existsCollection(collectionRef: CollectionRef): Boolean {

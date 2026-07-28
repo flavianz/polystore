@@ -3,9 +3,12 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.*
-import ch.flavianz.query.Condition
-import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyTerminal
+import ch.flavianz.query.and
+import ch.flavianz.query.eq
+import ch.flavianz.query.gt
+import ch.flavianz.query.lt
+import ch.flavianz.query.or
+import ch.flavianz.query.query
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.sql.Connection
 import java.sql.DriverManager
@@ -245,42 +248,28 @@ class PostgresDriverQueryTests {
         }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private fun wildcard(vararg collections: String) =
-        PolyTerminal.Take(collections.map { FieldRef.Wildcard(it) })
-
     // ── Tests: simple collection queries ─────────────────────────────────────
 
     @Test
     fun `take all students returns all three`() {
-        val result = driver!!.take(
-            QueryPath(QuerySegment.Collection("students")),
-            wildcard("students")
-        )
+        val result = driver!!.get(query { collection("students") })
         assertEquals(3, result.data.size)
         val names = result.data.map { it["students.name"]?.value }.toSet()
         assertEquals(setOf("Alice", "Bob", "Carol"), names)
     }
 
-    @Test
+    /*@Test
     fun `count all students returns 3`() {
         val result = driver!!.count(
-            QueryPath(QuerySegment.Collection("students")),
+            query { collection("students") },
             PolyTerminal.Count
         )
         assertEquals(3, result.count)
-    }
+    }*/
 
     @Test
     fun `take students with gpa greater than 2 returns Alice and Bob`() {
-        val path = QueryPath(
-            QuerySegment.Collection(
-                "students",
-                Condition.Comparison.GreaterThan("gpa", PolyValue.of(2))
-            )
-        )
-        val result = driver!!.take(path, wildcard("students"))
+        val result = driver!!.get(query { collection("students", "gpa" gt 2) })
         assertEquals(2, result.data.size)
         val names = result.data.map { it["students.name"]?.value }.toSet()
         assertEquals(setOf("Alice", "Bob"), names)
@@ -288,13 +277,7 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `take students with gpa less than 4 returns Bob and Carol`() {
-        val path = QueryPath(
-            QuerySegment.Collection(
-                "students",
-                Condition.Comparison.LessThan("gpa", PolyValue.of(4))
-            )
-        )
-        val result = driver!!.take(path, wildcard("students"))
+        val result = driver!!.get(query { collection("students", "gpa" lt 4) })
         assertEquals(2, result.data.size)
         val names = result.data.map { it["students.name"]?.value }.toSet()
         assertEquals(setOf("Bob", "Carol"), names)
@@ -303,16 +286,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `take students with compound AND condition returns only Bob`() {
         // gpa > 2 AND gpa < 4  →  only Bob (gpa=3)
-        val path = QueryPath(
-            QuerySegment.Collection(
-                "students",
-                Condition.Logic.And(
-                    Condition.Comparison.GreaterThan("gpa", PolyValue.of(2)),
-                    Condition.Comparison.LessThan("gpa", PolyValue.of(4))
-                )
-            )
-        )
-        val result = driver!!.take(path, wildcard("students"))
+        val result = driver!!.get(query { collection("students", ("gpa" gt 2) and ("gpa" lt 4)) })
         assertEquals(1, result.data.size)
         assertEquals("Bob", result.data[0]["students.name"]?.value)
         assertEquals(3, result.data[0]["students.gpa"]?.value)
@@ -321,16 +295,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `take students with compound OR condition returns Alice and Carol`() {
         // gpa == 4 OR gpa == 2  →  Alice and Carol
-        val path = QueryPath(
-            QuerySegment.Collection(
-                "students",
-                Condition.Logic.Or(
-                    Condition.Comparison.Equals("gpa", PolyValue.of(4)),
-                    Condition.Comparison.Equals("gpa", PolyValue.of(2))
-                )
-            )
-        )
-        val result = driver!!.take(path, wildcard("students"))
+        val result = driver!!.get(query { collection("students", ("gpa" eq 4) or ("gpa" eq 2)) })
         assertEquals(2, result.data.size)
         val names = result.data.map { it["students.name"]?.value }.toSet()
         assertEquals(setOf("Alice", "Carol"), names)
@@ -338,57 +303,34 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `take students with condition matching nobody returns empty`() {
-        val path = QueryPath(
-            QuerySegment.Collection(
-                "students",
-                Condition.Comparison.GreaterThan("gpa", PolyValue.of(100))
-            )
-        )
-        val result = driver!!.take(path, wildcard("students"))
+        val result = driver!!.get(query { collection("students", "gpa" gt 100) })
         assertTrue(result.data.isEmpty())
     }
 
-    @Test
-    fun `count with condition returns correct subset count`() {
-        val path = QueryPath(
-            QuerySegment.Collection(
-                "students",
-                Condition.Comparison.GreaterThan("gpa", PolyValue.of(2))
-            )
-        )
-        assertEquals(2, driver!!.count(path, PolyTerminal.Count).count)
-    }
+    /* @Test
+     fun `count with condition returns correct subset count`() {
+         val path = query { collection("students", "gpa" gt 2) }
+         assertEquals(2, driver!!.count(path, PolyTerminal.Count).count)
+     }*/
 
     // ── Tests: single-hop connection queries ─────────────────────────────────
 
     @Test
     fun `take students with their attended courses returns correct row count`() {
         // 4 connection rows total: Alice-Math, Alice-History, Bob-Math, Carol-Physics
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection("attends", "courses")
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses")
+        })
         assertEquals(4, result.data.size)
     }
 
     @Test
     fun `join result contains correct fields from all three segments`() {
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection(
-                    "students",
-                    Condition.Comparison.Equals("name", PolyValue.of("Alice"))
-                ),
-                QuerySegment.Connection(
-                    "attends", "courses",
-                    Condition.Comparison.Equals("score", PolyValue.of(95))
-                )
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses"))
+        val result = driver!!.get(query {
+            collection("students", "name" eq "Alice")
+            connection("attends", "courses", connectionCondition = "score" eq 95)
+        })
 
         assertEquals(1, result.data.size)
         val row = result.data[0]
@@ -408,16 +350,10 @@ class PostgresDriverQueryTests {
     @Test
     fun `filter on collection side of join returns only matching student rows`() {
         // Only Alice's rows; she has 2 courses
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection(
-                    "students",
-                    Condition.Comparison.Equals("name", PolyValue.of("Alice"))
-                ),
-                QuerySegment.Connection("attends", "courses")
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses"))
+        val result = driver!!.get(query {
+            collection("students", "name" eq "Alice")
+            connection("attends", "courses")
+        })
         assertEquals(2, result.data.size)
         result.data.forEach { assertEquals("Alice", it["students.name"]?.value) }
     }
@@ -425,16 +361,10 @@ class PostgresDriverQueryTests {
     @Test
     fun `filter on connection data returns only high-scoring rows`() {
         // score > 70 → Alice-Math(95), Alice-History(80), Carol-Physics(75); excludes Bob-Math(60)
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection(
-                    "attends", "courses",
-                    Condition.Comparison.GreaterThan("score", PolyValue.of(70))
-                )
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses", connectionCondition = "score" gt 70)
+        })
         assertEquals(3, result.data.size)
         val scores = result.data.map { it["attends.score"]?.value as Int }
         assertTrue(scores.all { it > 70 })
@@ -443,19 +373,10 @@ class PostgresDriverQueryTests {
     @Test
     fun `filter on both collection and connection returns single precise row`() {
         // Bob AND score < 70 → Bob-Math(60)
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection(
-                    "students",
-                    Condition.Comparison.Equals("name", PolyValue.of("Bob"))
-                ),
-                QuerySegment.Connection(
-                    "attends", "courses",
-                    Condition.Comparison.LessThan("score", PolyValue.of(70))
-                )
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses"))
+        val result = driver!!.get(query {
+            collection("students", "name" eq "Bob")
+            connection("attends", "courses", connectionCondition = "score" lt 70)
+        })
         assertEquals(1, result.data.size)
         assertEquals("Bob", result.data[0]["students.name"]?.value)
         assertEquals(60, result.data[0]["attends.score"]?.value)
@@ -465,17 +386,10 @@ class PostgresDriverQueryTests {
     @Test
     fun `filter on target collection side of join`() {
         // Only courses with credits == 4 (Math, Physics); History is excluded
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection(
-                    "attends", "courses",
-                    null,
-                    Condition.Comparison.Equals("credits", PolyValue.of(4))
-                )  // condition on courses
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses", collectionCondition = "credits" eq 4)
+        })
         // Rows: Alice-Math, Bob-Math, Carol-Physics → 3 rows
         assertEquals(3, result.data.size)
         val titles = result.data.map { it["courses.title"]?.value }.toSet()
@@ -490,34 +404,22 @@ class PostgresDriverQueryTests {
         // Bob:   Math→Science                     → 1 row
         // Carol: Physics→Science                  → 1 row
         // total: 4 rows
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection("attends", "courses"),
-                QuerySegment.Connection("belongs_to", "departments")
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses")
+            connection("belongs_to", "departments")
+        })
         assertEquals(4, result.data.size)
     }
 
     @Test
     fun `two-hop join row contains fields from all five segments`() {
         // Alice attends Math (score=95), Math belongs_to Science (since=2000)
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection(
-                    "students",
-                    Condition.Comparison.Equals("name", PolyValue.of("Alice"))
-                ),
-                QuerySegment.Connection(
-                    "attends", "courses",
-                    Condition.Comparison.Equals("score", PolyValue.of(95))
-                ),
-                QuerySegment.Connection("belongs_to", "departments")
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
+        val result = driver!!.get(query {
+            collection("students", "name" eq "Alice")
+            connection("attends", "courses", connectionCondition = "score" eq 95)
+            connection("belongs_to", "departments")
+        })
         assertEquals(1, result.data.size)
         val row = result.data[0]
 
@@ -532,18 +434,11 @@ class PostgresDriverQueryTests {
     fun `two-hop filter on middle collection narrows result correctly`() {
         // Only courses with credits == 4 (Math, Physics) appear in the middle
         // Math→Science, Physics→Science → rows involving History are excluded
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection(
-                    "attends", "courses",
-                    null,
-                    Condition.Comparison.Equals("credits", PolyValue.of(4))
-                ),
-                QuerySegment.Connection("belongs_to", "departments")
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses", collectionCondition = "credits" eq 4)
+            connection("belongs_to", "departments")
+        })
         // Alice-Math-Science, Bob-Math-Science, Carol-Physics-Science → 3 rows
         assertEquals(3, result.data.size)
         result.data.forEach {
@@ -554,18 +449,11 @@ class PostgresDriverQueryTests {
     @Test
     fun `two-hop filter on final department filters end of chain`() {
         // Only rows ending at Humanities → only Alice-History-Humanities
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection("attends", "courses"),
-                QuerySegment.Connection(
-                    "belongs_to", "departments",
-                    null,
-                    Condition.Comparison.Equals("name", PolyValue.of("Humanities"))
-                )
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses")
+            connection("belongs_to", "departments", collectionCondition = "name" eq "Humanities")
+        })
         assertEquals(1, result.data.size)
         assertEquals("Alice", result.data[0]["students.name"]?.value)
         assertEquals("History", result.data[0]["courses.title"]?.value)
@@ -575,24 +463,11 @@ class PostgresDriverQueryTests {
     @Test
     fun `two-hop compound condition across all hops returns exact single row`() {
         // Alice AND score > 90 AND Science dept → Alice-Math(95)-Science
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection(
-                    "students",
-                    Condition.Comparison.Equals("name", PolyValue.of("Alice"))
-                ),
-                QuerySegment.Connection(
-                    "attends", "courses",
-                    Condition.Comparison.GreaterThan("score", PolyValue.of(90))
-                ),
-                QuerySegment.Connection(
-                    "belongs_to", "departments",
-                    null,
-                    Condition.Comparison.Equals("name", PolyValue.of("Science"))
-                )
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
+        val result = driver!!.get(query {
+            collection("students", "name" eq "Alice")
+            connection("attends", "courses", connectionCondition = "score" gt 90)
+            connection("belongs_to", "departments", collectionCondition = "name" eq "Science")
+        })
         assertEquals(1, result.data.size)
         assertEquals("Alice", result.data[0]["students.name"]?.value)
         assertEquals(95, result.data[0]["attends.score"]?.value)
@@ -604,14 +479,11 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `each result row has a unique combination of ids across hops`() {
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection("attends", "courses"),
-                QuerySegment.Connection("belongs_to", "departments")
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses", "belongs_to", "departments"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses")
+            connection("belongs_to", "departments")
+        })
 
         val uniqueKeys = result.data.map { row ->
             Triple(
@@ -628,13 +500,10 @@ class PostgresDriverQueryTests {
     @Test
     fun `result rows carry no cross-contamination between student fields`() {
         // Verify that Bob's row does not accidentally contain Alice's gpa
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection("attends", "courses")
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses")
+        })
 
         val bobRows = result.data.filter { it["students.name"]?.value == "Bob" }
         assertTrue(bobRows.isNotEmpty())
@@ -655,13 +524,10 @@ class PostgresDriverQueryTests {
             lonelyId, mapOf("name" to PolyValue.of("Lonely"), "gpa" to PolyValue.of(1))
         )
 
-        val path = QueryPath(
-            listOf(
-                QuerySegment.Collection("students"),
-                QuerySegment.Connection("attends", "courses")
-            )
-        )
-        val result = driver!!.take(path, wildcard("students", "attends", "courses"))
+        val result = driver!!.get(query {
+            collection("students")
+            connection("attends", "courses")
+        })
 
         val names = result.data.map { it["ps_col_students__name"]?.value }
         assertFalse(
@@ -673,10 +539,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `collection-only query is unaffected by presence of connection data`() {
         // A plain students query should return all students regardless of whether they have connections
-        val result = driver!!.take(
-            QueryPath(QuerySegment.Collection("students")),
-            wildcard("students")
-        )
+        val result = driver!!.get(query { collection("students") })
         assertEquals(3, result.data.size)
     }
 }

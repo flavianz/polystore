@@ -1,20 +1,6 @@
 package ch.flavianz.query
 
-import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
-import ch.flavianz.model.QueryPath
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.buildJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import kotlin.math.max
-
-// --- The full query ---
-data class PolyQuery(
-    val path: QueryPath,
-    val terminal: PolyTerminal
-)
-
 
 sealed class Condition {
     sealed class Comparison : Condition() {
@@ -39,15 +25,11 @@ sealed class Condition {
     data class In(val field: String, val list: Set<PolyValue>) : Condition()
 }
 
-sealed class FieldRef {
-    abstract val segment: String
-
-    data class Wildcard(override val segment: String) : FieldRef()
-    data class Named(override val segment: String, val field: String) : FieldRef()
-}
-
-
-sealed class PolyTerminal {
-    data class Take(val fields: List<FieldRef>) : PolyTerminal()
-    object Count : PolyTerminal()
-}
+infix fun String.eq(value: Any?) = Condition.Comparison.Equals(this, PolyValue.of(value))
+infix fun String.gt(value: Number) = Condition.Comparison.GreaterThan(this, PolyValue.ofNumber(value))
+infix fun String.lt(value: Number) = Condition.Comparison.LessThan(this, PolyValue.ofNumber(value))
+infix fun Condition.and(value: Condition) = Condition.Logic.And(this, value)
+infix fun Condition.or(value: Condition) = Condition.Logic.Or(this, value)
+fun Condition.isNot() = Condition.Not(this)
+fun not(condition: Condition) = Condition.Not(condition)
+infix fun String.isIn(list: Collection<Any?>) = Condition.In(this, list.map { PolyValue.of(list) }.toSet())

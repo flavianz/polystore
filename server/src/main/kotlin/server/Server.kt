@@ -1,14 +1,10 @@
 package ch.flavianz.server
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
-import ch.flavianz.model.QueryPath
+import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
-import ch.flavianz.query.FieldRef
-import ch.flavianz.query.PolyQuery
-import ch.flavianz.query.PolyTerminal
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -22,8 +18,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.util.UUID
 import io.ktor.server.plugins.cors.routing.CORS
 import kotlinx.serialization.json.buildJsonObject
@@ -172,7 +166,7 @@ fun startServer() {
                 )
             }
             post("/query/take") {
-                val body = call.receive<TakeRequest>()
+                val body = call.receive<QueryRequest>()
 
                 val querySegments = mutableListOf<QuerySegment>()
 
@@ -183,7 +177,7 @@ fun startServer() {
                         "collection" -> querySegments.add(
                             QuerySegment.Collection(
                                 requestSegment.name,
-                                if (!requestSegment.condition.isNullOrEmpty()) ConditionParser(requestSegment.condition).parse() else null
+                                ConditionParser(requestSegment.condition).parse()
                             )
                         )
 
@@ -206,15 +200,12 @@ fun startServer() {
                     }
                     i++
                 }
-                val fieldRefs = (body.take?.flatMap { segment -> segment.value.map { FieldRef.Named(segment.key, it) } }
-                    ?: emptyList()) +
-                        (body.collect?.map { FieldRef.Wildcard(it) } ?: emptyList())
 
-                val polyQuery = PolyQuery(QueryPath(querySegments), PolyTerminal.Take(fieldRefs))
+                val getQuery = GetQuery(querySegments)
 
                 val result = runCatching {
-                    DatabaseManager.query(
-                        polyQuery
+                    DatabaseManager.get(
+                        getQuery
                     )
                 }
 

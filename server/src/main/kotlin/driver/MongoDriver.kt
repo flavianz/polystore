@@ -3,19 +3,16 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
-import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
+import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.QueryPath
+import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
-import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyDriverQueryDuration
-import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.PolyTerminal
 import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Projections
@@ -29,6 +26,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.measureTimedValue
 
+val GetAll = null
+
 class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     override fun createCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
         mongoDatabase.createCollection(collectionName)
@@ -40,8 +39,8 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         dropCollectionRecursive(collection)
     }
 
-    override fun dropConnection(connection: ConnectionModel) {
-        mongoDatabase.getCollection("ps_config_connections").deleteOne(Filters.eq("name", connection.name))
+    override fun dropConnection(connectionModel: ConnectionModel) {
+        mongoDatabase.getCollection("ps_config_connections").deleteOne(Filters.eq("name", connectionModel.name))
     }
 
     private fun dropCollectionRecursive(collection: CollectionModel) {
@@ -87,18 +86,18 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         mongoDatabase.getCollection(collection.name).insertOne(document)
     }
 
-    override fun updateDocument(instruction: UpdateObjectInstruction) {
-        if (instruction.documentPath.parentCollection().hasParentDoc()) {
+    override fun updateDocument(documentPath: DocumentPath, data: PolyData) {
+        if (documentPath.parentCollection().hasParentDoc()) {
             // update parent collection
             val parentCollection =
-                instruction.documentPath.parentCollection().parentDoc().parentCollection().toCollectionRef()
-            val collectionName = "ps_sub_${instruction.documentPath.parentCollection().toCollectionRef().leafName()}"
+                documentPath.parentCollection().parentDoc().parentCollection().toCollectionRef()
+            val collectionName = "ps_sub_${documentPath.parentCollection().toCollectionRef().leafName()}"
             val mongoCollection = mongoDatabase.getCollection(parentCollection.leafName())
 
             mongoCollection.updateOne(
-                Filters.eq("${collectionName}._id", instruction.documentPath.uuid),
+                Filters.eq("${collectionName}._id", documentPath.uuid),
                 Updates.combine(
-                    instruction.data.map {
+                    data.map {
                         Updates.set(
                             "$collectionName.$.ps_f_${it.key}",
                             prepareValue(it.value)
@@ -108,15 +107,15 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             )
         }
         val mongoCollection =
-            mongoDatabase.getCollection(instruction.documentPath.parentCollection().toCollectionRef().leafName())
+            mongoDatabase.getCollection(documentPath.parentCollection().toCollectionRef().leafName())
         mongoCollection.updateOne(
-            Filters.eq("_id", instruction.documentPath.uuid),
+            Filters.eq("_id", documentPath.uuid),
             Updates.combine(
-                instruction.data.map { Updates.set("ps_f_${it.key}", prepareValue(it.value)) }
+                data.map { Updates.set("ps_f_${it.key}", prepareValue(it.value)) }
             )
         )
 
-        val collectionName = instruction.documentPath.parentCollection().leafName()
+        val collectionName = documentPath.parentCollection().leafName()
         val connection = DatabaseManager.getConnectionOrNull(collectionName)
 
         if (connection != null) {
@@ -124,7 +123,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             val connectedCollection =
                 if (connection.collection1Name == collectionName) connection.collection2Name else connection.collection1Name
             val connectionName = "ps_con_${connection.name}"
-            val mongoDoc = mongoCollection.find(Filters.eq("_id", instruction.documentPath.uuid)).firstOrNull()
+            val mongoDoc = mongoCollection.find(Filters.eq("_id", documentPath.uuid)).firstOrNull()
             checkNotNull(mongoDoc) { "updated mongo doc does not exist" }
 
             val connectedDocs = (mongoDoc[connectionName] as List<*>?)?.filterIsInstance<Document>() ?: emptyList()
@@ -134,13 +133,13 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             mongoConnectedCollection.updateMany(
                 Filters.`in`("_id", ids),
                 Updates.combine(
-                    instruction.data.map {
+                    data.map {
                         Updates.set(
                             "ps_con_${connection.name}.$[elem].ps_doc.ps_f_${it.key}",
                             prepareValue(it.value)
                         )
                     }),
-                UpdateOptions().arrayFilters(listOf(Filters.eq("elem.ps_doc._id", instruction.documentPath.uuid)))
+                UpdateOptions().arrayFilters(listOf(Filters.eq("elem.ps_doc._id", documentPath.uuid)))
             )
         }
     }
@@ -193,24 +192,15 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
     }
 
 
-    override fun take(
-        path: QueryPath,
-        terminal: PolyTerminal.Take
+    override fun get(
+        query: GetQuery,
     ): TimedDriverResult<List<PolyData>> {
         val startTime = System.nanoTime()
-        check(path.segments.isNotEmpty()) { "empty query" }
-        if (terminal.fields.isEmpty()) {
-            return TimedDriverResult(
-                emptyList(),
-                PolyDriverQueryDuration(
-                    (System.nanoTime() - startTime).nanoseconds,
-                    Duration.ZERO
-                ), emptyList()
-            )
-        }
+        check(query.isNotEmpty()) { "empty query" }
 
-        if (path.segments.size == 1) {
-            val segment = path.segments[0]
+
+        if (query.size == 1) {
+            val segment = query[0]
             require(segment is QuerySegment.Collection) { "connection segment must be placed before a collection segment" }
 
             val mongoCollection = mongoDatabase.getCollection(segment.name)
@@ -226,10 +216,10 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 ).toList()
             }
 
-            if (terminal.fields.size == 1 && terminal.fields[0] is FieldRef.Wildcard) {
+            if (segment.only == GetAll) {
                 return TimedDriverResult(
                     result.value.map { doc ->
-                        doc.entries.associate {
+                        doc.entries.filter { it.key.startsWith("ps_f_") || it.key == "_id" }.associate {
                             "${collectionModel.name}.${if (it.key == "_id") "_id" else it.key.substring(5)}" to PolyValue.of(
                                 it.value
                             )
@@ -245,9 +235,9 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 // TODO: change terminal system
                 return TimedDriverResult(
                     result.value.map { doc ->
-                        terminal.fields.associate {
-                            "${it.segment}.${(it as FieldRef.Named).segment}" to PolyValue.of(
-                                doc[if (it.field == "_id") "_id" else "ps_f_${it.field}"]
+                        segment.only.associate {
+                            "${segment.name}.$it" to PolyValue.of(
+                                doc[if (it == "_id") "_id" else "ps_f_$it"]
                             )
                         }
                     },
@@ -260,7 +250,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         }
 
         val docsBySegment = mutableMapOf<String, List<MongoPolyObject>>()
-        val segments = path.segments
+        val segments = query
         var i = 0
         var totalQueryExecutionDuration = Duration.ZERO
         val executedQueries = mutableListOf<String>()
@@ -445,7 +435,15 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         val data = completeDocPaths.map { doc ->
             takeResultFields(
                 doc.filterValues { it is MongoPolyData }.toMap() as Map<String, MongoPolyData>,
-                terminal.fields
+                segments.flatMap {
+                    when (it) {
+                        is QuerySegment.Collection -> listOf(it.name to it.only)
+                        is QuerySegment.Connection -> listOf(
+                            it.connectionName to it.connectionOnly,
+                            it.collectionName to it.collectionOnly
+                        )
+                    }
+                }
             )
         }
         val elapsedTime = (System.nanoTime() - startTime).nanoseconds
@@ -581,25 +579,29 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         return parentDocs.associate { it to it.getSubCollectionDocuments(subCollectionName) }
     }
 
-    private fun takeResultFields(documents: Map<String, MongoPolyData>, fields: List<FieldRef>): PolyData {
+    private fun takeResultFields(
+        documents: Map<String, MongoPolyData>,
+        onlys: List<Pair<String, List<String>?>>
+    ): PolyData {
         return buildMap {
-            for (field in fields) {
-                val segmentDoc = documents[field.segment]
-                when (field) {
-                    is FieldRef.Named -> put(
-                        "${field.segment}.${field.field}",
-                        PolyValue.of(segmentDoc?.getField(field.field))
-                    )
+            for (only in onlys) {
+                val (segment, fields) = only
+                val segmentDoc = documents[segment]
 
-                    is FieldRef.Wildcard -> (segmentDoc?.filteredFieldEntries()
-                        ?: emptyList())
-                        .forEach {
-                            put(
-                                "${field.segment}.${if (it.first == "_id") "_id" else it.first.substring(5)}",
-                                PolyValue.of(it.second)
-                            )
-                        }
-
+                if (fields == GetAll) {
+                    for (entry in segmentDoc?.filteredFieldEntries() ?: continue) {
+                        put(
+                            "${segment}.${if (entry.first == "_id") "_id" else entry.first.substring(5)}",
+                            PolyValue.of(entry.second)
+                        )
+                    }
+                } else {
+                    for (field in fields) {
+                        put(
+                            "${segment}.${field}",
+                            PolyValue.of(segmentDoc?.getField(field))
+                        )
+                    }
                 }
             }
         }
@@ -659,12 +661,12 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         }
     }
 
-    override fun count(
-        path: QueryPath,
+    /*override fun count(
+        path: GetQuery,
         terminal: PolyTerminal.Count
     ): PolyResultData.Count {
         TODO("Not yet implemented")
-    }
+    }*/
 
     override fun init() {
         val existsCollections = mongoDatabase.listCollections()

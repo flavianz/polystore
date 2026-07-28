@@ -2,14 +2,12 @@ package ch.flavianz.driver
 
 import ch.flavianz.data.PolyData
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
+import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.QueryPath
+import ch.flavianz.model.GetQuery
 import ch.flavianz.query.PolyDriverQueryDuration
-import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.PolyTerminal
 import java.util.UUID
 
 interface DatabaseDriver {
@@ -19,7 +17,7 @@ interface DatabaseDriver {
     fun dropConnection(connectionModel: ConnectionModel)
 
     fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID? = null)
-    fun updateDocument(instruction: UpdateObjectInstruction)
+    fun updateDocument(documentPath: DocumentPath, data: PolyData)
     fun insertConnection(
         connection: ConnectionModel,
         collection1Name: String, uuid1: UUID,
@@ -27,8 +25,8 @@ interface DatabaseDriver {
         connectionData: PolyData
     )
 
-    fun take(path: QueryPath, terminal: PolyTerminal.Take): TimedDriverResult<List<PolyData>>
-    fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResultData.Count
+    fun get(query: GetQuery): TimedDriverResult<List<PolyData>>
+    //fun count(path: GetQuery, terminal: PolyTerminal.Count): PolyResultData.Count
 
     fun init()
     fun getDatabaseSchema(): DatabaseSchema

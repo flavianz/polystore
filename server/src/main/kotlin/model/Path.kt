@@ -3,14 +3,11 @@ package ch.flavianz.model
 import java.util.UUID
 import kotlin.collections.plus
 
-data class QueryPath(val segments: List<QuerySegment>) {
+class GetQuery(private val segments: List<QuerySegment>) : ArrayList<QuerySegment>(segments) {
     init {
         require(segments.isNotEmpty()) { "query path cannot be empty" }
         require(segments.first() is QuerySegment.Collection) { "first segment of query path must be a collection" }
     }
-
-    constructor(collection: QuerySegment.Collection) : this(listOf(collection))
-    constructor(connection: QuerySegment.Connection) : this(listOf(connection))
 
     override fun toString(): String {
         return segments.joinToString(".")

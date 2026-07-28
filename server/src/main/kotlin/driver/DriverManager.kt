@@ -4,12 +4,10 @@ import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
+import ch.flavianz.model.GetQuery
 import ch.flavianz.query.DriverType
 import ch.flavianz.query.PolyExecutionEnvironment
-import ch.flavianz.query.PolyQuery
-import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.PolyTerminal
-import ch.flavianz.query.TakeQueryResult
+import ch.flavianz.query.GetQueryResult
 import ch.flavianz.stat.DurationMeasurement
 import ch.flavianz.stat.MeasurementPhase
 import java.sql.Connection
@@ -77,14 +75,13 @@ object DriverManager {
         }
     }
 
-    fun benchmarkTake(
+    fun benchmarkGet(
         runId: Int,
         queryShape: String,
         collectionSize: Int,
         depth: Int,
         filterCount: Int,
-        query: PolyQuery,
-        terminal: PolyTerminal.Take
+        query: GetQuery
     ): List<DurationMeasurement> {
         val measurements = mutableListOf<DurationMeasurement>()
         for (i in 0..<100) {
@@ -94,7 +91,7 @@ object DriverManager {
                 Pair(mongoDriver, DriverType.Mongo),
                 Pair(neo4jDriver, DriverType.Neo4j)
             )) {
-                val result = driver.first!!.take(query.path, terminal)
+                val result = driver.first!!.get(query)
                 measurements.add(
                     DurationMeasurement(
                         runId, queryShape, driver.second, collectionSize, depth, filterCount,
@@ -126,10 +123,10 @@ object DriverManager {
         return measurements
     }
 
-    fun take(query: PolyQuery, terminal: PolyTerminal.Take): TakeQueryResult {
+    fun get(query: GetQuery): GetQueryResult {
         val activeDriver = getActiveDriver()
-        val result = activeDriver.take(query.path, terminal)
-        return TakeQueryResult(
+        val result = activeDriver.get(query)
+        return GetQueryResult(
             result.data, result.duration, PolyExecutionEnvironment(
                 when (activeDriver) {
                     is PostgresDriver -> DriverType.Postgres
@@ -141,9 +138,9 @@ object DriverManager {
         )
     }
 
-    fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
+    /*fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
         return getActiveDriver().count(query.path, terminal)
-    }
+    }*/
 
     fun parseDatabaseSchema(): DatabaseSchema {
         val schemas = mutableListOf<DatabaseSchema>()

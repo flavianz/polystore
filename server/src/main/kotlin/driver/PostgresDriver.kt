@@ -4,20 +4,17 @@ import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.instructions.UpdateObjectInstruction
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
+import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.QueryPath
+import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.model.toJson
 import ch.flavianz.query.Condition
-import ch.flavianz.query.FieldRef
 import ch.flavianz.query.PolyDriverQueryDuration
-import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.PolyTerminal
 import ch.flavianz.server.FieldDefinition
 import kotlinx.serialization.json.Json
 import java.sql.Connection
@@ -25,7 +22,6 @@ import java.util.UUID
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.measureTimedValue
 
@@ -156,23 +152,23 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun updateDocument(instruction: UpdateObjectInstruction) {
+    override fun updateDocument(documentPath: DocumentPath, data: PolyData) {
         val sql = StringBuilder()
-        val collectionRef = instruction.documentPath.parentCollection().toCollectionRef()
+        val collectionRef = documentPath.parentCollection().toCollectionRef()
         sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.leafName()}")).append(" SET ")
 
-        for (entry in instruction.data.entries) {
-            sql.append(quoteIdentifier("${entry.key}")).append(" = ").append(prepareValue(entry.value))
+        for (entry in data.entries) {
+            sql.append(quoteIdentifier(entry.key)).append(" = ").append(prepareValue(entry.value))
                 .append(", ")
         }
-        if (instruction.data.isNotEmpty()) {
+        if (data.isNotEmpty()) {
             // remove last comma
             sql.deleteRange(sql.length - 2, sql.length)
         }
 
         sql.append(" WHERE ").append(quoteIdentifier("_id")).append(" = ").append(
             prepareValue(
-                PolyValue.of(instruction.documentPath.uuid)
+                PolyValue.of(documentPath.uuid)
             )
         )
 
@@ -211,79 +207,25 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     }
 
 
-    override fun take(path: QueryPath, terminal: PolyTerminal.Take): TimedDriverResult<List<PolyData>> {
+    override fun get(query: GetQuery): TimedDriverResult<List<PolyData>> {
         val startTime = System.nanoTime()
         val sql = StringBuilder()
 
-        val selectClauses = terminal.fields.flatMap { fieldRef ->
-            fun generateCollectionSelectClause(collectionName: String): List<String> {
-                val pgTable = "ps_col_${collectionName}"
-                return when (fieldRef) {
-                    is FieldRef.Wildcard -> {
-                        val schema = DatabaseManager.getCollectionModel(collectionName).schema
-                        val pkCol =
-                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("_id")} AS ${quoteIdentifier("${collectionName}._id")}"
-                        val fieldCols = schema.keys.map { f ->
-                            "${quoteIdentifier(pgTable)}.${quoteIdentifier("$f")} AS ${quoteIdentifier("${collectionName}.$f")}"
-                        }
-                        listOf(pkCol) + fieldCols
-                    }
-
-                    is FieldRef.Named -> listOf(
-                        "${quoteIdentifier(pgTable)}.${quoteIdentifier("${fieldRef.field}")} AS ${
-                            quoteIdentifier(
-                                "${collectionName}.${fieldRef.field}"
-                            )
-                        }"
-                    )
-                }
-            }
-
-            val segmentIndex = path.segments.indexOfFirst {
-                when (it) {
-                    is QuerySegment.Collection -> it.name == fieldRef.segment
-                    is QuerySegment.Connection -> it.connectionName == fieldRef.segment || it.collectionName == fieldRef.segment
-                }
-            }
-            check(segmentIndex != -1) { "take field segment not found in query path $path" }
-            when (val segment = path.segments[segmentIndex]) {
-                is QuerySegment.Collection -> generateCollectionSelectClause(
-                    segment.name
+        val selectClauses = buildSelectClause(query.flatMap {
+            when (it) {
+                is QuerySegment.Collection -> listOf(Triple(it.name, it.only, false))
+                is QuerySegment.Connection -> listOf(
+                    Triple(it.connectionName, it.connectionOnly, true),
+                    Triple(it.collectionName, it.collectionOnly, false)
                 )
-
-                is QuerySegment.Connection -> {
-                    if (segment.collectionName == fieldRef.segment) {
-                        generateCollectionSelectClause(
-                            segment.collectionName
-                        )
-                    } else {
-                        val connectionModel = DatabaseManager.getConnectionModel(segment.connectionName)
-                        val pgTable =
-                            "ps_con_${connectionModel.collection1Name}__${connectionModel.name}__${connectionModel.collection2Name}"
-                        when (fieldRef) {
-                            is FieldRef.Wildcard -> {
-                                val schema = connectionModel.connectionDataSchema
-                                schema.keys.map { f ->
-                                    "${quoteIdentifier(pgTable)}.${quoteIdentifier("$f")} AS ${quoteIdentifier("${connectionModel.name}.$f")}"
-                                }
-                            }
-
-                            is FieldRef.Named -> listOf(
-                                "${quoteIdentifier(pgTable)}.${quoteIdentifier("${fieldRef.field}")} AS ${
-                                    quoteIdentifier(
-                                        "${connectionModel.name}.${fieldRef.field}"
-                                    )
-                                }"
-                            )
-                        }
-                    }
-                }
             }
-        }
+        })
 
-        sql.append("SELECT ").append(selectClauses.joinToString(", "))
-        appendFromAndJoins(sql, path)
-        appendWhere(sql, path)
+        sql.append("SELECT ").append(selectClauses)
+        appendFromAndJoins(sql, query)
+        appendWhere(sql, query)
+
+        println(sql)
 
         val data = measureTimedValue {
             val rs = connection.prepareStatement(sql.toString()).executeQuery()
@@ -308,7 +250,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         )
     }
 
-    override fun count(path: QueryPath, terminal: PolyTerminal.Count): PolyResultData.Count {
+    /*override fun count(path: GetQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
         val sql = StringBuilder()
         sql.append("SELECT COUNT(*) AS ps_count")
         appendFromAndJoins(sql, path)
@@ -317,7 +259,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         val rs = connection.prepareStatement(sql.toString()).executeQuery()
         rs.next()
         return PolyResultData.Count(rs.getInt("ps_count"))
-    }
+    }*/
 
     override fun init() {
         connection.prepareStatement(
@@ -384,16 +326,58 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         return DatabaseSchema(collections.toSet(), connections.toSet())
     }
 
-    private fun appendFromAndJoins(sql: StringBuilder, path: QueryPath) {
-        val firstNode = path.segments.first() as QuerySegment.Collection
+    private fun buildSelectClause(
+        segments: List<Triple<String, List<String>?, Boolean>>
+    ): String {
+        val projections = mutableListOf<String>()
+
+        for (segment in segments) {
+            val (segmentName, only, isConnection) = segment
+            if (only == null) {
+                if (isConnection) {
+                    val model = DatabaseManager.getConnectionModel(segmentName)
+                    for (f in model.connectionDataSchema.keys) {
+                        projections.add(
+                            "${quoteIdentifier("ps_con_${model.collection1Name}__${model.name}__${model.collection2Name}")}.${
+                                quoteIdentifier(
+                                    f
+                                )
+                            } AS ${quoteIdentifier("${segmentName}.$f")}"
+                        )
+                    }
+                } else {
+                    val model = DatabaseManager.getCollectionModel(segmentName)
+                    projections.add(
+                        "${quoteIdentifier("ps_col_${segmentName}")}.${quoteIdentifier("_id")} AS ${quoteIdentifier("${segmentName}._id")}"
+                    )
+                    for (f in model.schema.keys) {
+                        projections.add(
+                            "${quoteIdentifier("ps_col_${segmentName}")}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
+                        )
+                    }
+                }
+            } else {
+                for (f in only) {
+                    projections.add(
+                        "${quoteIdentifier("ps_col_${segmentName}")}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
+                    )
+                }
+            }
+        }
+
+        return projections.joinToString(", ")
+    }
+
+    private fun appendFromAndJoins(sql: StringBuilder, path: GetQuery) {
+        val firstNode = path.first() as QuerySegment.Collection
         val firstCol = CollectionRef(firstNode.name)
         val firstTable = "ps_col_${firstCol.leafName()}"
         sql.append(" FROM ").append(quoteIdentifier(firstTable))
 
-        for (i in 1 until path.segments.size) {
-            when (val currentSegment = path.segments[i]) {
+        for (i in 1 until path.size) {
+            when (val currentSegment = path[i]) {
                 is QuerySegment.Collection -> {
-                    val prevCol = path.segments[i - 1].collectionName()
+                    val prevCol = path[i - 1].collectionName()
                     val currCol = currentSegment.collectionName()
                     val prevTable = "ps_col_${prevCol}"
                     val currTable = "ps_col_${currCol}"
@@ -407,7 +391,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                 is QuerySegment.Connection -> {
                     val connectionModel = DatabaseManager.getConnectionModel(currentSegment.connectionName)
-                    val prevCol = path.segments[i - 1].collectionName()
+                    val prevCol = path[i - 1].collectionName()
                     val prevTable = "ps_col_${prevCol}"
                     val nextTable = "ps_col_${connectionModel.collection2Name}"
                     val connTable =
@@ -430,15 +414,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
     }
 
-    private fun appendWhere(sql: StringBuilder, path: QueryPath) {
+    private fun appendWhere(sql: StringBuilder, path: GetQuery) {
         var i = 0
-        val conditions: List<String> = path.segments.flatMap { segment ->
+        val conditions: List<String> = path.flatMap { segment ->
             i++
             buildList {
                 when (segment) {
                     is QuerySegment.Collection -> {
                         if (segment.condition != null) {
-                            val col = path.segments[i - 1].collectionName()
+                            val col = path[i - 1].collectionName()
                             val pgTable = "ps_col_${col}"
                             add(translateCondition(segment.condition, pgTable))
                         }
@@ -446,7 +430,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                     is QuerySegment.Connection -> {
                         if (segment.collectionCondition != null) {
-                            val col = path.segments[i - 1].collectionName()
+                            val col = path[i - 1].collectionName()
                             val pgTable = "ps_col_${col}"
                             add(translateCondition(segment.collectionCondition, pgTable))
                         }

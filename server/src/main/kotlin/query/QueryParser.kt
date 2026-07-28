@@ -1,7 +1,7 @@
 package ch.flavianz.query
 
 import ch.flavianz.data.PolyValue
-import ch.flavianz.model.QueryPath
+import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
 import java.util.UUID
 
@@ -9,17 +9,20 @@ class QueryParser(input: String) {
 
     private val tokens = tokenize(input)
     private var pos = 0
-    private val aliasMap = mutableMapOf<String, String>()
 
-    fun parse(): PolyQuery {
-        val pathSegments = parsePath()
-        val terminal = parseTerminal()
-        return PolyQuery(QueryPath(pathSegments), terminal)
+    fun parse(): GetQuery {
+        if (tokens.isEmpty()) {
+            return GetQuery(emptyList())
+        }
+        if (tokens[0] == "query") {
+            return GetQuery(parseQuery())
+        }
+        throw IllegalStateException("unknown query type")
     }
 
     // "from a.(b where ...).c"
-    private fun parsePath(): List<QuerySegment> {
-        expect("from")
+    private fun parseQuery(): List<QuerySegment> {
+        expect("take")
         val nodes = mutableListOf<QuerySegment>()
         do {
             if (peek() == "-") {
@@ -53,13 +56,6 @@ class QueryParser(input: String) {
 
         val name = consumeIdentifier()
 
-        // if next token is an identifier (not "where", ".", ")"), it's an alias
-        val nextIsAlias = isIdentifier(peek()) && peek() !in arrayOf("where", "count", "take")
-        if (nextIsAlias) {
-            val alias = consumeIdentifier()
-            aliasMap[alias] = name  // register alias → real name, then discard alias
-        }
-
         val condition = if (peek() == "where") {
             consume()
             parseCondition()
@@ -68,35 +64,6 @@ class QueryParser(input: String) {
         if (parenthesized) consume(")")
 
         return name to condition
-    }
-
-    // "take ..." or "count"
-    private fun parseTerminal(): PolyTerminal {
-        return when (val keyword = consume()) {
-            "take" -> parseTake()
-            "count" -> PolyTerminal.Count
-            else -> throw IllegalArgumentException("Expected take or count, got $keyword")
-        }
-    }
-
-    // "take h.name, d.name, doc.*"
-    private fun parseTake(): PolyTerminal.Take {
-        val fields = mutableListOf<FieldRef>()
-        do {
-            if (peek() == ",") consume()
-            fields.add(parseFieldRef())
-        } while (peek() == ",")
-        return PolyTerminal.Take(fields)
-    }
-
-    // "h.name" or "doc.*"
-    private fun parseFieldRef(): FieldRef {
-        val aliasOrName = consumeIdentifier()
-        val resolvedName = aliasMap[aliasOrName] ?: aliasOrName  // resolve, fall back to name itself
-        consume(".")
-        val field = consume()
-        return if (field == "*") FieldRef.Wildcard(resolvedName)
-        else FieldRef.Named(resolvedName, field)
     }
 
     private fun consumeValue(): PolyValue {
