@@ -216,35 +216,44 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 ).toList()
             }
 
-            if (segment.only == GetAll) {
-                return TimedDriverResult(
-                    result.value.map { doc ->
-                        doc.entries.filter { it.key.startsWith("ps_f_") || it.key == "_id" }.associate {
-                            "${collectionModel.name}.${if (it.key == "_id") "_id" else it.key.substring(5)}" to PolyValue.of(
-                                it.value
-                            )
-                        }
-                    },
-                    PolyDriverQueryDuration(
-                        (System.nanoTime() - startTime).nanoseconds,
-                        result.duration
-                    ), listOf("list collection ${segment.name} with condition ${segment.condition}")
-                )
-            } else {
-                // assume only take fields
-                // TODO: change terminal system
-                return TimedDriverResult(
-                    result.value.map { doc ->
-                        segment.only.associate {
-                            "${segment.name}.$it" to PolyValue.of(
-                                doc[if (it == "_id") "_id" else "ps_f_$it"]
-                            )
-                        }
-                    },
-                    PolyDriverQueryDuration(
-                        (System.nanoTime() - startTime).nanoseconds,
-                        result.duration
-                    ), listOf("list collection ${segment.name} with condition ${segment.condition}")
+            val data =
+                result.value
+
+            val execDuration = result.duration - compTime
+            val buildDuration = (System.nanoTime() - startTime).nanoseconds - execDuration
+
+            return TimedDriverResult(
+                data,
+                PolyDriverQueryDuration(
+                    buildDuration,
+                    execDuration
+                ), listOf("list collection ${segment.name} with condition ${segment.condition}")
+            )
+        } else if (query.size == 2 && query[0] is QuerySegment.Collection && query[1] is QuerySegment.Collection) {
+            val parentCol = query[0] as QuerySegment.Collection
+            val childCol = query[1] as QuerySegment.Collection
+
+            val mongoParentCollection = mongoDatabase.getCollection(parentCol.name)
+            val parentCondition = conditionToFilter(parentCol.condition)
+            val parentCollectionModel = DatabaseManager.getCollectionModel(parentCol.name)
+            val childCollectionModel = DatabaseManager.getCollectionModel(childCol.name)
+
+            var compTime = Duration.ZERO
+
+            val result = measureTimedValue {
+                val query = mongoParentCollection.find(
+                    Filters.and(
+                        parentCondition,
+                        Filters.elemMatch(
+                            "_sub_${childCol.name}",
+                            conditionToFilter(childCol.condition)
+                        )
+                    )
+                ).projection(
+                    Projections.exclude(
+                        (parentCollectionModel.childCollections.map { "_sub_${it}" } - "_sub_${childCol.name}") +
+                                parentCollectionModel.getConnectedCollections().map { "_con_${it}" }
+                    )
                 )
             }
         }
