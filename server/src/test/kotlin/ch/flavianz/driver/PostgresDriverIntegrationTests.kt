@@ -1,7 +1,6 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyValue
 import ch.flavianz.model.*
 import ch.flavianz.query.gt
 import ch.flavianz.query.query
@@ -108,13 +107,13 @@ class PostgresDriverIntegrationTests {
 
         // 3. Insert Objects
         val userUuid = UUID.randomUUID()
-        driver.insertDocument(userModel, userUuid, mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(30)))
+        driver.insertDocument(userModel, userUuid, mapOf("name" to "Alice", "age" to 30))
 
         val orderUuid = UUID.randomUUID()
         driver.insertDocument(
             orderModel,
             orderUuid,
-            mapOf("item" to PolyValue.of("Laptop"), "price" to PolyValue.of(1200)),
+            mapOf("item" to "Laptop", "price" to 1200),
             userUuid
         )
 
@@ -127,7 +126,7 @@ class PostgresDriverIntegrationTests {
 
         driver.updateDocument(
             CollectionPath("test_users").doc(userUuid),
-            (mapOf("age" to PolyValue.of(31)))
+            (mapOf("age" to 31))
         )
 
         // 5. Test take (Wildcard)
@@ -136,9 +135,9 @@ class PostgresDriverIntegrationTests {
 
         assertEquals(1, takeResult.data.size)
         val userRow = takeResult.data[0]
-        assertEquals(userUuid.toString(), userRow["test_users._id"]?.value?.toString())
-        assertEquals("Alice", userRow["test_users.name"]?.value)
-        assertEquals(31, userRow["test_users.age"]?.value) // updated age
+        assertEquals(userUuid.toString(), userRow["test_users._id"]?.toString())
+        assertEquals("Alice", userRow["test_users.name"])
+        assertEquals(31, userRow["test_users.age"]) // updated age
 
         // 6. Test count
         //val countResult = driver.count(getQuery, PolyTerminal.Count)
@@ -153,18 +152,18 @@ class PostgresDriverIntegrationTests {
         val joinRow = joinResult.data[0]
 
         // Validate user fields in join
-        assertEquals(userUuid.toString(), joinRow["test_users._id"]?.value?.toString())
-        assertEquals("Alice", joinRow["test_users.name"]?.value)
-        assertEquals(31, joinRow["test_users.age"]?.value)
+        assertEquals(userUuid.toString(), joinRow["test_users._id"]?.toString())
+        assertEquals("Alice", joinRow["test_users.name"])
+        assertEquals(31, joinRow["test_users.age"])
 
         // Validate connection fields in join
         val quantityKey = "test_bought.quantity"
-        assertEquals(5, joinRow[quantityKey]?.value)
+        assertEquals(5, joinRow[quantityKey])
 
         // Validate order fields in join
-        assertEquals(orderUuid.toString(), joinRow["test_orders._id"]?.value?.toString())
-        assertEquals("Laptop", joinRow["test_orders.item"]?.value)
-        assertEquals(1200, joinRow["test_orders.price"]?.value)
+        assertEquals(orderUuid.toString(), joinRow["test_orders._id"]?.toString())
+        assertEquals("Laptop", joinRow["test_orders.item"])
+        assertEquals(1200, joinRow["test_orders.price"])
     }
 
     @Test
@@ -176,18 +175,18 @@ class PostgresDriverIntegrationTests {
         val user1 = UUID.randomUUID()
         driver.insertDocument(
             userModel,
-            user1, mapOf("name" to PolyValue.of("Alice"), "age" to PolyValue.of(25))
+            user1, mapOf("name" to "Alice", "age" to 25)
         )
 
         val user2 = UUID.randomUUID()
         driver.insertDocument(
             userModel,
-            user2, mapOf("name" to PolyValue.of("Bob"), "age" to PolyValue.of(35))
+            user2, mapOf("name" to "Bob", "age" to 35)
         )
 
         val result = driver.get(query { collection("test_users", "age" gt 30) })
 
         assertEquals(1, result.data.size)
-        assertEquals("Bob", result.data[0]["test_users.name"]?.value)
+        assertEquals("Bob", result.data[0]["test_users.name"])
     }
 }

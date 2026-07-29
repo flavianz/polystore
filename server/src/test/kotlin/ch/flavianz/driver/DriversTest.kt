@@ -4,7 +4,6 @@ import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyValue
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
@@ -325,8 +324,8 @@ abstract class DriversTest {
         )
         DatabaseManager.insertDocument(
             "test", mapOf(
-                "name" to PolyValue.of("Tim"),
-                "age" to PolyValue.of(18),
+                "name" to "Tim",
+                "age" to 18,
             )
         )
         val response = DatabaseManager.get(query {
@@ -335,8 +334,8 @@ abstract class DriversTest {
         assertEquals(
             setOf(
                 mapOf(
-                    "test.name" to PolyValue.of("Tim"),
-                    "test.age" to PolyValue.of(18),
+                    "test.name" to "Tim",
+                    "test.age" to 18,
                 )
             ), (response.resultData as PolyResultData.Documents).polyData.toSet()
         )
@@ -359,14 +358,14 @@ abstract class DriversTest {
         )
         val parentUuid = DatabaseManager.insertDocument(
             "test", mapOf(
-                "name" to PolyValue.of("Tim"),
-                "age" to PolyValue.of(18),
+                "name" to "Tim",
+                "age" to 18,
             )
         )
         val childUuid = DatabaseManager.insertDocument(
             "test_child", mapOf(
-                "name" to PolyValue.of("Bob"),
-                "age" to PolyValue.of(20),
+                "name" to "Bob",
+                "age" to 20,
             ), parentUuid
         )
         val response = DatabaseManager.get(query {
@@ -376,12 +375,12 @@ abstract class DriversTest {
         assertEquals(
             setOf(
                 mapOf(
-                    "test.name" to PolyValue.of("Tim"),
-                    "test.age" to PolyValue.of(18),
-                    "test._id" to PolyValue.of(parentUuid),
-                    "test_child.name" to PolyValue.of("Bob"),
-                    "test_child.age" to PolyValue.of(20),
-                    "test_child._id" to PolyValue.of(childUuid),
+                    "test.name" to "Tim",
+                    "test.age" to 18,
+                    "test._id" to parentUuid,
+                    "test_child.name" to "Bob",
+                    "test_child.age" to 20,
+                    "test_child._id" to childUuid,
                 )
             ), (response.resultData as PolyResultData.Documents).polyData.toSet()
         )
@@ -410,20 +409,20 @@ abstract class DriversTest {
         )
         val parentUuid = DatabaseManager.insertDocument(
             "test", mapOf(
-                "name" to PolyValue.of("Tim"),
-                "age" to PolyValue.of(18),
+                "name" to "Tim",
+                "age" to 18,
             )
         )
         val childUuid = DatabaseManager.insertDocument(
             "test_child", mapOf(
-                "name" to PolyValue.of("Bob"),
-                "age" to PolyValue.of(20),
+                "name" to "Bob",
+                "age" to 20,
             ), parentUuid
         )
         val childUuid2 = DatabaseManager.insertDocument(
             "test_child2", mapOf(
-                "name" to PolyValue.of("Tom"),
-                "age" to PolyValue.of(22),
+                "name" to "Tom",
+                "age" to 22,
             ), childUuid
         )
         val response = DatabaseManager.get(query {
@@ -434,15 +433,15 @@ abstract class DriversTest {
         assertEquals(
             setOf(
                 mapOf(
-                    "test.name" to PolyValue.of("Tim"),
-                    "test.age" to PolyValue.of(18),
-                    "test._id" to PolyValue.of(parentUuid),
-                    "test_child.name" to PolyValue.of("Bob"),
-                    "test_child.age" to PolyValue.of(20),
-                    "test_child._id" to PolyValue.of(childUuid),
-                    "test_child2.name" to PolyValue.of("Tom"),
-                    "test_child2.age" to PolyValue.of(22),
-                    "test_child2._id" to PolyValue.of(childUuid2),
+                    "test.name" to "Tim",
+                    "test.age" to 18,
+                    "test._id" to parentUuid,
+                    "test_child.name" to "Bob",
+                    "test_child.age" to 20,
+                    "test_child._id" to childUuid,
+                    "test_child2.name" to "Tom",
+                    "test_child2.age" to 22,
+                    "test_child2._id" to childUuid2,
                 )
             ), (response.resultData as PolyResultData.Documents).polyData.toSet()
         )
@@ -477,26 +476,26 @@ abstract class DriversTest {
         )
         val parentUuid = DatabaseManager.insertDocument(
             "test", mapOf(
-                "name" to PolyValue.of("Tim"),
-                "age" to PolyValue.of(18),
+                "name" to "Tim",
+                "age" to 18,
             )
         )
         val childUuid = DatabaseManager.insertDocument(
             "test_child", mapOf(
-                "name" to PolyValue.of("Bob"),
-                "age" to PolyValue.of(20),
+                "name" to "Bob",
+                "age" to 20,
             ), parentUuid
         )
         val childUuid2 = DatabaseManager.insertDocument(
             "test_child2", mapOf(
-                "name" to PolyValue.of("Tom"),
-                "age" to PolyValue.of(22),
+                "name" to "Tom",
+                "age" to 22,
             ), childUuid
         )
         val childUuid3 = DatabaseManager.insertDocument(
             "test_child3", mapOf(
-                "name" to PolyValue.of("Remo"),
-                "age" to PolyValue.of(30),
+                "name" to "Remo",
+                "age" to 30,
             ), childUuid2
         )
         val response = DatabaseManager.get(query {
@@ -508,18 +507,18 @@ abstract class DriversTest {
         assertEquals(
             setOf(
                 mapOf(
-                    "test.name" to PolyValue.of("Tim"),
-                    "test.age" to PolyValue.of(18),
-                    "test._id" to PolyValue.of(parentUuid),
-                    "test_child.name" to PolyValue.of("Bob"),
-                    "test_child.age" to PolyValue.of(20),
-                    "test_child._id" to PolyValue.of(childUuid),
-                    "test_child2.name" to PolyValue.of("Tom"),
-                    "test_child2.age" to PolyValue.of(22),
-                    "test_child2._id" to PolyValue.of(childUuid2),
-                    "test_child3.name" to PolyValue.of("Remo"),
-                    "test_child3.age" to PolyValue.of(30),
-                    "test_child3._id" to PolyValue.of(childUuid3),
+                    "test.name" to "Tim",
+                    "test.age" to 18,
+                    "test._id" to parentUuid,
+                    "test_child.name" to "Bob",
+                    "test_child.age" to 20,
+                    "test_child._id" to childUuid,
+                    "test_child2.name" to "Tom",
+                    "test_child2.age" to 22,
+                    "test_child2._id" to childUuid2,
+                    "test_child3.name" to "Remo",
+                    "test_child3.age" to 30,
+                    "test_child3._id" to childUuid3,
                 )
             ), (response.resultData as PolyResultData.Documents).polyData.toSet()
         )

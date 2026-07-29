@@ -2,7 +2,6 @@ package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
-import ch.flavianz.data.PolyValue
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.ConnectionModel
@@ -146,19 +145,19 @@ class MongoDriverQueryTests {
         d.insertDocument(
             studentsModel,
             aliceId,
-            mapOf("name" to PolyValue.of("Alice"), "gpa" to PolyValue.of(4))
+            mapOf("name" to "Alice", "gpa" to 4)
 
         )
         d.insertDocument(
             studentsModel,
             bobId,
-            mapOf("name" to PolyValue.of("Bob"), "gpa" to PolyValue.of(3))
+            mapOf("name" to "Bob", "gpa" to 3)
 
         )
         d.insertDocument(
             studentsModel,
             carolId,
-            mapOf("name" to PolyValue.of("Carol"), "gpa" to PolyValue.of(2))
+            mapOf("name" to "Carol", "gpa" to 2)
 
         )
 
@@ -167,19 +166,19 @@ class MongoDriverQueryTests {
         d.insertDocument(
             enrollmentsModel,
             UUID.randomUUID(),
-            mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(90)), aliceId
+            mapOf("semester" to "Fall", "grade" to 90), aliceId
 
         )
         d.insertDocument(
             enrollmentsModel,
             UUID.randomUUID(),
-            mapOf("semester" to PolyValue.of("Spring"), "grade" to PolyValue.of(85)), aliceId
+            mapOf("semester" to "Spring", "grade" to 85), aliceId
 
         )
         d.insertDocument(
             enrollmentsModel,
             UUID.randomUUID(),
-            mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(70)), bobId
+            mapOf("semester" to "Fall", "grade" to 70), bobId
 
         )
 
@@ -187,19 +186,19 @@ class MongoDriverQueryTests {
         d.insertDocument(
             coursesModel,
             mathId,
-            mapOf("title" to PolyValue.of("Math"), "credits" to PolyValue.of(4))
+            mapOf("title" to "Math", "credits" to 4)
 
         )
         d.insertDocument(
             coursesModel,
             historyId,
-            mapOf("title" to PolyValue.of("History"), "credits" to PolyValue.of(3))
+            mapOf("title" to "History", "credits" to 3)
 
         )
         d.insertDocument(
             coursesModel,
             physicsId,
-            mapOf("title" to PolyValue.of("Physics"), "credits" to PolyValue.of(4))
+            mapOf("title" to "Physics", "credits" to 4)
 
         )
 
@@ -207,13 +206,13 @@ class MongoDriverQueryTests {
         d.insertDocument(
             departmentsModel,
             scienceDeptId,
-            mapOf("name" to PolyValue.of("Science"), "budget" to PolyValue.of(500))
+            mapOf("name" to "Science", "budget" to 500)
 
         )
         d.insertDocument(
             departmentsModel,
             humanitiesDeptId,
-            mapOf("name" to PolyValue.of("Humanities"), "budget" to PolyValue.of(200))
+            mapOf("name" to "Humanities", "budget" to 200)
 
         )
 
@@ -221,39 +220,39 @@ class MongoDriverQueryTests {
         d.insertConnection(
             ConnectionModel("attends", "students", "courses", attendsSchema),
             "students", aliceId, "courses", mathId,
-            mapOf("score" to PolyValue.of(95))
+            mapOf("score" to 95)
         )
         d.insertConnection(
             ConnectionModel("attends", "students", "courses", attendsSchema),
             "students", aliceId, "courses", historyId,
-            mapOf("score" to PolyValue.of(80))
+            mapOf("score" to 80)
         )
         d.insertConnection(
             ConnectionModel("attends", "students", "courses", attendsSchema),
             "students", bobId, "courses", mathId,
-            mapOf("score" to PolyValue.of(60))
+            mapOf("score" to 60)
         )
         d.insertConnection(
             ConnectionModel("attends", "students", "courses", attendsSchema),
             "students", carolId, "courses", physicsId,
-            mapOf("score" to PolyValue.of(75))
+            mapOf("score" to 75)
         )
 
         // belongs_to: Math→Science(2000), Physics→Science(2010), History→Humanities(1990)
         d.insertConnection(
             ConnectionModel("belongs_to", "courses", "departments", belongsToSchema),
             "courses", mathId, "departments", scienceDeptId,
-            mapOf("since" to PolyValue.of(2000))
+            mapOf("since" to 2000)
         )
         d.insertConnection(
             ConnectionModel("belongs_to", "courses", "departments", belongsToSchema),
             "courses", physicsId, "departments", scienceDeptId,
-            mapOf("since" to PolyValue.of(2010))
+            mapOf("since" to 2010)
         )
         d.insertConnection(
             ConnectionModel("belongs_to", "courses", "departments", belongsToSchema),
             "courses", historyId, "departments", humanitiesDeptId,
-            mapOf("since" to PolyValue.of(1990))
+            mapOf("since" to 1990)
         )
     }
 
@@ -265,10 +264,10 @@ class MongoDriverQueryTests {
     }
 
     private fun PolyData.str(segment: String, field: String) =
-        this["$segment.$field"]?.value
+        this["$segment.$field"]
 
     private fun PolyData.int(segment: String, field: String) =
-        this["$segment.$field"]?.value as? Int
+        this["$segment.$field"] as? Int
 
     // ── Tests: simple collection queries ─────────────────────────────────────
 
@@ -473,7 +472,7 @@ class MongoDriverQueryTests {
         driver!!.insertDocument(
             studentsModel,
             lonelyId,
-            mapOf("name" to PolyValue.of("Lonely"), "gpa" to PolyValue.of(1))
+            mapOf("name" to "Lonely", "gpa" to 1)
 
         )
         val result = driver!!.get(query {
@@ -568,9 +567,9 @@ class MongoDriverQueryTests {
         // Use FieldRef.Named to pull _id fields for uniqueness check
         val uniqueKeys = result.data.map { row ->
             Triple(
-                row["students._id"]?.value,
-                row["courses._id"]?.value,
-                row["departments._id"]?.value
+                row["students._id"],
+                row["courses._id"],
+                row["departments._id"]
             )
         }.toSet()
 
@@ -604,7 +603,7 @@ class MongoDriverQueryTests {
         // Update Alice's gpa from 4 to 5, then query
         driver!!.updateDocument(
             CollectionPath("students").doc(aliceId),
-            mapOf("gpa" to PolyValue.of(5))
+            mapOf("gpa" to 5)
 
         )
         val result = driver!!.get(query { collection("students", "name" eq "Alice") })

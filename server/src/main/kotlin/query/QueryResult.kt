@@ -1,13 +1,13 @@
 package ch.flavianz.query
 
 import ch.flavianz.data.PolyData
-import ch.flavianz.data.PolyValue
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.util.UUID
 import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlin.collections.iterator
@@ -88,12 +88,12 @@ sealed class PolyResultData {
                                 for ((key, value) in segment.value) {
                                     val subKey = key.split(".")[1]
                                     when (value) {
-                                        is PolyValue.IntValue -> put(subKey, value.value)
-                                        is PolyValue.FloatValue -> put(subKey, value.value)
-                                        is PolyValue.StringValue -> put(subKey, value.value)
-                                        is PolyValue.UUIDValue -> put(subKey, value.value.toString())
-                                        is PolyValue.BooleanValue -> put(subKey, value.value)
-                                        is PolyValue.NullValue -> put(subKey, JsonNull)
+                                        is Int -> put(subKey, value)
+                                        is Float -> put(subKey, value)
+                                        is Boolean -> put(subKey, value)
+                                        is String -> put(subKey, value)
+                                        is UUID -> put(subKey, value.toString())
+                                        null -> put(subKey, JsonNull)
                                     }
                                 }
                             })

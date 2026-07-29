@@ -1,3 +1,3 @@
 package ch.flavianz.data
 
-typealias PolyData = Map<String, PolyValue>
+typealias PolyData = Map<String, Any?>

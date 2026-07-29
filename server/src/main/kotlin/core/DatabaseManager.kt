@@ -311,7 +311,7 @@ object DatabaseManager {
 
     private fun dataMatchesSchema(polyDocument: PolyData, schema: PolySchema): Boolean {
         for (entry in schema) {
-            if (!(polyDocument[entry.key] ?: return false).isType(entry.value)) {
+            if (!(entry.value.matchesType(polyDocument[entry.key] ?: return false))) {
                 return false
             }
         }
@@ -320,7 +320,7 @@ object DatabaseManager {
 
     private fun schemaContainsFields(polyDocument: PolyData, schema: PolySchema): Boolean {
         for (entry in polyDocument) {
-            if (!entry.value.isType(schema[entry.key] ?: return false)) {
+            if (!(schema[entry.key] ?: return false).matchesType(entry.value)) {
                 return false
             }
         }
@@ -330,10 +330,10 @@ object DatabaseManager {
     private fun validateConditionFields(condition: Condition, schema: PolySchema, allowIdField: Boolean) {
         when (condition) {
             is Condition.Comparison.Equals, is Condition.Comparison.GreaterThan, is Condition.Comparison.LessThan -> {
-                if (!(allowIdField && condition.field == "_id" && condition.value.isType(DataType.UUID))) {
+                if (!(allowIdField && condition.field == "_id" && condition.value is UUID)) {
                     val fieldType = schema[condition.field]
                     require(fieldType != null) { "Unknown field: ${condition.field}" }
-                    check(condition.value.isType(fieldType)) { "condition value ${condition.value} does not match field type $fieldType" }
+                    check(fieldType.matchesType(condition.value)) { "condition value ${condition.value} does not match field type $fieldType" }
                 }
             }
 

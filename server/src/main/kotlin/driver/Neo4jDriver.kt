@@ -2,7 +2,6 @@ package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
-import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
@@ -188,7 +187,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
             connection.neo4jSession.use { session ->
                 val result = session.run(queryString)
                 result.list { record ->
-                    val map = mutableMapOf<String, PolyValue>()
+                    val map = mutableMapOf<String, Any?>()
                     for (key in record.keys()) {
                         map[key] = record[key].toPolyValue()
                     }
@@ -455,41 +454,38 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
     private fun collectionLabel(name: String): String = "ps_col_$name"
 
-    private fun PolyValue.toNeo4j(): Any? = when (this) {
-        is PolyValue.StringValue -> value
-        is PolyValue.IntValue -> value
-        is PolyValue.FloatValue -> value
-        is PolyValue.BooleanValue -> value
-        is PolyValue.UUIDValue -> value.toString()
-        is PolyValue.NullValue -> null
+    private fun Any?.toNeo4j(): Any? = when (this) {
+        is String, is Int, is Float, is Boolean -> this
+        is UUID -> this.toString()
+        null -> null
+        else -> throw IllegalArgumentException("illegal type ${this.javaClass.name}")
     }
 
-    private fun PolyValue.toCypherLiteral(): String = when (this) {
-        is PolyValue.StringValue -> "'${value.replace("'", "\\'")}'"
-        is PolyValue.UUIDValue -> "'${value}'"
-        is PolyValue.IntValue -> value.toString()
-        is PolyValue.FloatValue -> value.toString()
-        is PolyValue.BooleanValue -> value.toString()
-        is PolyValue.NullValue -> "null"
+    private fun Any?.toCypherLiteral(): String = when (this) {
+        is String -> "'${this.replace("'", "\\'")}'"
+        is UUID -> this.toString().toCypherLiteral()
+        is Int, is Float, is Boolean -> this.toString()
+        null -> "null"
+        else -> throw IllegalArgumentException("illegal type ${this.javaClass.name}")
     }
 
-    private fun org.neo4j.driver.Value.toPolyValue(): PolyValue = when {
-        isNull -> PolyValue.NullValue
+    private fun org.neo4j.driver.Value.toPolyValue(): Any? = when {
+        isNull -> null
         type().name() == "STRING" -> {
             val s = asString()
             if (s.length != 36) {
-                return PolyValue.of(s)
+                return s
             }
             try {
-                PolyValue.of(UUID.fromString(s))
+                UUID.fromString(s)
             } catch (_: IllegalArgumentException) {
-                PolyValue.of(s)
+                s
             }
         }
 
-        type().name() == "INTEGER" -> PolyValue.of(asInt())
-        type().name() == "FLOAT" -> PolyValue.of(asFloat())
-        type().name() == "BOOLEAN" -> PolyValue.of(asBoolean())
+        type().name() == "INTEGER" -> asInt()
+        type().name() == "FLOAT" -> asFloat()
+        type().name() == "BOOLEAN" -> asBoolean()
         else -> throw IllegalStateException("Unexpected Neo4j type: ${type().name()}")
     }
 }

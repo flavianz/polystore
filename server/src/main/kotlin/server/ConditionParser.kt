@@ -1,6 +1,5 @@
 package ch.flavianz.server
 
-import ch.flavianz.data.PolyValue
 import ch.flavianz.query.Condition
 import java.util.UUID
 
@@ -78,7 +77,7 @@ class ConditionParser(input: String?) {
             "in" -> {
                 expect("[")
 
-                val items = mutableListOf<PolyValue>()
+                val items = mutableListOf<Any?>()
 
                 if (peek() != "]") {
                     while (true) {
@@ -130,48 +129,47 @@ class ConditionParser(input: String?) {
         }
     }
 
-    private fun consumeValue(): PolyValue {
+    private fun consumeValue(): Any? {
         val token = consume()
 
         if (token.startsWith("\"") && token.endsWith("\"")) {
-            return PolyValue.of(
-                token.substring(1, token.length - 1)
-            )
+            return token.substring(1, token.length - 1)
+
         }
 
         if (token.equals("true", true))
-            return PolyValue.of(true)
+            return true
 
         if (token.equals("false", true))
-            return PolyValue.of(false)
+            return false
 
         if (token.equals("null", true))
-            return PolyValue.NullValue
+            return null
 
         token.toIntOrNull()?.let {
-            return PolyValue.of(it)
+            return it
         }
 
         token.toFloatOrNull()?.let {
-            return PolyValue.of(it)
+            return it
         }
 
         if (isValidUUID(token)) {
-            return PolyValue.of(UUID.fromString(token))
+            return UUID.fromString(token)
         }
 
         throw IllegalArgumentException("Illegal value '$token'")
     }
 
-    private fun consumeNumberValue(): PolyValue.Number {
+    private fun consumeNumberValue(): Number {
         val token = consume()
 
         token.toIntOrNull()?.let {
-            return PolyValue.of(it)
+            return it
         }
 
         token.toFloatOrNull()?.let {
-            return PolyValue.of(it)
+            return it
         }
 
         throw IllegalArgumentException("Expected numeric value, got '$token'")

@@ -1,7 +1,6 @@
 package ch.flavianz.stat
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyValue
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
@@ -36,18 +35,18 @@ class BenchEnvironmentSimpleCollection(override val runId: Int, override val col
         for (i in 0..<20) {
             DatabaseManager.insertDocument(
                 "users", mapOf(
-                    "name" to PolyValue.of(faker.name().firstName()),
-                    "age" to PolyValue.of(faker.number().numberBetween(0, 20)),
-                    "male" to PolyValue.of(false)
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(0, 20),
+                    "male" to false
                 )
             )
         }
         for (i in 0..<10) {
             DatabaseManager.insertDocument(
                 "users", mapOf(
-                    "name" to PolyValue.of(faker.name().firstName()),
-                    "age" to PolyValue.of(faker.number().numberBetween(80, 100)),
-                    "male" to PolyValue.of(true)
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to true
                 )
             )
         }
@@ -55,9 +54,9 @@ class BenchEnvironmentSimpleCollection(override val runId: Int, override val col
             if (i % 2000 == 0) println(i)
             DatabaseManager.insertDocument(
                 "users", mapOf(
-                    "name" to PolyValue.of(faker.name().firstName()),
-                    "age" to PolyValue.of(faker.number().numberBetween(20, 80)),
-                    "male" to PolyValue.of(false)
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(20, 80),
+                    "male" to false
                 )
             )
         }
@@ -169,9 +168,9 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
             ids.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(
-                        "name" to PolyValue.of(faker.name().firstName()),
-                        "age" to PolyValue.of(faker.number().numberBetween(0, 100)),
-                        "male" to PolyValue.of(faker.bool().bool())
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(0, 100),
+                        "male" to faker.bool().bool()
                     )
                 )
             )
@@ -180,9 +179,9 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
             if (i % 2000 == 0) println(i)
             DatabaseManager.insertDocument(
                 "children", mapOf(
-                    "name" to PolyValue.of(faker.name().firstName()),
-                    "age" to PolyValue.of(faker.number().numberBetween(0, 100)),
-                    "male" to PolyValue.of(faker.bool().bool())
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(0, 100),
+                    "male" to faker.bool().bool()
                 ), ids.random(Benchmark.seed.asKotlinRandom())
             )
 
@@ -346,9 +345,9 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
             userIds.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(
-                        "name" to PolyValue.of(faker.name().firstName()),
-                        "age" to PolyValue.of(faker.number().numberBetween(0, 100)),
-                        "male" to PolyValue.of(faker.bool().bool())
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(0, 100),
+                        "male" to faker.bool().bool()
                     )
                 )
             )
@@ -360,9 +359,9 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
             childIds.add(
                 DatabaseManager.insertDocument(
                     "children", mapOf(
-                        "name" to PolyValue.of(faker.name().firstName()),
-                        "age" to PolyValue.of(faker.number().numberBetween(0, 100)),
-                        "male" to PolyValue.of(faker.bool().bool())
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(0, 100),
+                        "male" to faker.bool().bool()
                     ), userIds.random(Benchmark.seed.asKotlinRandom())
                 )
             )
@@ -372,9 +371,9 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
             if (i % 2000 == 0) println(i)
             DatabaseManager.insertDocument(
                 "grandchildren", mapOf(
-                    "name" to PolyValue.of(faker.name().firstName()),
-                    "age" to PolyValue.of(faker.number().numberBetween(0, 100)),
-                    "male" to PolyValue.of(faker.bool().bool())
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(0, 100),
+                    "male" to faker.bool().bool()
                 ), childIds.random(Benchmark.seed.asKotlinRandom())
             )
         }
@@ -504,9 +503,9 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
             userIds.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(
-                        "name" to PolyValue.of(faker.name().firstName()),
-                        "age" to PolyValue.of(faker.number().numberBetween(0, 100)),
-                        "male" to PolyValue.of(faker.bool().bool())
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(0, 100),
+                        "male" to faker.bool().bool()
                     )
                 )
             )
@@ -517,7 +516,7 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
             hobbyIds.add(
                 DatabaseManager.insertDocument(
                     "hobbies", mapOf(
-                        "name" to PolyValue.of(faker.hobby().activity())
+                        "name" to faker.hobby().activity()
                     )
                 )
             )
@@ -532,7 +531,7 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
                     "users",
                     userId, "hobbies",
                     hobbyIds.random(rng),
-                    mapOf("years_active" to PolyValue.of(faker.number().numberBetween(0, 30)))
+                    mapOf("years_active" to faker.number().numberBetween(0, 30))
                 )
             }
         }

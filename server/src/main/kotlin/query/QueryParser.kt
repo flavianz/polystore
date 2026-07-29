@@ -1,6 +1,5 @@
 package ch.flavianz.query
 
-import ch.flavianz.data.PolyValue
 import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
 import java.util.UUID
@@ -66,20 +65,20 @@ class QueryParser(input: String) {
         return name to condition
     }
 
-    private fun consumeValue(): PolyValue {
+    private fun consumeValue(): Any? {
         val token = consume()
         return when {
-            token == "null" -> PolyValue.NullValue
-            token.toIntOrNull() != null -> PolyValue.IntValue(token.toInt())
-            isValidUUID(token) -> PolyValue.UUIDValue(UUID.fromString(token))
-            else -> PolyValue.StringValue(token.trim('"'))
+            token == "null" -> null
+            token.toIntOrNull() != null -> token.toInt()
+            isValidUUID(token) -> UUID.fromString(token)
+            else -> token.trim('"')
         }
     }
 
-    private fun consumeNumberValue(): PolyValue.Number {
+    private fun consumeNumberValue(): Int {
         val token = consume()
         return when {
-            token.toIntOrNull() != null -> PolyValue.IntValue(token.toInt())
+            token.toIntOrNull() != null -> token.toInt()
             else -> throw IllegalArgumentException("Expected number value, got $token")
         }
     }

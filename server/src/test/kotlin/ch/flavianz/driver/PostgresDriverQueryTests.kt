@@ -1,7 +1,6 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyValue
 import ch.flavianz.model.*
 import ch.flavianz.query.and
 import ch.flavianz.query.eq
@@ -145,54 +144,54 @@ class PostgresDriverQueryTests {
         // Alice: gpa=4, Bob: gpa=3, Carol: gpa=2
         d.insertDocument(
             studentsModel,
-            aliceId, mapOf("name" to PolyValue.of("Alice"), "gpa" to PolyValue.of(4))
+            aliceId, mapOf("name" to "Alice", "gpa" to 4)
         )
         d.insertDocument(
             studentsModel,
-            bobId, mapOf("name" to PolyValue.of("Bob"), "gpa" to PolyValue.of(3))
+            bobId, mapOf("name" to "Bob", "gpa" to 3)
         )
         d.insertDocument(
             studentsModel,
-            carolId, mapOf("name" to PolyValue.of("Carol"), "gpa" to PolyValue.of(2))
+            carolId, mapOf("name" to "Carol", "gpa" to 2)
         )
 
         // Enrollments (children of students)
         // Alice has two enrollments; Bob has one; Carol has none
         d.insertDocument(
             enrollmentsModel,
-            UUID.randomUUID(), mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(90)), aliceId
+            UUID.randomUUID(), mapOf("semester" to "Fall", "grade" to 90), aliceId
         )
         d.insertDocument(
             enrollmentsModel,
-            UUID.randomUUID(), mapOf("semester" to PolyValue.of("Spring"), "grade" to PolyValue.of(85)), aliceId
+            UUID.randomUUID(), mapOf("semester" to "Spring", "grade" to 85), aliceId
         )
         d.insertDocument(
             enrollmentsModel,
-            UUID.randomUUID(), mapOf("semester" to PolyValue.of("Fall"), "grade" to PolyValue.of(70)), bobId
+            UUID.randomUUID(), mapOf("semester" to "Fall", "grade" to 70), bobId
         )
 
         // Courses
         d.insertDocument(
             coursesModel,
-            mathId, mapOf("title" to PolyValue.of("Math"), "credits" to PolyValue.of(4))
+            mathId, mapOf("title" to "Math", "credits" to 4)
         )
         d.insertDocument(
             coursesModel,
-            historyId, mapOf("title" to PolyValue.of("History"), "credits" to PolyValue.of(3))
+            historyId, mapOf("title" to "History", "credits" to 3)
         )
         d.insertDocument(
             coursesModel,
-            physicsId, mapOf("title" to PolyValue.of("Physics"), "credits" to PolyValue.of(4))
+            physicsId, mapOf("title" to "Physics", "credits" to 4)
         )
 
         // Departments
         d.insertDocument(
             departmentsModel,
-            scienceDeptId, mapOf("name" to PolyValue.of("Science"), "budget" to PolyValue.of(500))
+            scienceDeptId, mapOf("name" to "Science", "budget" to 500)
         )
         d.insertDocument(
             departmentsModel,
-            humanitiesDeptId, mapOf("name" to PolyValue.of("Humanities"), "budget" to PolyValue.of(200))
+            humanitiesDeptId, mapOf("name" to "Humanities", "budget" to 200)
         )
 
         // attends connections
@@ -254,7 +253,7 @@ class PostgresDriverQueryTests {
     fun `take all students returns all three`() {
         val result = driver!!.get(query { collection("students") })
         assertEquals(3, result.data.size)
-        val names = result.data.map { it["students.name"]?.value }.toSet()
+        val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Alice", "Bob", "Carol"), names)
     }
 
@@ -271,7 +270,7 @@ class PostgresDriverQueryTests {
     fun `take students with gpa greater than 2 returns Alice and Bob`() {
         val result = driver!!.get(query { collection("students", "gpa" gt 2) })
         assertEquals(2, result.data.size)
-        val names = result.data.map { it["students.name"]?.value }.toSet()
+        val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Alice", "Bob"), names)
     }
 
@@ -279,7 +278,7 @@ class PostgresDriverQueryTests {
     fun `take students with gpa less than 4 returns Bob and Carol`() {
         val result = driver!!.get(query { collection("students", "gpa" lt 4) })
         assertEquals(2, result.data.size)
-        val names = result.data.map { it["students.name"]?.value }.toSet()
+        val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Bob", "Carol"), names)
     }
 
@@ -288,8 +287,8 @@ class PostgresDriverQueryTests {
         // gpa > 2 AND gpa < 4  →  only Bob (gpa=3)
         val result = driver!!.get(query { collection("students", ("gpa" gt 2) and ("gpa" lt 4)) })
         assertEquals(1, result.data.size)
-        assertEquals("Bob", result.data[0]["students.name"]?.value)
-        assertEquals(3, result.data[0]["students.gpa"]?.value)
+        assertEquals("Bob", result.data[0]["students.name"])
+        assertEquals(3, result.data[0]["students.gpa"])
     }
 
     @Test
@@ -297,7 +296,7 @@ class PostgresDriverQueryTests {
         // gpa == 4 OR gpa == 2  →  Alice and Carol
         val result = driver!!.get(query { collection("students", ("gpa" eq 4) or ("gpa" eq 2)) })
         assertEquals(2, result.data.size)
-        val names = result.data.map { it["students.name"]?.value }.toSet()
+        val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Alice", "Carol"), names)
     }
 
@@ -336,15 +335,15 @@ class PostgresDriverQueryTests {
         val row = result.data[0]
 
         // Student fields
-        assertEquals("Alice", row["students.name"]?.value)
-        assertEquals(4, row["students.gpa"]?.value)
+        assertEquals("Alice", row["students.name"])
+        assertEquals(4, row["students.gpa"])
 
         // Connection fields
-        assertEquals(95, row["attends.score"]?.value)
+        assertEquals(95, row["attends.score"])
 
         // Course fields
-        assertEquals("Math", row["courses.title"]?.value)
-        assertEquals(4, row["courses.credits"]?.value)
+        assertEquals("Math", row["courses.title"])
+        assertEquals(4, row["courses.credits"])
     }
 
     @Test
@@ -355,7 +354,7 @@ class PostgresDriverQueryTests {
             connection("attends", "courses")
         })
         assertEquals(2, result.data.size)
-        result.data.forEach { assertEquals("Alice", it["students.name"]?.value) }
+        result.data.forEach { assertEquals("Alice", it["students.name"]) }
     }
 
     @Test
@@ -366,7 +365,7 @@ class PostgresDriverQueryTests {
             connection("attends", "courses", connectionCondition = "score" gt 70)
         })
         assertEquals(3, result.data.size)
-        val scores = result.data.map { it["attends.score"]?.value as Int }
+        val scores = result.data.map { it["attends.score"] as Int }
         assertTrue(scores.all { it > 70 })
     }
 
@@ -378,9 +377,9 @@ class PostgresDriverQueryTests {
             connection("attends", "courses", connectionCondition = "score" lt 70)
         })
         assertEquals(1, result.data.size)
-        assertEquals("Bob", result.data[0]["students.name"]?.value)
-        assertEquals(60, result.data[0]["attends.score"]?.value)
-        assertEquals("Math", result.data[0]["courses.title"]?.value)
+        assertEquals("Bob", result.data[0]["students.name"])
+        assertEquals(60, result.data[0]["attends.score"])
+        assertEquals("Math", result.data[0]["courses.title"])
     }
 
     @Test
@@ -392,7 +391,7 @@ class PostgresDriverQueryTests {
         })
         // Rows: Alice-Math, Bob-Math, Carol-Physics → 3 rows
         assertEquals(3, result.data.size)
-        val titles = result.data.map { it["courses.title"]?.value }.toSet()
+        val titles = result.data.map { it["courses.title"] }.toSet()
         assertEquals(setOf("Math", "Physics"), titles)
     }
 
@@ -423,11 +422,11 @@ class PostgresDriverQueryTests {
         assertEquals(1, result.data.size)
         val row = result.data[0]
 
-        assertEquals("Alice", row["students.name"]?.value)
-        assertEquals(95, row["attends.score"]?.value)
-        assertEquals("Math", row["courses.title"]?.value)
-        assertEquals(2000, row["belongs_to.since"]?.value)
-        assertEquals("Science", row["departments.name"]?.value)
+        assertEquals("Alice", row["students.name"])
+        assertEquals(95, row["attends.score"])
+        assertEquals("Math", row["courses.title"])
+        assertEquals(2000, row["belongs_to.since"])
+        assertEquals("Science", row["departments.name"])
     }
 
     @Test
@@ -442,7 +441,7 @@ class PostgresDriverQueryTests {
         // Alice-Math-Science, Bob-Math-Science, Carol-Physics-Science → 3 rows
         assertEquals(3, result.data.size)
         result.data.forEach {
-            assertEquals("Science", it["departments.name"]?.value)
+            assertEquals("Science", it["departments.name"])
         }
     }
 
@@ -455,9 +454,9 @@ class PostgresDriverQueryTests {
             connection("belongs_to", "departments", collectionCondition = "name" eq "Humanities")
         })
         assertEquals(1, result.data.size)
-        assertEquals("Alice", result.data[0]["students.name"]?.value)
-        assertEquals("History", result.data[0]["courses.title"]?.value)
-        assertEquals("Humanities", result.data[0]["departments.name"]?.value)
+        assertEquals("Alice", result.data[0]["students.name"])
+        assertEquals("History", result.data[0]["courses.title"])
+        assertEquals("Humanities", result.data[0]["departments.name"])
     }
 
     @Test
@@ -469,10 +468,10 @@ class PostgresDriverQueryTests {
             connection("belongs_to", "departments", collectionCondition = "name" eq "Science")
         })
         assertEquals(1, result.data.size)
-        assertEquals("Alice", result.data[0]["students.name"]?.value)
-        assertEquals(95, result.data[0]["attends.score"]?.value)
-        assertEquals("Math", result.data[0]["courses.title"]?.value)
-        assertEquals("Science", result.data[0]["departments.name"]?.value)
+        assertEquals("Alice", result.data[0]["students.name"])
+        assertEquals(95, result.data[0]["attends.score"])
+        assertEquals("Math", result.data[0]["courses.title"])
+        assertEquals("Science", result.data[0]["departments.name"])
     }
 
     // ── Tests: structural correctness ─────────────────────────────────────────
@@ -487,9 +486,9 @@ class PostgresDriverQueryTests {
 
         val uniqueKeys = result.data.map { row ->
             Triple(
-                row["students._id"]?.value,
-                row["courses._id"]?.value,
-                row["departments._id"]?.value
+                row["students._id"],
+                row["courses._id"],
+                row["departments._id"]
             )
         }.toSet()
 
@@ -505,11 +504,11 @@ class PostgresDriverQueryTests {
             connection("attends", "courses")
         })
 
-        val bobRows = result.data.filter { it["students.name"]?.value == "Bob" }
+        val bobRows = result.data.filter { it["students.name"] == "Bob" }
         assertTrue(bobRows.isNotEmpty())
         bobRows.forEach { row ->
             assertEquals(
-                3, row["students.gpa"]?.value,
+                3, row["students.gpa"],
                 "Bob's row should carry Bob's gpa=3, not another student's"
             )
         }
@@ -521,7 +520,7 @@ class PostgresDriverQueryTests {
         val lonelyId = UUID.randomUUID()
         driver!!.insertDocument(
             studentsModel,
-            lonelyId, mapOf("name" to PolyValue.of("Lonely"), "gpa" to PolyValue.of(1))
+            lonelyId, mapOf("name" to "Lonely", "gpa" to 1)
         )
 
         val result = driver!!.get(query {
@@ -529,7 +528,7 @@ class PostgresDriverQueryTests {
             connection("attends", "courses")
         })
 
-        val names = result.data.map { it["ps_col_students__name"]?.value }
+        val names = result.data.map { it["ps_col_students__name"] }
         assertFalse(
             names.contains("Lonely"),
             "A student with no connections should not appear in a join result"

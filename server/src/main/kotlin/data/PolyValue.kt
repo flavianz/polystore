@@ -3,7 +3,7 @@ package ch.flavianz.data
 import ch.flavianz.model.DataType
 import java.util.UUID
 
-sealed class PolyValue {
+/*sealed class PolyValue {
     abstract val type: DataType
     abstract val value: Any?
 
@@ -89,4 +89,4 @@ sealed class PolyValue {
     override fun toString(): String {
         return value.toString()
     }
-}
+}*/

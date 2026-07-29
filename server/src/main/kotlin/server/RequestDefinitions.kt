@@ -1,6 +1,5 @@
 package ch.flavianz.server
 
-import ch.flavianz.data.PolyValue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -63,12 +62,12 @@ data class InsertConnectionRequest(
     val fields: Map<String, JsonElement>,
 )
 
-fun JsonElement.toPolyValue(): PolyValue = when (this) {
+fun JsonElement.toPolyValue(): Any = when (this) {
     is JsonPrimitive -> when {
-        isString -> PolyValue.of(content)
-        booleanOrNull != null -> PolyValue.of(boolean)
-        intOrNull != null -> PolyValue.of(int)
-        doubleOrNull != null -> PolyValue.of(double)
+        isString -> content
+        booleanOrNull != null -> boolean
+        intOrNull != null -> int
+        doubleOrNull != null -> double
         else -> throw IllegalArgumentException("Unknown primitive: $this")
     }
 

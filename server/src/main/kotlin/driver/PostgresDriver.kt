@@ -2,7 +2,6 @@ package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
-import ch.flavianz.data.PolyValue
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.CollectionRef
@@ -73,7 +72,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         val sql = StringBuilder()
         sql.append("DROP TABLE ")
         sql.append(quoteIdentifier("ps_con_${connectionModel.collection1Name}__${connectionModel.name}__${connectionModel.collection2Name}"))
-        sql.append("; DELETE FROM ps_config_connections WHERE name = ${prepareValue(PolyValue.of(connectionModel.name))};")
+        sql.append("; DELETE FROM ps_config_connections WHERE name = ${prepareValue(connectionModel.name)};")
         connection.prepareStatement(sql.toString()).execute()
         return
     }
@@ -83,7 +82,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append("DROP TABLE ")
         sql.append(quoteIdentifier("ps_col_${collectionName}"))
         sql.append(";")
-        sql.append("DELETE FROM ps_config_collections WHERE name = ${prepareValue(PolyValue.of(collectionName))};")
+        sql.append("DELETE FROM ps_config_collections WHERE name = ${prepareValue(collectionName)};")
         return sql.toString()
     }
 
@@ -136,12 +135,12 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
 
         for (entry in data.entries) {
-            sql.append(", ").append(quoteIdentifier("${entry.key}"))
+            sql.append(", ").append(quoteIdentifier(entry.key))
         }
-        sql.append(") VALUES (").append(prepareValue(PolyValue.of(uuid)))
+        sql.append(") VALUES (").append(prepareValue(uuid))
 
         if (parentDocUuid != null) {
-            sql.append(", ").append(prepareValue(PolyValue.of(parentDocUuid)))
+            sql.append(", ").append(prepareValue(parentDocUuid))
         }
 
         for (entry in data.entries) {
@@ -168,7 +167,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         sql.append(" WHERE ").append(quoteIdentifier("_id")).append(" = ").append(
             prepareValue(
-                PolyValue.of(documentPath.uuid)
+                documentPath.uuid
             )
         )
 
@@ -191,12 +190,12 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(quoteIdentifier("ps_cfk_${connection.collection2Name}"))
 
         for (entry in connectionData) {
-            sql.append(", ").append(quoteIdentifier("${entry.key}"))
+            sql.append(", ").append(quoteIdentifier(entry.key))
         }
         sql.append(") VALUES (")
 
-        sql.append(prepareValue(PolyValue.of(uuid1))).append(", ")
-        sql.append(prepareValue(PolyValue.of(uuid2)))
+        sql.append(prepareValue(uuid1)).append(", ")
+        sql.append(prepareValue(uuid2))
 
         for (entry in connectionData) {
             sql.append(", ").append(prepareValue(entry.value))
@@ -225,8 +224,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         appendFromAndJoins(sql, query)
         appendWhere(sql, query)
 
-        println(sql)
-
         val data = measureTimedValue {
             val rs = connection.prepareStatement(sql.toString()).executeQuery()
             buildList {
@@ -235,7 +232,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                 while (rs.next()) {
                     val fields = columnNames.associateWith {
-                        PolyValue.of(rs.getObject(it))
+                        rs.getObject(it)
                     }
                     add(fields)
                 }
@@ -451,19 +448,19 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
     private fun translateCondition(condition: Condition, tableAlias: String): String {
         return when (condition) {
-            is Condition.Comparison.Equals -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("${condition.field}")} = ${
+            is Condition.Comparison.Equals -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier(condition.field)} = ${
                 prepareValue(
                     condition.value
                 )
             }"
 
-            is Condition.Comparison.GreaterThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("${condition.field}")} > ${
+            is Condition.Comparison.GreaterThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier(condition.field)} > ${
                 prepareValue(
                     condition.value
                 )
             }"
 
-            is Condition.Comparison.LessThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("${condition.field}")} < ${
+            is Condition.Comparison.LessThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier(condition.field)} < ${
                 prepareValue(
                     condition.value
                 )
@@ -485,7 +482,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
             is Condition.Not -> "NOT (${translateCondition(condition.condition, tableAlias)})"
 
-            is Condition.In -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier("${condition.field}")} IN (${
+            is Condition.In -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier(condition.field)} IN (${
                 condition.list.joinToString(",") { prepareValue(it) }
             })"
         }
@@ -497,29 +494,31 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         return "\"${name}\""
     }
 
-    private fun prepareValue(value: PolyValue): String {
+    private fun prepareValue(value: Any?): String {
         return when (value) {
-            is PolyValue.StringValue, is PolyValue.UUIDValue -> {
-                "'${value.value.toString()}'"
+            is String, is UUID -> {
+                "'$value'"
             }
 
-            is PolyValue.IntValue, is PolyValue.FloatValue, is PolyValue.BooleanValue -> {
-                value.value.toString()
+            is Int, is Float, is Boolean -> {
+                value.toString()
             }
 
-            is PolyValue.NullValue -> {
+            null -> {
                 "null"
             }
+
+            else -> throw IllegalArgumentException("illegal type ${value.javaClass.name}")
         }
     }
 
     private fun registerCollection(collectionName: String, schema: PolySchema, parentCollectionName: String?) {
         val sql = StringBuilder()
         sql.append("INSERT INTO ps_config_collections VALUES (")
-        sql.append(prepareValue(PolyValue.of(collectionName))).append(", ")
+        sql.append(prepareValue(collectionName)).append(", ")
         sql.append("'").append(schema.toJson()).append("', ")
         if (parentCollectionName != null) {
-            sql.append(prepareValue(PolyValue.of(parentCollectionName)))
+            sql.append(prepareValue(parentCollectionName))
         } else {
             sql.append("null")
         }
@@ -535,9 +534,9 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     ) {
         val sql = StringBuilder()
         sql.append("INSERT INTO ps_config_connections VALUES (")
-        sql.append(prepareValue(PolyValue.of(connectionName))).append(", ")
-        sql.append(prepareValue(PolyValue.of(collection1Name))).append(", ")
-        sql.append(prepareValue(PolyValue.of(collection2Name))).append(", ")
+        sql.append(prepareValue(connectionName)).append(", ")
+        sql.append(prepareValue(collection1Name)).append(", ")
+        sql.append(prepareValue(collection2Name)).append(", ")
         sql.append("'").append(schema.toJson()).append("')")
 
         connection.prepareStatement(sql.toString()).execute()
