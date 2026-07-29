@@ -1,0 +1,1 @@
+- simple mongo queries are executed in separate more efficient branch

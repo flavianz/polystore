@@ -1,0 +1,2 @@
+- less expensive uuid parsing in noe4j
+- in-checks with sets in checkCondition of Mongo
