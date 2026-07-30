@@ -24,6 +24,7 @@ import kotlin.collections.emptyList
 import kotlin.sequences.map
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 
 class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
@@ -206,6 +207,24 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             val collectionModel = DatabaseManager.getCollectionModel(segment.name)
 
             var compTime = Duration.ZERO
+            print(
+                mongoCollection.find(condition).projection(
+                    Projections.exclude(
+                        collectionModel.childCollections.map { "_sub_${it}" } +
+                                collectionModel.getConnectedCollections().map { "_con_${it}" }
+                    )
+                ).explain().getEmbedded(listOf("executionStats", "executionTimeMillis"), Integer::class))
+            println(
+                " ${
+                    measureTime {
+                        mongoCollection.find(condition).projection(
+                            Projections.exclude(
+                                collectionModel.childCollections.map { "_sub_${it}" } +
+                                        collectionModel.getConnectedCollections().map { "_con_${it}" }
+                            )
+                        ).toList()
+                    }
+                }")
 
             val result = measureTimedValue {
                 mongoCollection.find(condition).projection(
@@ -244,7 +263,6 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             val mongoParentCollection = mongoDatabase.getCollection(parentCol.name)
             val parentCondition = conditionToFilter(parentCol.condition)
             val parentCollectionModel = DatabaseManager.getCollectionModel(parentCol.name)
-            val childCollectionModel = DatabaseManager.getCollectionModel(childCol.name)
 
             var compTime = Duration.ZERO
 
@@ -274,7 +292,8 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                                     "${parentCol.name}.$it" to doc[it]
                                 }
                             })
-                            for (subDoc in (doc["_sub_${childCol.name}"] as List<*>).filterIsInstance<Document>()
+                            for (subDoc in (doc["_sub_${childCol.name}"] as? List<*>
+                                ?: emptyList<Document>()).filterIsInstance<Document>()
                                 .filter { checkCondition(it, childCol.condition) }) {
                                 if (childCol.only == null) {
                                     add(parentData + subDoc.filter { !it.key.startsWith("_") || it.key == "_id" }
@@ -303,6 +322,117 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                     execDuration
                 ),
                 listOf("list collection ${parentCol.name} with parent condition ${parentCol.condition} and child condition ${childCol.condition}")
+            )
+        } else if (query.size == 2 && query[0] is QuerySegment.Collection && query[1] is QuerySegment.Connection) {
+            val collectionSegment = query[0] as QuerySegment.Collection
+            val connectionSegment = query[1] as QuerySegment.Connection
+
+            val mongoCollection = mongoDatabase.getCollection(collectionSegment.name)
+            val collectionModel = DatabaseManager.getCollectionModel(collectionSegment.name)
+
+            var compTime = Duration.ZERO
+
+            val filters = buildList {
+                collectionSegment.condition?.let {
+                    add(conditionToFilter(it))
+                }
+                connectionSegment.connectionCondition?.let {
+                    add(
+                        Filters.elemMatch(
+                            "_con_${connectionSegment.connectionName}",
+                            conditionToFilter(it, "_rel.")
+                        )
+                    )
+                }
+                connectionSegment.collectionCondition?.let {
+                    add(
+                        Filters.elemMatch(
+                            "_con_${connectionSegment.connectionName}",
+                            conditionToFilter(it, "_doc.")
+                        )
+                    )
+                }
+            }
+
+            val result = measureTimedValue {
+                val query = mongoCollection.find(
+                    if (filters.isEmpty()) Filters.empty() else Filters.and(filters)
+                ).projection(
+                    Projections.exclude(
+                        collectionModel.childCollections.map { "_sub_${it}" } +
+                                (collectionModel.getConnectedCollections()
+                                    .map { "_con_${it}" } - "_con_${connectionSegment.connectionName}")
+                    )
+                )
+                buildList {
+                    for (doc in query.asSequence()) {
+                        measureTimedValue {
+                            val collectionData = (if (collectionSegment.only == null) {
+                                doc.filter { !it.key.startsWith("_") || it.key == "_id" }
+                                    .mapKeys { "${collectionSegment.name}.${it.key}" }
+                            } else {
+                                collectionSegment.only.associate {
+                                    "${collectionSegment.name}.$it" to doc[it]
+                                }
+                            })
+                            for (connection in (doc["_con_${connectionSegment.connectionName}"] as? List<*>
+                                ?: emptyList<Document>()).filterIsInstance<Document>()
+                                .filter {
+                                    checkCondition(it["_rel"] as Document, connectionSegment.connectionCondition)
+                                            && checkCondition(
+                                        it["_doc"] as Document,
+                                        connectionSegment.collectionCondition
+                                    )
+                                }) {
+                                add(
+                                    collectionData + (if (connectionSegment.connectionOnly == null) {
+                                        (connection["_rel"] as Document)
+                                            .mapKeys { "${connectionSegment.connectionName}.${it.key}" }
+                                    } else {
+                                        collectionData + connectionSegment.connectionOnly.associate {
+                                            "${connectionSegment.connectionName}.$it" to connection[it]
+                                        }
+                                    }) + (if (connectionSegment.collectionOnly == null) {
+                                        (connection["_doc"] as Document).filter { !it.key.startsWith("_") || it.key == "_id" }
+                                            .mapKeys { "${connectionSegment.collectionName}.${it.key}" }
+                                    } else {
+                                        collectionData + connectionSegment.collectionOnly.associate {
+                                            "${connectionSegment.collectionName}.$it" to connection[it]
+                                        }
+                                    }))
+
+                            }
+                        }.let { compTime += it.duration; it.value }
+                    }
+                }
+            }
+
+            val data =
+                result.value
+
+            val execDuration = result.duration - compTime
+            val buildDuration = (System.nanoTime() - startTime).nanoseconds - execDuration
+
+            return TimedDriverResult(
+                data,
+                PolyDriverQueryDuration(
+                    buildDuration,
+                    execDuration
+                ),
+                listOf(
+                    buildString {
+                        append("list collection ${collectionSegment.name}")
+                        collectionSegment.condition?.let {
+                            append("with condition ${collectionSegment.condition}")
+                        }
+                        connectionSegment.connectionCondition?.let {
+                            append("with connection condition ${connectionSegment.connectionCondition}")
+                        }
+                        connectionSegment.collectionCondition?.let {
+                            append("with collection condition ${connectionSegment.collectionCondition}")
+                        }
+                    }
+                )
             )
         }
 
@@ -686,6 +816,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
     private fun checkCondition(document: Map<String, Any?>, condition: Condition?): Boolean {
         return when (condition) {
+            null -> true
             is Condition.Comparison.Equals -> document[condition.field] == condition.value
             is Condition.Comparison -> {
                 when (val compValue = document[condition.field]) {
@@ -711,7 +842,6 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
 
             is Condition.Not -> !checkCondition(document, condition.condition)
             is Condition.In -> document[condition.field] in condition.list
-            null -> true
         }
     }
 
