@@ -173,13 +173,3 @@ object DriverManager {
         return schemas.first()
     }
 }
-
-fun addChildCollections(collections: List<CollectionModel>) {
-    for (collection in collections) {
-        if (collection.parentCollection != null) {
-            val parentCollection = collections.firstOrNull { it.name == collection.parentCollection }
-            checkNotNull(parentCollection) { "Parent collection ${collection.parentCollection} not found" }
-            parentCollection.childCollections.add(collection.name)
-        }
-    }
-}

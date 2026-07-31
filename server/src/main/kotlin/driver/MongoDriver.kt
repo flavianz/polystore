@@ -1,6 +1,7 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
+import ch.flavianz.core.DatabaseManager.addChildCollections
 import ch.flavianz.data.PolyData
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
@@ -1033,9 +1034,3 @@ private class MongoPolyConnection(doc: Document) : MongoPolyObject(doc) {
         return MongoPolyData(doc["_rel"] as Document)
     }
 }
-
-data class TimedQueryValue<T>(
-    val value: T,
-    val duration: Duration,
-    val executedQuery: String
-)
