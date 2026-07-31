@@ -1,9 +1,8 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyData
+import ch.flavianz.model.PolyData
 import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.CollectionPath
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.query.and
@@ -602,7 +601,7 @@ class MongoDriverQueryTests {
     fun `updating a student field is reflected in subsequent queries`() {
         // Update Alice's gpa from 4 to 5, then query
         driver!!.updateDocument(
-            CollectionPath("students").doc(aliceId),
+            "students", aliceId,
             mapOf("gpa" to 5)
 
         )

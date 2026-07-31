@@ -125,7 +125,7 @@ class PostgresDriverIntegrationTests {
         ).execute()
 
         driver.updateDocument(
-            CollectionPath("test_users").doc(userUuid),
+            "test_users", userUuid,
             (mapOf("age" to 31))
         )
 

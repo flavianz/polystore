@@ -1,6 +1,6 @@
 package ch.flavianz.query
 
-import ch.flavianz.data.PolyData
+import ch.flavianz.model.PolyData
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add

@@ -16,15 +16,3 @@ data class CollectionModel(
             .map { if (it.collection1Name == name) it.collection2Name else it.collection1Name }
     }
 }
-
-typealias PolySchema = Map<String, DataType>
-
-fun PolySchema.toJson(): String {
-    return "[${entries.joinToString(",") { "{\"name\": \"${it.key}\", \"type\": \"${it.value}\"}" }}]"
-}
-
-@Serializable
-data class DatabaseSchema(
-    val collections: Set<CollectionModel>,
-    val connections: Set<ConnectionModel>
-)
