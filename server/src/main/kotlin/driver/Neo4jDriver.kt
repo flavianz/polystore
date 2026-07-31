@@ -1,15 +1,15 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyData
+import ch.flavianz.model.PolyData
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.connection.Neo4jConnection
+import ch.flavianz.core.DatabaseManager.addChildCollections
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
 import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyDriverQueryDuration
@@ -113,21 +113,19 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         }
     }
 
-    override fun updateDocument(documentPath: DocumentPath, data: PolyData) {
-        val collectionRef = documentPath.parentCollection().toCollectionRef()
-        val label = collectionLabel(collectionRef.leafName())
-        val uuid = documentPath.uuid.toString()
+    override fun updateDocument(collectionName: String, uuid: UUID, data: PolyData) {
+        val label = collectionLabel(collectionName)
         val updates = data.entries.joinToString(", ") { (key, _) ->
-            "n.`ps_f_$key` = \$ps_f_$key"
+            $$"n.`ps_f_$$key` = $ps_f_$$key"
         }
-        val params = mutableMapOf<String, Any?>("ps_id" to uuid)
+        val params = mutableMapOf<String, Any?>("ps_id" to uuid.toString())
         for ((key, value) in data) {
             params["ps_f_$key"] = value.toNeo4j()
         }
 
         connection.neo4jSession.use { session ->
             session.run(
-                "MATCH (n:`$label` {ps_id: \$ps_id}) SET $updates",
+                $$"MATCH (n:`$$label` {ps_id: $ps_id}) SET $$updates",
                 params
             )
         }

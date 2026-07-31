@@ -2,12 +2,11 @@ package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.core.DatabaseManager.addChildCollections
-import ch.flavianz.data.PolyData
+import ch.flavianz.model.PolyData
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
@@ -85,16 +84,16 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         mongoDatabase.getCollection(collection.name).insertOne(document)
     }
 
-    override fun updateDocument(documentPath: DocumentPath, data: PolyData) {
-        if (documentPath.parentCollection().hasParentDoc()) {
-            // update parent collection
-            val parentCollection =
-                documentPath.parentCollection().parentDoc().parentCollection().toCollectionRef()
-            val collectionName = "_sub_${documentPath.parentCollection().toCollectionRef().leafName()}"
-            val mongoCollection = mongoDatabase.getCollection(parentCollection.leafName())
+    override fun updateDocument(collectionName: String, uuid: UUID, data: PolyData) {
+        val collectionModel = DatabaseManager.getCollectionModel(collectionName)
+        collectionModel.parentCollection?.let {
+            // updated collection has parent collection; update it
+            val parentCollection = DatabaseManager.getCollectionModel(collectionModel.parentCollection)
+            val collectionName = "_sub_${collectionModel.name}"
+            val mongoCollection = mongoDatabase.getCollection(parentCollection.name)
 
             mongoCollection.updateOne(
-                Filters.eq("${collectionName}._id", documentPath.uuid),
+                Filters.eq("${collectionName}._id", uuid),
                 Updates.combine(
                     data.map {
                         Updates.set(
@@ -105,24 +104,22 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 )
             )
         }
-        val mongoCollection =
-            mongoDatabase.getCollection(documentPath.parentCollection().toCollectionRef().leafName())
+        // update collection itself
+
+        val mongoCollection = mongoDatabase.getCollection(collectionName)
         mongoCollection.updateOne(
-            Filters.eq("_id", documentPath.uuid),
+            Filters.eq("_id", uuid),
             Updates.combine(
                 data.map { Updates.set(it.key, it.value) }
             )
         )
 
-        val collectionName = documentPath.parentCollection().leafName()
-        val connection = DatabaseManager.getConnectionOrNull(collectionName)
-
-        if (connection != null) {
+        DatabaseManager.getConnectionOrNull(collectionName)?.let { connectionModel ->
             // update connected documents
             val connectedCollection =
-                if (connection.collection1Name == collectionName) connection.collection2Name else connection.collection1Name
-            val connectionName = "_con_${connection.name}"
-            val mongoDoc = mongoCollection.find(Filters.eq("_id", documentPath.uuid)).firstOrNull()
+                if (connectionModel.collection1Name == collectionName) connectionModel.collection2Name else connectionModel.collection1Name
+            val connectionName = "_con_${connectionModel.name}"
+            val mongoDoc = mongoCollection.find(Filters.eq("_id", uuid)).firstOrNull()
             checkNotNull(mongoDoc) { "updated mongo doc does not exist" }
 
             val connectedDocs = (mongoDoc[connectionName] as List<*>?)?.filterIsInstance<Document>() ?: emptyList()
@@ -134,11 +131,11 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 Updates.combine(
                     data.map {
                         Updates.set(
-                            "_con_${connection.name}.$[elem]._doc.${it.key}",
+                            "_con_${connectionModel.name}.$[elem]._doc.${it.key}",
                             it.value
                         )
                     }),
-                UpdateOptions().arrayFilters(listOf(Filters.eq("elem._doc._id", documentPath.uuid)))
+                UpdateOptions().arrayFilters(listOf(Filters.eq("elem._doc._id", uuid)))
             )
         }
     }

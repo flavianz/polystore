@@ -1,13 +1,11 @@
 package ch.flavianz.core
 
-import ch.flavianz.data.PolyData
+import ch.flavianz.model.PolyData
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -130,15 +128,13 @@ object DatabaseManager {
         return objectUuid
     }
 
-    fun updateObject(documentPath: DocumentPath, data: PolyData) {
-        val collectionRef = documentPath.parentCollection().toCollectionRef()
-
-        check(existsCollection(collectionRef.leafName())) { "collection $collectionRef does not exist" }
-        val schema = getCollectionModel(collectionRef).schema
+    fun updateDocument(collectionName: String, uuid: UUID, data: PolyData) {
+        check(existsCollection(collectionName)) { "collection $collectionName does not exist" }
+        val schema = getCollectionModel(collectionName).schema
         check(schemaContainsFields(data, schema))
-        { "update data does not match schema of collection $collectionRef" }
+        { "update data does not match schema of collection $collectionName" }
 
-        DriverManager.execute { (DatabaseDriver::updateDocument)(documentPath, data) }
+        DriverManager.execute { (DatabaseDriver::updateDocument)(collectionName, uuid, data) }
     }
 
     fun listCollections(): List<CollectionModel> {
@@ -277,28 +273,12 @@ object DatabaseManager {
         )
     }
 
-    fun existsCollection(collectionRef: CollectionRef): Boolean {
-        val segmentIterator = collectionRef.segments.iterator()
-        var currentModel = collections[segmentIterator.next().name] ?: return false
-        for (segment in segmentIterator) {
-            if (!currentModel.childCollections.contains(segment.name)) {
-                return false
-            }
-            currentModel = collections[segment.name] ?: return false
-        }
-        return true
-    }
-
     fun existsCollection(collectionName: String): Boolean {
-        return collections[collectionName] != null
+        return collections.containsKey(collectionName)
     }
 
     fun getConnectionOrNull(collectionName: String): ConnectionModel? {
         return connections.values.firstOrNull { it.collection1Name == collectionName || it.collection2Name == collectionName }
-    }
-
-    fun getCollectionModel(collectionRef: CollectionRef): CollectionModel {
-        return getCollectionModel(collectionRef.leafName())
     }
 
     fun getCollectionModel(collectionName: String): CollectionModel {

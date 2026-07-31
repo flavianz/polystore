@@ -1,13 +1,12 @@
 package ch.flavianz.driver
 
 import ch.flavianz.core.DatabaseManager
-import ch.flavianz.data.PolyData
+import ch.flavianz.core.DatabaseManager.addChildCollections
+import ch.flavianz.model.PolyData
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.CollectionRef
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
 import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
@@ -152,10 +151,9 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
-    override fun updateDocument(documentPath: DocumentPath, data: PolyData) {
+    override fun updateDocument(collectionName: String, uuid: UUID, data: PolyData) {
         val sql = StringBuilder()
-        val collectionRef = documentPath.parentCollection().toCollectionRef()
-        sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionRef.leafName()}")).append(" SET ")
+        sql.append("UPDATE ").append(quoteIdentifier("ps_col_${collectionName}")).append(" SET ")
 
         for (entry in data.entries) {
             sql.append(quoteIdentifier(entry.key)).append(" = ").append(prepareValue(entry.value))
@@ -168,7 +166,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         sql.append(" WHERE ").append(quoteIdentifier("_id")).append(" = ").append(
             prepareValue(
-                documentPath.uuid
+                uuid
             )
         )
 
@@ -369,8 +367,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
     private fun appendFromAndJoins(sql: StringBuilder, path: QueryPath) {
         val firstNode = path.first() as QuerySegment.Collection
-        val firstCol = CollectionRef(firstNode.name)
-        val firstTable = "ps_col_${firstCol.leafName()}"
+        val firstTable = "ps_col_${firstNode.name}"
         sql.append(" FROM ").append(quoteIdentifier(firstTable))
 
         for (i in 1 until path.size) {
