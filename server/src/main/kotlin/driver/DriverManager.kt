@@ -2,7 +2,6 @@ package ch.flavianz.driver
 
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
-import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.query.DriverType
 import ch.flavianz.query.GetQuery
