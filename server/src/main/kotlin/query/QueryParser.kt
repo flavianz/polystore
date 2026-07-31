@@ -1,6 +1,6 @@
 package ch.flavianz.query
 
-import ch.flavianz.model.GetQuery
+import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import java.util.UUID
 
@@ -11,10 +11,10 @@ class QueryParser(input: String) {
 
     fun parse(): GetQuery {
         if (tokens.isEmpty()) {
-            return GetQuery(emptyList())
+            return GetQuery(QueryPath(emptyList()))
         }
         if (tokens[0] == "query") {
-            return GetQuery(parseQuery())
+            return GetQuery(QueryPath(parseQuery()))
         }
         throw IllegalStateException("unknown query type")
     }

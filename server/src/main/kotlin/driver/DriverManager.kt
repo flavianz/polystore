@@ -4,8 +4,8 @@ import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.GetQuery
 import ch.flavianz.query.DriverType
+import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyExecutionEnvironment
 import ch.flavianz.query.GetQueryResult
 import ch.flavianz.stat.DurationMeasurement
@@ -84,7 +84,7 @@ object DriverManager {
         query: GetQuery
     ): List<DurationMeasurement> {
         val measurements = mutableListOf<DurationMeasurement>()
-        for (i in 0..<100) {
+        for (i in 0..<1000) {
             if (i % 100 == 0) println("$i von 1000 queries complete")
             for (driver in listOf(
                 Pair(postgresDriver, DriverType.Postgres),

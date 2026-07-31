@@ -3,7 +3,6 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.data.PolyData
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.connection.Neo4jConnection
@@ -12,6 +11,7 @@ import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
+import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyDriverQueryDuration
 import ch.flavianz.server.FieldDefinition
 import kotlinx.serialization.json.Json
@@ -165,7 +165,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     override fun get(query: GetQuery): TimedDriverResult<List<PolyData>> {
         val startTime = System.nanoTime()
         val cypher = buildMatchClause(query)
-        val returnClause = buildReturnClause(query.flatMap {
+        val returnClause = buildReturnClause(query.path.flatMap {
             when (it) {
                 is QuerySegment.Collection -> listOf(Triple(it.name, it.only, false))
                 is QuerySegment.Connection -> listOf(
@@ -181,6 +181,9 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
             append(cypher)
             if (whereClause.isNotBlank()) append(" WHERE $whereClause")
             append(" RETURN $returnClause")
+            query.limit?.let {
+                append(" LIMIT $it")
+            }
         }
 
         val result = measureTimedValue {
@@ -330,7 +333,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     private fun buildMatchClause(path: GetQuery): String {
         val sb = StringBuilder("MATCH ")
 
-        for ((i, segment) in path.withIndex()) {
+        for ((i, segment) in path.path.withIndex()) {
             when (segment) {
                 is QuerySegment.Collection -> {
                     val alias = segment.name
@@ -359,11 +362,11 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     /**
      * Builds the WHERE clause from all conditions in the path.
      */
-    private fun buildWhereClause(path: GetQuery): String {
+    private fun buildWhereClause(query: GetQuery): String {
         val parts = mutableListOf<String>()
         var aliasIndex = 0
 
-        for (segment in path) {
+        for (segment in query.path) {
             when (segment) {
                 is QuerySegment.Collection -> {
                     if (segment.condition != null) {

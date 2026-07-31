@@ -23,17 +23,17 @@ object Benchmark {
 
         }
         for (env in listOf(
-            BenchEnvironmentSimpleCollection(RUN_ID, 50),
+            //BenchEnvironmentSimpleCollection(RUN_ID, 100),
             //BenchEnvironmentSimpleCollection(RUN_ID, 5000),
             //BenchEnvironmentSimpleCollection(RUN_ID, 100_000),
-            BenchEnvironmentSubCollection(RUN_ID, 50),
+            //BenchEnvironmentSubCollection(RUN_ID, 100),
             //BenchEnvironmentSubCollection(RUN_ID, 5000),
             //BenchEnvironmentSubCollection(RUN_ID, 100_000),
             //BenchEnvironmentDeepSubCollection(RUN_ID, 100),
             //BenchEnvironmentDeepSubCollection(RUN_ID, 5000),
             //BenchEnvironmentDeepSubCollection(RUN_ID, 100_000),
             //BenchEnvironmentConnection(RUN_ID, 100),
-            //BenchEnvironmentConnection(RUN_ID, 5000),
+            BenchEnvironmentConnection(RUN_ID, 5000),
             //BenchEnvironmentConnection(RUN_ID, 100_000),
         )) {
             env.init()

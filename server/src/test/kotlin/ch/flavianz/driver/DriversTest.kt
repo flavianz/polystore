@@ -8,7 +8,7 @@ import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.query
+import ch.flavianz.query.get
 import com.mongodb.client.model.Filters
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
@@ -328,7 +328,7 @@ abstract class DriversTest {
                 "age" to 18,
             )
         )
-        val response = DatabaseManager.get(query {
+        val response = DatabaseManager.get(get {
             collection("test", only = listOf("name", "age"))
         })
         assertEquals(
@@ -368,7 +368,7 @@ abstract class DriversTest {
                 "age" to 20,
             ), parentUuid
         )
-        val response = DatabaseManager.get(query {
+        val response = DatabaseManager.get(get {
             collection("test")
             collection("test_child")
         })
@@ -425,7 +425,7 @@ abstract class DriversTest {
                 "age" to 22,
             ), childUuid
         )
-        val response = DatabaseManager.get(query {
+        val response = DatabaseManager.get(get {
             collection("test")
             collection("test_child")
             collection("test_child2")
@@ -498,7 +498,7 @@ abstract class DriversTest {
                 "age" to 30,
             ), childUuid2
         )
-        val response = DatabaseManager.get(query {
+        val response = DatabaseManager.get(get {
             collection("test")
             collection("test_child")
             collection("test_child2")

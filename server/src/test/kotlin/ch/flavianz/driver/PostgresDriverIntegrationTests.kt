@@ -3,7 +3,7 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.*
 import ch.flavianz.query.gt
-import ch.flavianz.query.query
+import ch.flavianz.query.get
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.sql.Connection
 import java.sql.DriverManager
@@ -131,7 +131,7 @@ class PostgresDriverIntegrationTests {
 
         // 5. Test take (Wildcard)
         // path: test_users
-        val takeResult = driver.get(query { collection("test_users") })
+        val takeResult = driver.get(get { collection("test_users") })
 
         assertEquals(1, takeResult.data.size)
         val userRow = takeResult.data[0]
@@ -143,7 +143,7 @@ class PostgresDriverIntegrationTests {
         //val countResult = driver.count(getQuery, PolyTerminal.Count)
         //assertEquals(1, countResult.count)
 
-        val joinResult = driver.get(query {
+        val joinResult = driver.get(get {
             collection("test_users")
             connection("test_bought", "test_orders")
         })
@@ -184,7 +184,7 @@ class PostgresDriverIntegrationTests {
             user2, mapOf("name" to "Bob", "age" to 35)
         )
 
-        val result = driver.get(query { collection("test_users", "age" gt 30) })
+        val result = driver.get(get { collection("test_users", "age" gt 30) })
 
         assertEquals(1, result.data.size)
         assertEquals("Bob", result.data[0]["test_users.name"])

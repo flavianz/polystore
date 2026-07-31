@@ -9,7 +9,7 @@ import ch.flavianz.query.eq
 import ch.flavianz.query.gt
 import ch.flavianz.query.lt
 import ch.flavianz.query.or
-import ch.flavianz.query.query
+import ch.flavianz.query.get
 import java.util.UUID
 import kotlin.random.asKotlinRandom
 
@@ -89,7 +89,7 @@ class BenchEnvironmentSimpleCollection(override val runId: Int, override val col
                 collectionSize,
                 depth = 1,
                 filterCount = 0,
-                query {
+                get {
                     collection("users")
                 }
             )
@@ -104,7 +104,7 @@ class BenchEnvironmentSimpleCollection(override val runId: Int, override val col
                 collectionSize,
                 depth = 1,
                 filterCount = 1,
-                query {
+                get {
                     collection("users", "age" gt 79)
                 }
             )
@@ -119,7 +119,7 @@ class BenchEnvironmentSimpleCollection(override val runId: Int, override val col
                 collectionSize,
                 depth = 1,
                 filterCount = 2,
-                query {
+                get {
                     collection("users", ("age" lt 80) and ("male" eq true))
                 }
             )
@@ -134,7 +134,7 @@ class BenchEnvironmentSimpleCollection(override val runId: Int, override val col
                 collectionSize,
                 depth = 1,
                 filterCount = 3,
-                query {
+                get {
                     collection("users", ("age" lt 80) and (("age" gt 59) and ("male" eq true)))
                 }
             )
@@ -219,7 +219,7 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
                 collectionSize,
                 depth = 2,
                 filterCount = 0,
-                query {
+                get {
                     collection("users")
                     collection("children")
                 }
@@ -235,7 +235,7 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
                 collectionSize,
                 depth = 2,
                 filterCount = 1,
-                query {
+                get {
                     collection("users")
                     collection("children", "age" gt 79)
                 }
@@ -251,7 +251,7 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
                 collectionSize,
                 depth = 2,
                 filterCount = 2,
-                query {
+                get {
                     collection("users")
                     collection("children", ("age" lt 80) and ("male" eq true))
                 }
@@ -267,7 +267,7 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
                 collectionSize,
                 depth = 2,
                 filterCount = 3,
-                query {
+                get {
                     collection("users")
                     collection(
                         "children",
@@ -286,7 +286,7 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
                 collectionSize,
                 depth = 2,
                 filterCount = 3,
-                query {
+                get {
                     collection("users", "age" gt 79)
                     collection("children", ("age" lt 80) and ("age" gt 59))
                 }
@@ -302,7 +302,7 @@ class BenchEnvironmentSubCollection(override val runId: Int, override val collec
                 collectionSize,
                 depth = 2,
                 filterCount = 4,
-                query {
+                get {
                     collection("users", ("age" lt 80) and ("age" gt 59))
                     collection("children", ("age" lt 80) and ("age" gt 59))
                 }
@@ -407,7 +407,7 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
                 collectionSize,
                 depth = 3,
                 filterCount = 0,
-                query {
+                get {
                     collection("users")
                     collection("children")
                     collection("grandchildren")
@@ -425,7 +425,7 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
                 collectionSize,
                 depth = 3,
                 filterCount = 1,
-                query {
+                get {
                     collection("users")
                     collection("children")
                     collection("grandchildren", "age" gt 79)
@@ -443,7 +443,7 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
                 collectionSize,
                 depth = 3,
                 filterCount = 3,
-                query {
+                get {
                     collection("users", "age" lt 80)
                     collection("children", "male" eq true)
                     collection("grandchildren", "age" gt 59)
@@ -462,7 +462,7 @@ class BenchEnvironmentDeepSubCollection(override val runId: Int, override val co
                 collectionSize,
                 depth = 2,
                 filterCount = 1,
-                query {
+                get {
                     collection("users")
                     collection("children", "age" gt 79)
                 }
@@ -567,7 +567,7 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
                 collectionSize,
                 depth = 1,
                 filterCount = 0,
-                query {
+                get {
                     collection("users")
                     connection("practices", "hobbies")
                 }
@@ -585,7 +585,7 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
                 collectionSize,
                 depth = 1,
                 filterCount = 1,
-                query {
+                get {
                     collection("users")
                     connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
                 }
@@ -602,7 +602,7 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
                 collectionSize,
                 depth = 1,
                 filterCount = 1,
-                query {
+                get {
                     collection("users")
                     connection("practices", "hobbies", collectionCondition = "name" eq faker.hobby().activity())
                 }
@@ -619,7 +619,7 @@ class BenchEnvironmentConnection(override val runId: Int, override val collectio
                 collectionSize,
                 depth = 1,
                 filterCount = 2,
-                query {
+                get {
                     collection("users", "age" lt 80)
                     connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
                 }

@@ -7,7 +7,7 @@ import ch.flavianz.query.eq
 import ch.flavianz.query.gt
 import ch.flavianz.query.lt
 import ch.flavianz.query.or
-import ch.flavianz.query.query
+import ch.flavianz.query.get
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.sql.Connection
 import java.sql.DriverManager
@@ -251,7 +251,7 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `take all students returns all three`() {
-        val result = driver!!.get(query { collection("students") })
+        val result = driver!!.get(get { collection("students") })
         assertEquals(3, result.data.size)
         val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Alice", "Bob", "Carol"), names)
@@ -268,7 +268,7 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `take students with gpa greater than 2 returns Alice and Bob`() {
-        val result = driver!!.get(query { collection("students", "gpa" gt 2) })
+        val result = driver!!.get(get { collection("students", "gpa" gt 2) })
         assertEquals(2, result.data.size)
         val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Alice", "Bob"), names)
@@ -276,7 +276,7 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `take students with gpa less than 4 returns Bob and Carol`() {
-        val result = driver!!.get(query { collection("students", "gpa" lt 4) })
+        val result = driver!!.get(get { collection("students", "gpa" lt 4) })
         assertEquals(2, result.data.size)
         val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Bob", "Carol"), names)
@@ -285,7 +285,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `take students with compound AND condition returns only Bob`() {
         // gpa > 2 AND gpa < 4  →  only Bob (gpa=3)
-        val result = driver!!.get(query { collection("students", ("gpa" gt 2) and ("gpa" lt 4)) })
+        val result = driver!!.get(get { collection("students", ("gpa" gt 2) and ("gpa" lt 4)) })
         assertEquals(1, result.data.size)
         assertEquals("Bob", result.data[0]["students.name"])
         assertEquals(3, result.data[0]["students.gpa"])
@@ -294,7 +294,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `take students with compound OR condition returns Alice and Carol`() {
         // gpa == 4 OR gpa == 2  →  Alice and Carol
-        val result = driver!!.get(query { collection("students", ("gpa" eq 4) or ("gpa" eq 2)) })
+        val result = driver!!.get(get { collection("students", ("gpa" eq 4) or ("gpa" eq 2)) })
         assertEquals(2, result.data.size)
         val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Alice", "Carol"), names)
@@ -302,7 +302,7 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `take students with condition matching nobody returns empty`() {
-        val result = driver!!.get(query { collection("students", "gpa" gt 100) })
+        val result = driver!!.get(get { collection("students", "gpa" gt 100) })
         assertTrue(result.data.isEmpty())
     }
 
@@ -317,7 +317,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `take students with their attended courses returns correct row count`() {
         // 4 connection rows total: Alice-Math, Alice-History, Bob-Math, Carol-Physics
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses")
         })
@@ -326,7 +326,7 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `join result contains correct fields from all three segments`() {
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students", "name" eq "Alice")
             connection("attends", "courses", connectionCondition = "score" eq 95)
         })
@@ -349,7 +349,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `filter on collection side of join returns only matching student rows`() {
         // Only Alice's rows; she has 2 courses
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students", "name" eq "Alice")
             connection("attends", "courses")
         })
@@ -360,7 +360,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `filter on connection data returns only high-scoring rows`() {
         // score > 70 → Alice-Math(95), Alice-History(80), Carol-Physics(75); excludes Bob-Math(60)
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses", connectionCondition = "score" gt 70)
         })
@@ -372,7 +372,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `filter on both collection and connection returns single precise row`() {
         // Bob AND score < 70 → Bob-Math(60)
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students", "name" eq "Bob")
             connection("attends", "courses", connectionCondition = "score" lt 70)
         })
@@ -385,7 +385,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `filter on target collection side of join`() {
         // Only courses with credits == 4 (Math, Physics); History is excluded
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses", collectionCondition = "credits" eq 4)
         })
@@ -403,7 +403,7 @@ class PostgresDriverQueryTests {
         // Bob:   Math→Science                     → 1 row
         // Carol: Physics→Science                  → 1 row
         // total: 4 rows
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses")
             connection("belongs_to", "departments")
@@ -414,7 +414,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `two-hop join row contains fields from all five segments`() {
         // Alice attends Math (score=95), Math belongs_to Science (since=2000)
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students", "name" eq "Alice")
             connection("attends", "courses", connectionCondition = "score" eq 95)
             connection("belongs_to", "departments")
@@ -433,7 +433,7 @@ class PostgresDriverQueryTests {
     fun `two-hop filter on middle collection narrows result correctly`() {
         // Only courses with credits == 4 (Math, Physics) appear in the middle
         // Math→Science, Physics→Science → rows involving History are excluded
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses", collectionCondition = "credits" eq 4)
             connection("belongs_to", "departments")
@@ -448,7 +448,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `two-hop filter on final department filters end of chain`() {
         // Only rows ending at Humanities → only Alice-History-Humanities
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses")
             connection("belongs_to", "departments", collectionCondition = "name" eq "Humanities")
@@ -462,7 +462,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `two-hop compound condition across all hops returns exact single row`() {
         // Alice AND score > 90 AND Science dept → Alice-Math(95)-Science
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students", "name" eq "Alice")
             connection("attends", "courses", connectionCondition = "score" gt 90)
             connection("belongs_to", "departments", collectionCondition = "name" eq "Science")
@@ -478,7 +478,7 @@ class PostgresDriverQueryTests {
 
     @Test
     fun `each result row has a unique combination of ids across hops`() {
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses")
             connection("belongs_to", "departments")
@@ -499,7 +499,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `result rows carry no cross-contamination between student fields`() {
         // Verify that Bob's row does not accidentally contain Alice's gpa
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses")
         })
@@ -523,7 +523,7 @@ class PostgresDriverQueryTests {
             lonelyId, mapOf("name" to "Lonely", "gpa" to 1)
         )
 
-        val result = driver!!.get(query {
+        val result = driver!!.get(get {
             collection("students")
             connection("attends", "courses")
         })
@@ -538,7 +538,7 @@ class PostgresDriverQueryTests {
     @Test
     fun `collection-only query is unaffected by presence of connection data`() {
         // A plain students query should return all students regardless of whether they have connections
-        val result = driver!!.get(query { collection("students") })
+        val result = driver!!.get(get { collection("students") })
         assertEquals(3, result.data.size)
     }
 }

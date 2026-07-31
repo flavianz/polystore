@@ -9,10 +9,11 @@ import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.GetQuery
+import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.model.toJson
 import ch.flavianz.query.Condition
+import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyDriverQueryDuration
 import ch.flavianz.server.FieldDefinition
 import kotlinx.serialization.json.Json
@@ -210,7 +211,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         val startTime = System.nanoTime()
         val sql = StringBuilder()
 
-        val selectClauses = buildSelectClause(query.flatMap {
+        val selectClauses = buildSelectClause(query.path.flatMap {
             when (it) {
                 is QuerySegment.Collection -> listOf(Triple(it.name, it.only, false))
                 is QuerySegment.Connection -> listOf(
@@ -221,8 +222,9 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         })
 
         sql.append("SELECT ").append(selectClauses)
-        appendFromAndJoins(sql, query)
-        appendWhere(sql, query)
+        appendFromAndJoins(sql, query.path)
+        appendWhere(sql, query.path)
+        appendLimit(sql, query.limit)
 
         val data = measureTimedValue {
             val rs = connection.prepareStatement(sql.toString()).executeQuery()
@@ -365,7 +367,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         return projections.joinToString(", ")
     }
 
-    private fun appendFromAndJoins(sql: StringBuilder, path: GetQuery) {
+    private fun appendFromAndJoins(sql: StringBuilder, path: QueryPath) {
         val firstNode = path.first() as QuerySegment.Collection
         val firstCol = CollectionRef(firstNode.name)
         val firstTable = "ps_col_${firstCol.leafName()}"
@@ -411,7 +413,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
     }
 
-    private fun appendWhere(sql: StringBuilder, path: GetQuery) {
+    private fun appendWhere(sql: StringBuilder, path: QueryPath) {
         var i = 0
         val conditions: List<String> = path.flatMap { segment ->
             i++
@@ -443,6 +445,12 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
         if (conditions.isNotEmpty()) {
             sql.append(" WHERE ").append(conditions.joinToString(" AND "))
+        }
+    }
+
+    private fun appendLimit(sql: StringBuilder, limit: Int?) {
+        limit?.let {
+            sql.append(" limit $it")
         }
     }
 

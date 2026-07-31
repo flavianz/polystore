@@ -6,13 +6,13 @@ import ch.flavianz.model.CollectionModel
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.CollectionRef
-import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.GetQuery
+import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
+import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyQueryDuration
 import ch.flavianz.query.PolyQueryResult
 import ch.flavianz.query.PolyResultData
@@ -187,11 +187,11 @@ object DatabaseManager {
     }
 
     fun get(query: GetQuery): PolyQueryResult {
-        require(query.isNotEmpty()) { "query path cannot be empty" }
-        require(query[0] is QuerySegment.Collection) { "query path must start with a collection" }
+        require(query.path.isNotEmpty()) { "query path cannot be empty" }
+        require(query.path[0] is QuerySegment.Collection) { "query path must start with a collection" }
 
         var currentCollectionName: String? = null
-        for (segment in query) {
+        for (segment in query.path) {
             when (segment) {
                 is QuerySegment.Collection -> {
                     currentCollectionName = segment.name
@@ -227,14 +227,14 @@ object DatabaseManager {
 
         val startTime = System.nanoTime()
         val segments = mutableListOf<QuerySegment>()
-        for (i in query.indices) {
-            val segment = query[i]
+        for (i in query.path.indices) {
+            val segment = query.path[i]
             var hasConnectionBeenReplaced = false
             val isRelevant = when (segment) {
                 is QuerySegment.Collection -> segment.only?.isNotEmpty() ?: true || segment.condition != null
                 is QuerySegment.Connection -> {
                     if (segment.connectionOnly?.isNotEmpty() ?: true || segment.connectionCondition != null) {
-                        segments.add(query[i - 1])
+                        segments.add(query.path[i - 1])
                         true
                     } else if (segment.collectionOnly?.isNotEmpty() ?: true || segment.collectionCondition != null) {
                         segments.add(
@@ -254,15 +254,15 @@ object DatabaseManager {
                 continue
             }
             segments.addAll(
-                query.subList(
+                query.path.subList(
                     if (hasConnectionBeenReplaced) i + 1 else i,
-                    query.size
+                    query.path.size
                 )
             )
             break
         }
 
-        val queryResult = DriverManager.get(GetQuery(segments))
+        val queryResult = DriverManager.get(GetQuery(QueryPath(segments), query.limit))
 
         val elapsedTime = (System.nanoTime() - startTime).nanoseconds
 

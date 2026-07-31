@@ -3,8 +3,9 @@ package ch.flavianz.server
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
-import ch.flavianz.model.GetQuery
+import ch.flavianz.model.QueryPath
 import ch.flavianz.model.QuerySegment
+import ch.flavianz.query.GetQuery
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -201,7 +202,7 @@ fun startServer() {
                     i++
                 }
 
-                val getQuery = GetQuery(querySegments)
+                val getQuery = GetQuery(QueryPath(querySegments))
 
                 val result = runCatching {
                     DatabaseManager.get(

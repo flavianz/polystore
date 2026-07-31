@@ -8,9 +8,9 @@ import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.GetQuery
 import ch.flavianz.model.QuerySegment
 import ch.flavianz.query.Condition
+import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyDriverQueryDuration
 import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
@@ -24,7 +24,6 @@ import kotlin.collections.emptyList
 import kotlin.sequences.map
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
-import kotlin.time.measureTime
 import kotlin.time.measureTimedValue
 
 class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
@@ -195,450 +194,449 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         query: GetQuery,
     ): TimedDriverResult<List<PolyData>> {
         val startTime = System.nanoTime()
-        check(query.isNotEmpty()) { "empty query" }
+        check(query.path.isNotEmpty()) { "empty query" }
 
+        when (query.path.size) {
+            1 -> {
+                val segment = query.path[0]
+                require(segment is QuerySegment.Collection) { "connection segment must be placed before a collection segment" }
 
-        if (query.size == 1) {
-            val segment = query[0]
-            require(segment is QuerySegment.Collection) { "connection segment must be placed before a collection segment" }
+                val mongoCollection = mongoDatabase.getCollection(segment.name)
+                val condition = conditionToFilter(segment.condition)
+                val collectionModel = DatabaseManager.getCollectionModel(segment.name)
 
-            val mongoCollection = mongoDatabase.getCollection(segment.name)
-            val condition = conditionToFilter(segment.condition)
-            val collectionModel = DatabaseManager.getCollectionModel(segment.name)
+                var compTime = Duration.ZERO
 
-            var compTime = Duration.ZERO
-            print(
-                mongoCollection.find(condition).projection(
-                    Projections.exclude(
-                        collectionModel.childCollections.map { "_sub_${it}" } +
-                                collectionModel.getConnectedCollections().map { "_con_${it}" }
-                    )
-                ).explain().getEmbedded(listOf("executionStats", "executionTimeMillis"), Integer::class))
-            println(
-                " ${
-                    measureTime {
-                        mongoCollection.find(condition).projection(
+                val result = measureTimedValue {
+                    mongoCollection
+                        .find(condition)
+                        .projection(
                             Projections.exclude(
                                 collectionModel.childCollections.map { "_sub_${it}" } +
                                         collectionModel.getConnectedCollections().map { "_con_${it}" }
                             )
-                        ).toList()
-                    }
-                }")
-
-            val result = measureTimedValue {
-                mongoCollection.find(condition).projection(
-                    Projections.exclude(
-                        collectionModel.childCollections.map { "_sub_${it}" } +
-                                collectionModel.getConnectedCollections().map { "_con_${it}" }
-                    )
-                ).asSequence().map { doc ->
-                    measureTimedValue {
-                        if (segment.only == null) doc.filter { !it.key.startsWith("_") || it.key == "_id" }
-                            .mapKeys { "${segment.name}.${it.key}" }
-                        else segment.only.associate {
-                            "${segment.name}.$it" to doc[it]
-                        }
-                    }.let { compTime += it.duration; it.value }
-                }.toList()
-            }
-
-            val data =
-                result.value
-
-            val execDuration = result.duration - compTime
-            val buildDuration = (System.nanoTime() - startTime).nanoseconds - execDuration
-
-            return TimedDriverResult(
-                data,
-                PolyDriverQueryDuration(
-                    buildDuration,
-                    execDuration
-                ), listOf("list collection ${segment.name} with condition ${segment.condition}")
-            )
-        } else if (query.size == 2 && query[0] is QuerySegment.Collection && query[1] is QuerySegment.Collection) {
-            val parentCol = query[0] as QuerySegment.Collection
-            val childCol = query[1] as QuerySegment.Collection
-
-            val mongoParentCollection = mongoDatabase.getCollection(parentCol.name)
-            val parentCondition = conditionToFilter(parentCol.condition)
-            val parentCollectionModel = DatabaseManager.getCollectionModel(parentCol.name)
-
-            var compTime = Duration.ZERO
-
-            val result = measureTimedValue {
-                val query = mongoParentCollection.find(
-                    Filters.and(
-                        parentCondition,
-                        Filters.elemMatch(
-                            "_sub_${childCol.name}",
-                            conditionToFilter(childCol.condition)
                         )
-                    )
-                ).projection(
-                    Projections.exclude(
-                        (parentCollectionModel.childCollections.map { "_sub_${it}" } - "_sub_${childCol.name}") +
-                                parentCollectionModel.getConnectedCollections().map { "_con_${it}" }
-                    )
-                )
-                buildList {
-                    for (doc in query.asSequence()) {
-                        measureTimedValue {
-                            val parentData = (if (parentCol.only == null) {
-                                doc.filter { !it.key.startsWith("_") || it.key == "_id" }
-                                    .mapKeys { "${parentCol.name}.${it.key}" }
-                            } else {
-                                parentCol.only.associate {
-                                    "${parentCol.name}.$it" to doc[it]
+                        .let { if (query.limit == null) it else it.limit(query.limit) }
+                        .asSequence().map { doc ->
+                            measureTimedValue {
+                                if (segment.only == null) doc.filter { !it.key.startsWith("_") || it.key == "_id" }
+                                    .mapKeys { "${segment.name}.${it.key}" }
+                                else segment.only.associate {
+                                    "${segment.name}.$it" to doc[it]
                                 }
-                            })
-                            for (subDoc in (doc["_sub_${childCol.name}"] as? List<*>
-                                ?: emptyList<Document>()).filterIsInstance<Document>()
-                                .filter { checkCondition(it, childCol.condition) }) {
-                                if (childCol.only == null) {
-                                    add(parentData + subDoc.filter { !it.key.startsWith("_") || it.key == "_id" }
-                                        .mapKeys { "${childCol.name}.${it.key}" })
-                                } else {
-                                    add(parentData + childCol.only.associate {
-                                        "${childCol.name}.$it" to subDoc[it]
-                                    })
-                                }
-                            }
-                        }.let { compTime += it.duration; it.value }
-                    }
+                            }.let { compTime += it.duration; it.value }
+                        }.toList()
                 }
-            }
 
-            val data =
-                result.value
+                val data =
+                    result.value
 
-            val execDuration = result.duration - compTime
-            val buildDuration = (System.nanoTime() - startTime).nanoseconds - execDuration
+                val execDuration = result.duration - compTime
+                val buildDuration = (System.nanoTime() - startTime).nanoseconds - execDuration
 
-            return TimedDriverResult(
-                data,
-                PolyDriverQueryDuration(
-                    buildDuration,
-                    execDuration
-                ),
-                listOf("list collection ${parentCol.name} with parent condition ${parentCol.condition} and child condition ${childCol.condition}")
-            )
-        } else if (query.size == 2 && query[0] is QuerySegment.Collection && query[1] is QuerySegment.Connection) {
-            val collectionSegment = query[0] as QuerySegment.Collection
-            val connectionSegment = query[1] as QuerySegment.Connection
-
-            val mongoCollection = mongoDatabase.getCollection(collectionSegment.name)
-            val collectionModel = DatabaseManager.getCollectionModel(collectionSegment.name)
-
-            var compTime = Duration.ZERO
-
-            val filters = buildList {
-                collectionSegment.condition?.let {
-                    add(conditionToFilter(it))
-                }
-                connectionSegment.connectionCondition?.let {
-                    add(
-                        Filters.elemMatch(
-                            "_con_${connectionSegment.connectionName}",
-                            conditionToFilter(it, "_rel.")
-                        )
-                    )
-                }
-                connectionSegment.collectionCondition?.let {
-                    add(
-                        Filters.elemMatch(
-                            "_con_${connectionSegment.connectionName}",
-                            conditionToFilter(it, "_doc.")
-                        )
-                    )
-                }
-            }
-
-            val result = measureTimedValue {
-                val query = mongoCollection.find(
-                    if (filters.isEmpty()) Filters.empty() else Filters.and(filters)
-                ).projection(
-                    Projections.exclude(
-                        collectionModel.childCollections.map { "_sub_${it}" } +
-                                (collectionModel.getConnectedCollections()
-                                    .map { "_con_${it}" } - "_con_${connectionSegment.connectionName}")
-                    )
-                )
-                buildList {
-                    for (doc in query.asSequence()) {
-                        measureTimedValue {
-                            val collectionData = (if (collectionSegment.only == null) {
-                                doc.filter { !it.key.startsWith("_") || it.key == "_id" }
-                                    .mapKeys { "${collectionSegment.name}.${it.key}" }
-                            } else {
-                                collectionSegment.only.associate {
-                                    "${collectionSegment.name}.$it" to doc[it]
-                                }
-                            })
-                            for (connection in (doc["_con_${connectionSegment.connectionName}"] as? List<*>
-                                ?: emptyList<Document>()).filterIsInstance<Document>()
-                                .filter {
-                                    checkCondition(it["_rel"] as Document, connectionSegment.connectionCondition)
-                                            && checkCondition(
-                                        it["_doc"] as Document,
-                                        connectionSegment.collectionCondition
-                                    )
-                                }) {
-                                add(
-                                    collectionData + (if (connectionSegment.connectionOnly == null) {
-                                        (connection["_rel"] as Document)
-                                            .mapKeys { "${connectionSegment.connectionName}.${it.key}" }
-                                    } else {
-                                        collectionData + connectionSegment.connectionOnly.associate {
-                                            "${connectionSegment.connectionName}.$it" to connection[it]
-                                        }
-                                    }) + (if (connectionSegment.collectionOnly == null) {
-                                        (connection["_doc"] as Document).filter { !it.key.startsWith("_") || it.key == "_id" }
-                                            .mapKeys { "${connectionSegment.collectionName}.${it.key}" }
-                                    } else {
-                                        collectionData + connectionSegment.collectionOnly.associate {
-                                            "${connectionSegment.collectionName}.$it" to connection[it]
-                                        }
-                                    }))
-
-                            }
-                        }.let { compTime += it.duration; it.value }
-                    }
-                }
-            }
-
-            val data =
-                result.value
-
-            val execDuration = result.duration - compTime
-            val buildDuration = (System.nanoTime() - startTime).nanoseconds - execDuration
-
-            return TimedDriverResult(
-                data,
-                PolyDriverQueryDuration(
-                    buildDuration,
-                    execDuration
-                ),
-                listOf(
-                    buildString {
-                        append("list collection ${collectionSegment.name}")
-                        collectionSegment.condition?.let {
-                            append("with condition ${collectionSegment.condition}")
-                        }
-                        connectionSegment.connectionCondition?.let {
-                            append("with connection condition ${connectionSegment.connectionCondition}")
-                        }
-                        connectionSegment.collectionCondition?.let {
-                            append("with collection condition ${connectionSegment.collectionCondition}")
-                        }
-                    }
-                )
-            )
-        }
-
-        val docsBySegment = mutableMapOf<String, List<MongoPolyObject>>()
-        val segments = query
-        var i = 0
-        var totalQueryExecutionDuration = Duration.ZERO
-        val executedQueries = mutableListOf<String>()
-
-        fun <T> logMetrics(timedQueryValue: TimedQueryValue<T>): T {
-            executedQueries.add(timedQueryValue.executedQuery)
-            totalQueryExecutionDuration = totalQueryExecutionDuration.plus(timedQueryValue.duration)
-            return timedQueryValue.value
-        }
-
-        when (val firstSegment = segments[0]) {
-            is QuerySegment.Collection -> {
-                if (segments.getOrNull(1) is QuerySegment.Collection) {
-                    val parentDocs = logMetrics(
-                        fetchTwoCollectionSegments(
-                            firstSegment,
-                            segments[1] as QuerySegment.Collection
-                        )
-                    )
-
-                    docsBySegment[firstSegment.name] = parentDocs.keys.toList()
-                    docsBySegment[segments[1].collectionName()] =
-                        parentDocs.values.flatten()
-
-                    i += 2
-                } else {
-                    val docs = logMetrics(fetchCollectionSegment(firstSegment))
-
-                    docsBySegment[firstSegment.name] = docs
-
-                    i++
-                }
-            }
-
-            is QuerySegment.Connection -> {
-                val connectionDocs = logMetrics(fetchConnectionSegment(firstSegment, null))
-
-                docsBySegment[firstSegment.collectionName] =
-                    connectionDocs.values.distinctBy { it.id() }
-                docsBySegment[firstSegment.connectionName] = connectionDocs.keys.toList()
-
-                i += 1
-            }
-        }
-        while (i < segments.size) {
-            val previousSegment = segments[i - 1]
-            val previousSegmentDocs = docsBySegment[previousSegment.collectionName()]
-                ?: throw IllegalStateException("segment was not fetched")
-            if (previousSegmentDocs.isEmpty()) {
-                val elapsedDuration = (System.nanoTime() - startTime).nanoseconds
                 return TimedDriverResult(
-                    emptyList(),
+                    data,
                     PolyDriverQueryDuration(
-                        elapsedDuration.minus(totalQueryExecutionDuration),
+                        buildDuration,
+                        execDuration
+                    ), listOf("list collection ${segment.name} with condition ${segment.condition}")
+                )
+            }
+
+            2 if query.path[0] is QuerySegment.Collection && query.path[1] is QuerySegment.Collection -> {
+                assert(query.limit == null) { "assert not supported in complex mongo query" }
+                val parentCol = query.path[0] as QuerySegment.Collection
+                val childCol = query.path[1] as QuerySegment.Collection
+
+                val mongoParentCollection = mongoDatabase.getCollection(parentCol.name)
+                val parentCondition = conditionToFilter(parentCol.condition)
+                val parentCollectionModel = DatabaseManager.getCollectionModel(parentCol.name)
+
+                var compTime = Duration.ZERO
+
+                val result = measureTimedValue {
+                    val query = mongoParentCollection.find(
+                        Filters.and(
+                            parentCondition,
+                            Filters.elemMatch(
+                                "_sub_${childCol.name}",
+                                conditionToFilter(childCol.condition)
+                            )
+                        )
+                    ).projection(
+                        Projections.exclude(
+                            (parentCollectionModel.childCollections.map { "_sub_${it}" } - "_sub_${childCol.name}") +
+                                    parentCollectionModel.getConnectedCollections().map { "_con_${it}" }
+                        )
+                    )
+                    buildList {
+                        for (doc in query.asSequence()) {
+                            measureTimedValue {
+                                val parentData = (if (parentCol.only == null) {
+                                    doc.filter { !it.key.startsWith("_") || it.key == "_id" }
+                                        .mapKeys { "${parentCol.name}.${it.key}" }
+                                } else {
+                                    parentCol.only.associate {
+                                        "${parentCol.name}.$it" to doc[it]
+                                    }
+                                })
+                                for (subDoc in (doc["_sub_${childCol.name}"] as? List<*>
+                                    ?: emptyList<Document>()).filterIsInstance<Document>()
+                                    .filter { checkCondition(it, childCol.condition) }) {
+                                    if (childCol.only == null) {
+                                        add(parentData + subDoc.filter { !it.key.startsWith("_") || it.key == "_id" }
+                                            .mapKeys { "${childCol.name}.${it.key}" })
+                                    } else {
+                                        add(parentData + childCol.only.associate {
+                                            "${childCol.name}.$it" to subDoc[it]
+                                        })
+                                    }
+                                }
+                            }.let { compTime += it.duration; it.value }
+                        }
+                    }
+                }
+
+                val data =
+                    result.value
+
+                val execDuration = result.duration - compTime
+                val buildDuration = (System.nanoTime() - startTime).nanoseconds - execDuration
+
+                return TimedDriverResult(
+                    data,
+                    PolyDriverQueryDuration(
+                        buildDuration,
+                        execDuration
+                    ),
+                    listOf("list collection ${parentCol.name} with parent condition ${parentCol.condition} and child condition ${childCol.condition}")
+                )
+            }
+
+            2 if query.path[0] is QuerySegment.Collection && query.path[1] is QuerySegment.Connection -> {
+                assert(query.limit == null) { "assert not supported in complex mongo query" }
+                val collectionSegment = query.path[0] as QuerySegment.Collection
+                val connectionSegment = query.path[1] as QuerySegment.Connection
+
+                val mongoCollection = mongoDatabase.getCollection(collectionSegment.name)
+                val collectionModel = DatabaseManager.getCollectionModel(collectionSegment.name)
+
+                var compTime = Duration.ZERO
+
+                val filters = buildList {
+                    collectionSegment.condition?.let {
+                        add(conditionToFilter(it))
+                    }
+                    connectionSegment.connectionCondition?.let {
+                        add(
+                            Filters.elemMatch(
+                                "_con_${connectionSegment.connectionName}",
+                                conditionToFilter(it, "_rel.")
+                            )
+                        )
+                    }
+                    connectionSegment.collectionCondition?.let {
+                        add(
+                            Filters.elemMatch(
+                                "_con_${connectionSegment.connectionName}",
+                                conditionToFilter(it, "_doc.")
+                            )
+                        )
+                    }
+                }
+
+                val result = measureTimedValue {
+                    val query = mongoCollection.find(
+                        if (filters.isEmpty()) Filters.empty() else Filters.and(filters)
+                    ).projection(
+                        Projections.exclude(
+                            collectionModel.childCollections.map { "_sub_${it}" } +
+                                    (collectionModel.getConnectedCollections()
+                                        .map { "_con_${it}" } - "_con_${connectionSegment.connectionName}")
+                        )
+                    )
+                    buildList {
+                        for (doc in query.asSequence()) {
+                            measureTimedValue {
+                                val collectionData = (if (collectionSegment.only == null) {
+                                    doc.filter { !it.key.startsWith("_") || it.key == "_id" }
+                                        .mapKeys { "${collectionSegment.name}.${it.key}" }
+                                } else {
+                                    collectionSegment.only.associate {
+                                        "${collectionSegment.name}.$it" to doc[it]
+                                    }
+                                })
+                                for (connection in (doc["_con_${connectionSegment.connectionName}"] as? List<*>
+                                    ?: emptyList<Document>()).filterIsInstance<Document>()
+                                    .filter {
+                                        checkCondition(it["_rel"] as Document, connectionSegment.connectionCondition)
+                                                && checkCondition(
+                                            it["_doc"] as Document,
+                                            connectionSegment.collectionCondition
+                                        )
+                                    }) {
+                                    add(
+                                        collectionData + (if (connectionSegment.connectionOnly == null) {
+                                            (connection["_rel"] as Document)
+                                                .mapKeys { "${connectionSegment.connectionName}.${it.key}" }
+                                        } else {
+                                            collectionData + connectionSegment.connectionOnly.associate {
+                                                "${connectionSegment.connectionName}.$it" to connection[it]
+                                            }
+                                        }) + (if (connectionSegment.collectionOnly == null) {
+                                            (connection["_doc"] as Document).filter { !it.key.startsWith("_") || it.key == "_id" }
+                                                .mapKeys { "${connectionSegment.collectionName}.${it.key}" }
+                                        } else {
+                                            collectionData + connectionSegment.collectionOnly.associate {
+                                                "${connectionSegment.collectionName}.$it" to connection[it]
+                                            }
+                                        }))
+
+                                }
+                            }.let { compTime += it.duration; it.value }
+                        }
+                    }
+                }
+
+                val data =
+                    result.value
+
+                val execDuration = result.duration - compTime
+                val buildDuration = (System.nanoTime() - startTime).nanoseconds - execDuration
+
+                return TimedDriverResult(
+                    data,
+                    PolyDriverQueryDuration(
+                        buildDuration,
+                        execDuration
+                    ),
+                    listOf(
+                        buildString {
+                            append("list collection ${collectionSegment.name}")
+                            collectionSegment.condition?.let {
+                                append("with condition ${collectionSegment.condition}")
+                            }
+                            connectionSegment.connectionCondition?.let {
+                                append("with connection condition ${connectionSegment.connectionCondition}")
+                            }
+                            connectionSegment.collectionCondition?.let {
+                                append("with collection condition ${connectionSegment.collectionCondition}")
+                            }
+                        }
+                    )
+                )
+            }
+
+            else -> {
+                assert(query.limit == null) { "assert not supported in complex mongo query" }
+                val docsBySegment = mutableMapOf<String, List<MongoPolyObject>>()
+                val segments = query
+                var i = 0
+                var totalQueryExecutionDuration = Duration.ZERO
+                val executedQueries = mutableListOf<String>()
+
+                fun <T> logMetrics(timedQueryValue: TimedQueryValue<T>): T {
+                    executedQueries.add(timedQueryValue.executedQuery)
+                    totalQueryExecutionDuration = totalQueryExecutionDuration.plus(timedQueryValue.duration)
+                    return timedQueryValue.value
+                }
+
+                when (val firstSegment = segments.path[0]) {
+                    is QuerySegment.Collection -> {
+                        if (segments.path.getOrNull(1) is QuerySegment.Collection) {
+                            val parentDocs = logMetrics(
+                                fetchTwoCollectionSegments(
+                                    firstSegment,
+                                    segments.path[1] as QuerySegment.Collection
+                                )
+                            )
+
+                            docsBySegment[firstSegment.name] = parentDocs.keys.toList()
+                            docsBySegment[segments.path[1].collectionName()] =
+                                parentDocs.values.flatten()
+
+                            i += 2
+                        } else {
+                            val docs = logMetrics(fetchCollectionSegment(firstSegment))
+
+                            docsBySegment[firstSegment.name] = docs
+
+                            i++
+                        }
+                    }
+
+                    is QuerySegment.Connection -> {
+                        val connectionDocs = logMetrics(fetchConnectionSegment(firstSegment, null))
+
+                        docsBySegment[firstSegment.collectionName] =
+                            connectionDocs.values.distinctBy { it.id() }
+                        docsBySegment[firstSegment.connectionName] = connectionDocs.keys.toList()
+
+                        i += 1
+                    }
+                }
+                while (i < segments.path.size) {
+                    val previousSegment = segments.path[i - 1]
+                    val previousSegmentDocs = docsBySegment[previousSegment.collectionName()]
+                        ?: throw IllegalStateException("segment was not fetched")
+                    if (previousSegmentDocs.isEmpty()) {
+                        val elapsedDuration = (System.nanoTime() - startTime).nanoseconds
+                        return TimedDriverResult(
+                            emptyList(),
+                            PolyDriverQueryDuration(
+                                elapsedDuration.minus(totalQueryExecutionDuration),
+                                totalQueryExecutionDuration
+                            ),
+                            executedQueries
+                        )
+                    }
+                    when (val segment = segments.path[i]) {
+                        is QuerySegment.Collection -> {
+                            when (previousSegment) {
+                                is QuerySegment.Connection -> {
+                                    docsBySegment[segment.name] =
+                                        previousSegmentDocs.flatMap {
+                                            check(it is MongoPolyCompleteDocument)
+                                            it.getSubCollectionDocuments(segment.name)
+                                        }
+                                    i++
+                                }
+
+                                is QuerySegment.Collection -> {
+                                    val segmentIds = previousSegmentDocs.flatMap {
+                                        check(it is MongoPolyDocument)
+                                        it.getSubCollectionIds(segment.name)
+                                    }
+
+                                    val combinedSegment = withIdCondition(segment, segmentIds)
+
+                                    if (segments.path.getOrNull(i + 1) is QuerySegment.Collection) {
+                                        val parentDocs = logMetrics(
+                                            fetchTwoCollectionSegments(
+                                                combinedSegment,
+                                                segments.path[i + 1] as QuerySegment.Collection
+                                            )
+                                        )
+
+                                        docsBySegment[segment.name] = parentDocs.keys.toList()
+                                        docsBySegment[segments.path[i + 1].collectionName()] =
+                                            parentDocs.values.flatten()
+                                        i += 2
+                                    } else {
+                                        val docs = logMetrics(fetchCollectionSegment(combinedSegment))
+
+                                        docsBySegment[combinedSegment.name] = docs
+
+                                        i++
+                                    }
+                                }
+                            }
+                        }
+
+                        is QuerySegment.Connection -> {
+                            val segmentIds = previousSegmentDocs.map {
+                                check(it is MongoPolyDocument)
+                                it.id()
+                            }.toSet()
+
+                            val connectionDocs = logMetrics(
+                                fetchConnectionSegment(
+                                    segment, segmentIds
+                                )
+                            )
+
+                            docsBySegment[segment.collectionName] =
+                                connectionDocs.values.distinctBy { it.id() }
+                            docsBySegment[segment.connectionName] = connectionDocs.keys.toList()
+
+                            i++
+                        }
+                    }
+                }
+
+                var completeDocPaths: List<Map<String, MongoPolyObject>>? = null
+
+                segments.path.forEachIndexed { index, segment ->
+                    if (completeDocPaths == null) {
+                        completeDocPaths = when (segment) {
+                            is QuerySegment.Collection -> docsBySegment[segment.name]!!.map { mapOf(segment.name to it) }
+                            is QuerySegment.Connection -> docsBySegment[segment.collectionName]!!.map { mapOf(segment.collectionName to it) } +
+                                    docsBySegment[segment.connectionName]!!.map { mapOf(segment.connectionName to it) }
+                        }
+                    } else {
+                        completeDocPaths = when (segment) {
+                            is QuerySegment.Collection -> {
+                                val docsById = docsBySegment[segment.name]!!.associateBy {
+                                    check(it is MongoPolyDocument); it.id()
+                                }
+                                buildList {
+                                    for (docPath in completeDocPaths!!) {
+                                        val previousDoc = docPath[segments.path[index - 1].collectionName()]!!
+                                        check(previousDoc is MongoPolyDocument)
+                                        for (id in previousDoc.getSubCollectionIds(segment.name)) {
+                                            docsById[id]?.let { add(docPath + (segment.name to it)) }
+                                        }
+                                    }
+                                }
+                            }
+
+                            is QuerySegment.Connection -> {
+                                // Build previousDocId -> [(connectionDoc, ownerDoc)] once
+                                val byPreviousId =
+                                    mutableMapOf<Any, MutableList<Pair<MongoPolyConnection, MongoPolyDocument>>>()
+                                for (doc in docsBySegment[segment.collectionName]!!) {
+                                    check(doc is MongoPolyCompleteDocument)
+                                    for (con in doc.getConnectionDocuments(segment.connectionName)) {
+                                        if (checkCondition(con.getConnectionData().doc, segment.connectionCondition)) {
+                                            byPreviousId.getOrPut(con.getSubDoc().id()) { mutableListOf() }
+                                                .add(con to doc)
+                                        }
+                                    }
+                                }
+                                buildList {
+                                    for (docPath in completeDocPaths!!) {
+                                        val previousDoc = docPath[segments.path[index - 1].collectionName()]!!
+                                        check(previousDoc is MongoPolyDocument)
+                                        for ((con, doc) in byPreviousId[previousDoc.id()].orEmpty()) {
+                                            add(
+                                                docPath + (segment.collectionName to doc)
+                                                        + (segment.connectionName to con.getConnectionData())
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                checkNotNull(completeDocPaths)
+
+                val data = completeDocPaths.map { doc ->
+                    takeResultFields(
+                        doc.filterValues { it is MongoPolyData }.toMap() as Map<String, MongoPolyData>,
+                        segments.path.flatMap {
+                            when (it) {
+                                is QuerySegment.Collection -> listOf(it.name to it.only)
+                                is QuerySegment.Connection -> listOf(
+                                    it.connectionName to it.connectionOnly,
+                                    it.collectionName to it.collectionOnly
+                                )
+                            }
+                        }
+                    )
+                }
+                val elapsedTime = (System.nanoTime() - startTime).nanoseconds
+                return TimedDriverResult(
+                    data,
+                    PolyDriverQueryDuration(
+                        elapsedTime.minus(totalQueryExecutionDuration),
                         totalQueryExecutionDuration
                     ),
                     executedQueries
                 )
             }
-            when (val segment = segments[i]) {
-                is QuerySegment.Collection -> {
-                    when (previousSegment) {
-                        is QuerySegment.Connection -> {
-                            docsBySegment[segment.name] =
-                                previousSegmentDocs.flatMap {
-                                    check(it is MongoPolyCompleteDocument)
-                                    it.getSubCollectionDocuments(segment.name)
-                                }
-                            i++
-                        }
-
-                        is QuerySegment.Collection -> {
-                            val segmentIds = previousSegmentDocs.flatMap {
-                                check(it is MongoPolyDocument)
-                                it.getSubCollectionIds(segment.name)
-                            }
-
-                            val combinedSegment = withIdCondition(segment, segmentIds)
-
-                            if (segments.getOrNull(i + 1) is QuerySegment.Collection) {
-                                val parentDocs = logMetrics(
-                                    fetchTwoCollectionSegments(
-                                        combinedSegment,
-                                        segments[i + 1] as QuerySegment.Collection
-                                    )
-                                )
-
-                                docsBySegment[segment.name] = parentDocs.keys.toList()
-                                docsBySegment[segments[i + 1].collectionName()] =
-                                    parentDocs.values.flatten()
-                                i += 2
-                            } else {
-                                val docs = logMetrics(fetchCollectionSegment(combinedSegment))
-
-                                docsBySegment[combinedSegment.name] = docs
-
-                                i++
-                            }
-                        }
-                    }
-                }
-
-                is QuerySegment.Connection -> {
-                    val segmentIds = previousSegmentDocs.map {
-                        check(it is MongoPolyDocument)
-                        it.id()
-                    }.toSet()
-
-                    val connectionDocs = logMetrics(
-                        fetchConnectionSegment(
-                            segment, segmentIds
-                        )
-                    )
-
-                    docsBySegment[segment.collectionName] =
-                        connectionDocs.values.distinctBy { it.id() }
-                    docsBySegment[segment.connectionName] = connectionDocs.keys.toList()
-
-                    i++
-                }
-            }
         }
-
-        var completeDocPaths: List<Map<String, MongoPolyObject>>? = null
-
-        segments.forEachIndexed { index, segment ->
-            if (completeDocPaths == null) {
-                completeDocPaths = when (segment) {
-                    is QuerySegment.Collection -> docsBySegment[segment.name]!!.map { mapOf(segment.name to it) }
-                    is QuerySegment.Connection -> docsBySegment[segment.collectionName]!!.map { mapOf(segment.collectionName to it) } +
-                            docsBySegment[segment.connectionName]!!.map { mapOf(segment.connectionName to it) }
-                }
-            } else {
-                completeDocPaths = when (segment) {
-                    is QuerySegment.Collection -> {
-                        val docsById = docsBySegment[segment.name]!!.associateBy {
-                            check(it is MongoPolyDocument); it.id()
-                        }
-                        buildList {
-                            for (docPath in completeDocPaths!!) {
-                                val previousDoc = docPath[segments[index - 1].collectionName()]!!
-                                check(previousDoc is MongoPolyDocument)
-                                for (id in previousDoc.getSubCollectionIds(segment.name)) {
-                                    docsById[id]?.let { add(docPath + (segment.name to it)) }
-                                }
-                            }
-                        }
-                    }
-
-                    is QuerySegment.Connection -> {
-                        // Build previousDocId -> [(connectionDoc, ownerDoc)] once
-                        val byPreviousId =
-                            mutableMapOf<Any, MutableList<Pair<MongoPolyConnection, MongoPolyDocument>>>()
-                        for (doc in docsBySegment[segment.collectionName]!!) {
-                            check(doc is MongoPolyCompleteDocument)
-                            for (con in doc.getConnectionDocuments(segment.connectionName)) {
-                                if (checkCondition(con.getConnectionData().doc, segment.connectionCondition)) {
-                                    byPreviousId.getOrPut(con.getSubDoc().id()) { mutableListOf() }
-                                        .add(con to doc)
-                                }
-                            }
-                        }
-                        buildList {
-                            for (docPath in completeDocPaths!!) {
-                                val previousDoc = docPath[segments[index - 1].collectionName()]!!
-                                check(previousDoc is MongoPolyDocument)
-                                for ((con, doc) in byPreviousId[previousDoc.id()].orEmpty()) {
-                                    add(
-                                        docPath + (segment.collectionName to doc)
-                                                + (segment.connectionName to con.getConnectionData())
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        checkNotNull(completeDocPaths)
-
-        val data = completeDocPaths.map { doc ->
-            takeResultFields(
-                doc.filterValues { it is MongoPolyData }.toMap() as Map<String, MongoPolyData>,
-                segments.flatMap {
-                    when (it) {
-                        is QuerySegment.Collection -> listOf(it.name to it.only)
-                        is QuerySegment.Connection -> listOf(
-                            it.connectionName to it.connectionOnly,
-                            it.collectionName to it.collectionOnly
-                        )
-                    }
-                }
-            )
-        }
-        val elapsedTime = (System.nanoTime() - startTime).nanoseconds
-        return TimedDriverResult(
-            data,
-            PolyDriverQueryDuration(elapsedTime.minus(totalQueryExecutionDuration), totalQueryExecutionDuration),
-            executedQueries
-        )
     }
 
     private fun withIdCondition(segment: QuerySegment.Collection, ids: List<UUID>): QuerySegment.Collection {

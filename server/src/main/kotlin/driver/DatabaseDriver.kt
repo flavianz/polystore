@@ -6,7 +6,7 @@ import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.DocumentPath
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.GetQuery
+import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyDriverQueryDuration
 import java.util.UUID
 
