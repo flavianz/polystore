@@ -1,0 +1,3 @@
+- mongo projections used
+- more mongo paths have Dedicated path: subcollection and connection
+- mongo lazy load docs instead of toList()
