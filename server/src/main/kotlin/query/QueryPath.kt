@@ -1,4 +1,4 @@
-package ch.flavianz.model
+package ch.flavianz.query
 
 class QueryPath(private val segments: List<QuerySegment>) : ArrayList<QuerySegment>(segments) {
     init {

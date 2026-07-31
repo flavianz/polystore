@@ -1,6 +1,4 @@
-package ch.flavianz.model
-
-import ch.flavianz.query.Condition
+package ch.flavianz.query
 
 sealed class QuerySegment {
     data class Collection(

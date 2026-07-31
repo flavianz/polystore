@@ -3,8 +3,8 @@ package ch.flavianz.server
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
-import ch.flavianz.model.QueryPath
-import ch.flavianz.model.QuerySegment
+import ch.flavianz.query.QueryPath
+import ch.flavianz.query.QuerySegment
 import ch.flavianz.query.GetQuery
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod

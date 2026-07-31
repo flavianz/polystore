@@ -1,7 +1,5 @@
 package ch.flavianz.query
 
-import ch.flavianz.model.QueryPath
-import ch.flavianz.model.QuerySegment
 import java.util.UUID
 
 class QueryParser(input: String) {

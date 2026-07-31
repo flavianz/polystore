@@ -8,7 +8,7 @@ import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
-import ch.flavianz.model.QuerySegment
+import ch.flavianz.query.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyDriverQueryDuration

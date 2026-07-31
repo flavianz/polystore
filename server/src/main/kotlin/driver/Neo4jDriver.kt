@@ -3,7 +3,7 @@ package ch.flavianz.driver
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.model.PolyData
 import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.QuerySegment
+import ch.flavianz.query.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.core.DatabaseManager.addChildCollections

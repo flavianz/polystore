@@ -1,8 +1,5 @@
 package ch.flavianz.query
 
-import ch.flavianz.model.QueryPath
-import ch.flavianz.model.QuerySegment
-
 class GetQueryBuilder {
     private var segments = mutableListOf<QuerySegment>()
     private var limit: Int? = null
