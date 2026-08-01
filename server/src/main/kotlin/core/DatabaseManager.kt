@@ -113,11 +113,12 @@ object DatabaseManager {
     fun insertDocument(collectionName: String, data: PolyData, parentDocUuid: UUID? = null): UUID {
         check(existsCollection(collectionName)) { "collection $collectionName does not exist" }
         val collectionModel = getCollectionModel(collectionName)
-        check(dataMatchesSchema(data, collectionModel.schema))
-        { "insertion data does not match schema of collection $collectionName" }
+        check(dataContainsAllRequiredFields(data, collectionModel.schema))
+        { "document data does not contain all required fields of collection $collectionName" }
+        checkIsDataValid(data)
 
         if (collectionModel.hasParentCollection()) {
-            checkNotNull(collectionModel.parentCollection) { "collection $collectionName has a parent collection, specify a parent document" }
+            check(parentDocUuid != null) { "collection $collectionName has a parent collection, specify a parent document" }
         } else {
             check(parentDocUuid == null) { "collection $collectionName does not have a parent collection" }
         }
@@ -164,7 +165,7 @@ object DatabaseManager {
         )
         { "collections do not match collections stored in connection" }
         check(
-            dataMatchesSchema(
+            dataContainsAllRequiredFields(
                 connectionData,
                 connection.connectionDataSchema
             )
@@ -289,13 +290,25 @@ object DatabaseManager {
         return connections[connectionName] ?: throw IllegalStateException("connection $connectionName does not exist")
     }
 
-    private fun dataMatchesSchema(polyDocument: PolyData, schema: PolySchema): Boolean {
+    private fun dataContainsAllRequiredFields(data: PolyData, schema: PolySchema): Boolean {
         for (entry in schema) {
-            if (!(entry.value.matchesType(polyDocument[entry.key] ?: return false))) {
+            if (!(entry.value.matchesType(data[entry.key] ?: return false))) {
                 return false
             }
         }
-        return polyDocument.size == schema.size
+        return true
+    }
+
+    private fun checkIsDataValid(data: PolyData) {
+        if (data.keys.firstOrNull { it.startsWith("_") } != null) {
+            throw IllegalArgumentException("data keys cannot start with an underscore")
+        }
+        for (entry in data) {
+            when (entry.value) {
+                is String, is Int, is Float, is Boolean, is UUID, null -> continue
+                else -> throw IllegalArgumentException("data type ${entry.value?.javaClass?.name} is not allowed")
+            }
+        }
     }
 
     private fun schemaContainsFields(polyDocument: PolyData, schema: PolySchema): Boolean {

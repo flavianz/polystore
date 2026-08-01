@@ -23,6 +23,8 @@ interface DatabaseDriver {
         connectionData: PolyData
     )
 
+    // TODO: update connection
+
     fun get(query: GetQuery): TimedDriverResult<List<PolyData>>
     //fun count(path: GetQuery, terminal: PolyTerminal.Count): PolyResultData.Count
 

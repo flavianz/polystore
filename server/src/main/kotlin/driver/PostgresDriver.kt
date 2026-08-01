@@ -47,6 +47,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         for ((name, dataType) in schema) {
             sql.append(", ").append(name).append(" ").append(dataType.toPostgresType())
         }
+        sql.append(", _dynamic_data JSONB")
 
         sql.append(")")
 
@@ -112,6 +113,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             // f = field
             sql.append(", ").append(name).append(" ").append(dataType.toPostgresType())
         }
+        sql.append(", _dynamic_data JSONB")
 
         sql.append(")")
 
@@ -130,22 +132,28 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append("INSERT INTO ").append(quoteIdentifier("ps_col_${collection.name}")).append(" (")
         sql.append(quoteIdentifier("_id"))
 
+        val columnData = data.filter { collection.schema.containsKey(it.key) }
+        val dynamicData = data - columnData.keys
+
         if (parentDocUuid != null) {
             sql.append(", ").append(quoteIdentifier("ps_parent_fk"))
         }
 
-        for (entry in data.entries) {
+        for (entry in columnData.entries) {
             sql.append(", ").append(quoteIdentifier(entry.key))
         }
+        sql.append(", _dynamic_data")
+
         sql.append(") VALUES (").append(prepareValue(uuid))
 
         if (parentDocUuid != null) {
             sql.append(", ").append(prepareValue(parentDocUuid))
         }
 
-        for (entry in data.entries) {
+        for (entry in columnData.entries) {
             sql.append(", ").append(prepareValue(entry.value))
         }
+        sql.append(", ").append(dynamicData.toJson())
         sql.append(")")
 
         this.connection.prepareStatement(sql.toString()).execute()
@@ -170,6 +178,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             )
         )
 
+        // TODO: enable updating dynamic data
+
         this.connection.prepareStatement(sql.toString()).execute()
     }
 
@@ -188,9 +198,13 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append(quoteIdentifier("ps_cfk_${connection.collection1Name}")).append(", ")
         sql.append(quoteIdentifier("ps_cfk_${connection.collection2Name}"))
 
+        val columnData = connectionData.filter { connection.connectionDataSchema.containsKey(it.key) }
+        val dynamicData = connectionData - columnData.keys
+
         for (entry in connectionData) {
             sql.append(", ").append(quoteIdentifier(entry.key))
         }
+        sql.append(", _dynamic_data")
         sql.append(") VALUES (")
 
         sql.append(prepareValue(uuid1)).append(", ")
@@ -199,6 +213,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         for (entry in connectionData) {
             sql.append(", ").append(prepareValue(entry.value))
         }
+        sql.append(", ").append(dynamicData.toJson())
         sql.append(")")
 
         this.connection.prepareStatement(sql.toString()).execute()
@@ -330,6 +345,9 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
         for (segment in segments) {
             val (segmentName, only, isConnection) = segment
+            val schema =
+                if (isConnection) DatabaseManager.getConnectionModel(segmentName).connectionDataSchema
+                else DatabaseManager.getCollectionModel(segmentName).schema
             if (only == null) {
                 if (isConnection) {
                     val model = DatabaseManager.getConnectionModel(segmentName)
@@ -545,5 +563,25 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         sql.append("'").append(schema.toJson()).append("')")
 
         connection.prepareStatement(sql.toString()).execute()
+    }
+
+    private fun PolyData.toJson(): String {
+        return buildString {
+            append("{")
+            for (entry in this@toJson) {
+                append(
+                    "\"${entry.key}\": ${
+                        when (entry.value) {
+                            is String, is UUID -> "\"${entry.value.toString()}\""
+                            is Int, is Float, is Boolean, null -> entry.value.toString()
+                            else -> throw IllegalArgumentException("unallowed data type")
+                        }
+                    }"
+                )
+                append(",")
+            }
+            deleteAt(length - 1)
+            append("}::jsonb")
+        }
     }
 }
