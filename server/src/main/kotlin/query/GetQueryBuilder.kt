@@ -8,6 +8,10 @@ class GetQueryBuilder {
         segments.add(QuerySegment.Collection(name, condition, only))
     }
 
+    fun collection(name: String, condition: Condition? = null, only: String) {
+        segments.add(QuerySegment.Collection(name, condition, listOf(only)))
+    }
+
     fun connection(
         connectionName: String,
         collectionName: String,
