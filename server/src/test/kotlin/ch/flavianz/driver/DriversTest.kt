@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import java.util.UUID
 import kotlin.test.assertEquals
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -338,6 +339,53 @@ abstract class DriversTest {
                     "test.age" to 18,
                 )
             ), (response.resultData as PolyResultData.Documents).polyData.toSet()
+        )
+        DatabaseManager.dropCollection("test")
+    }
+
+    @Test
+    fun `insert doc with dynamic data and retrieve it`() {
+        DatabaseManager.createCollection(
+            "test", mapOf(
+                "name" to DataType.STRING,
+                "age" to DataType.INT,
+            )
+        )
+        val randomId = UUID.randomUUID()
+        val docId = DatabaseManager.insertDocument(
+            "test", mapOf(
+                "name" to "Tim",
+                "age" to 18,
+                "someId" to randomId,
+                "male" to true
+            )
+        )
+        val response = DatabaseManager.get(get {
+            collection("test")
+        })
+        assertEquals(
+            setOf(
+                mapOf(
+                    "test._id" to docId,
+                    "test.name" to "Tim",
+                    "test.age" to 18,
+                    "test.someId" to randomId,
+                    "test.male" to true
+                )
+            ), (response.resultData as PolyResultData.Documents).polyData.toSet()
+        )
+        val responseOnly = DatabaseManager.get(get {
+            collection("test", only = listOf("name", "age", "someId", "male"))
+        })
+        assertEquals(
+            setOf(
+                mapOf(
+                    "test.name" to "Tim",
+                    "test.age" to 18,
+                    "test.someId" to randomId,
+                    "test.male" to true
+                )
+            ), (responseOnly.resultData as PolyResultData.Documents).polyData.toSet()
         )
         DatabaseManager.dropCollection("test")
     }

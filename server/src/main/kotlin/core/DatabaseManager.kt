@@ -303,6 +303,9 @@ object DatabaseManager {
         if (data.keys.firstOrNull { it.startsWith("_") } != null) {
             throw IllegalArgumentException("data keys cannot start with an underscore")
         }
+        if(data.keys.firstOrNull { it.contains(".") } != null) {
+            throw IllegalArgumentException("data keys cannot contain a dot")
+        }
         for (entry in data) {
             when (entry.value) {
                 is String, is Int, is Float, is Boolean, is UUID, null -> continue

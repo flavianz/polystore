@@ -15,7 +15,17 @@ import ch.flavianz.query.Condition
 import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyDriverQueryDuration
 import ch.flavianz.server.FieldDefinition
+import ch.flavianz.server.toPolyValue
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import org.postgresql.util.PGobject
 import java.sql.Connection
 import java.util.UUID
 import kotlin.collections.component1
@@ -153,7 +163,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         for (entry in columnData.entries) {
             sql.append(", ").append(prepareValue(entry.value))
         }
-        sql.append(", ").append(dynamicData.toJson())
+        sql.append(", ").append(dynamicDataToJson(dynamicData))
         sql.append(")")
 
         this.connection.prepareStatement(sql.toString()).execute()
@@ -213,7 +223,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         for (entry in connectionData) {
             sql.append(", ").append(prepareValue(entry.value))
         }
-        sql.append(", ").append(dynamicData.toJson())
+        sql.append(", ").append(dynamicDataToJson(dynamicData))
         sql.append(")")
 
         this.connection.prepareStatement(sql.toString()).execute()
@@ -246,8 +256,19 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 val columnNames = (1..metaData.columnCount).map { metaData.getColumnName(it) }
 
                 while (rs.next()) {
-                    val fields = columnNames.associateWith {
-                        rs.getObject(it)
+                    val fields = buildMap {
+                        for(column in columnNames) {
+                            val value = rs.getObject(column)
+                            if(column.endsWith("._dynamic_data")) {
+                                val segment = column.split(".").first()
+                                val jsonData = Json.parseToJsonElement((value as PGobject).value ?: "{}")
+                                for((key, parsedValue) in jsonData.jsonObject) {
+                                    put("${segment}.$key", parsedValue.toPolyValue())
+                                }
+                            } else {
+                                put(column, value)
+                            }
+                        }
                     }
                     add(fields)
                 }
@@ -360,6 +381,9 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                             } AS ${quoteIdentifier("${segmentName}.$f")}"
                         )
                     }
+                    projections.add(
+                        "${quoteIdentifier("ps_con_${model.collection1Name}__${model.name}__${model.collection2Name}")}._dynamic_data AS ${quoteIdentifier("${segmentName}._dynamic_data")}"
+                    )
                 } else {
                     val model = DatabaseManager.getCollectionModel(segmentName)
                     projections.add(
@@ -370,12 +394,23 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                             "${quoteIdentifier("ps_col_${segmentName}")}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
                         )
                     }
+                    projections.add(
+                        "${quoteIdentifier("ps_col_${segmentName}")}._dynamic_data AS ${quoteIdentifier("${segmentName}._dynamic_data")}"
+                    )
                 }
             } else {
                 for (f in only) {
-                    projections.add(
-                        "${quoteIdentifier("ps_col_${segmentName}")}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
-                    )
+                    if(schema.containsKey(f)) {
+                        // column data
+                        projections.add(
+                            "${quoteIdentifier("ps_col_${segmentName}")}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
+                        )
+                    } else {
+                        // dynamic data
+                        projections.add(
+                            "${quoteIdentifier("ps_col_${segmentName}")}._dynamic_data->'$f' AS ${quoteIdentifier("${segmentName}.$f")}"
+                        )
+                    }
                 }
             }
         }
@@ -565,23 +600,18 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         connection.prepareStatement(sql.toString()).execute()
     }
 
-    private fun PolyData.toJson(): String {
+    private fun dynamicDataToJson(data: PolyData): String {
         return buildString {
-            append("{")
-            for (entry in this@toJson) {
-                append(
-                    "\"${entry.key}\": ${
-                        when (entry.value) {
-                            is String, is UUID -> "\"${entry.value.toString()}\""
-                            is Int, is Float, is Boolean, null -> entry.value.toString()
-                            else -> throw IllegalArgumentException("unallowed data type")
-                        }
-                    }"
-                )
-                append(",")
-            }
-            deleteAt(length - 1)
-            append("}::jsonb")
+            append("'{")
+            append(data.map {entry ->  "\"${entry.key}\": ${
+                when (entry.value) {
+                    is String, is UUID -> "\"${entry.value.toString()}\""
+                    is Int, is Float, is Boolean, null -> entry.value.toString()
+                    else -> throw IllegalArgumentException("unallowed data type ${entry.value?.javaClass?.name}")
+                }
+            }" }.joinToString(", "))
+            append("}'::jsonb")
+            println(this)
         }
     }
 }

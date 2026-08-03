@@ -11,6 +11,8 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
+import java.util.UUID
+import kotlin.uuid.Uuid
 
 @Serializable
 data class CreateCollectionRequest(
@@ -64,7 +66,16 @@ data class InsertConnectionRequest(
 
 fun JsonElement.toPolyValue(): Any = when (this) {
     is JsonPrimitive -> when {
-        isString -> content
+        isString -> {
+            if (content.length == 36) {
+                runCatching {
+                    return UUID.fromString(content)
+                }.onFailure {
+                    return content
+                }
+            }
+            return content
+        }
         booleanOrNull != null -> boolean
         intOrNull != null -> int
         doubleOrNull != null -> double
