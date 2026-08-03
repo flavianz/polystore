@@ -1,0 +1,1 @@
+- new query quite, with query by id, id in lis, equality query

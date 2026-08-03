@@ -29,7 +29,7 @@ abstract class BenchEnvironment(val benchEnvName: String) {
                     )
                 )
             } else {
-                println("skipping bench $benchQueries because of size ($index/${benchQueries.size}")
+                println("skipping bench ${query.queryShape} because of size (${index + 1}/${benchQueries.size})")
             }
         }
         println("clean bench $benchEnvName")

@@ -1,0 +1,85 @@
+query_shape,phase,driver_a,driver_b,median_a,median_b,p_value,cliffs_delta
+collection 1 range filter,build,mongo,neo4j,24.0,11.0,0.0,0.6090261572559779
+collection 1 range filter,build,mongo,postgres,24.0,36.0,1.1557625524042495e-223,-0.4886602793408335
+collection 1 range filter,build,neo4j,postgres,11.0,36.0,0.0,-0.799245908742459
+collection 3 range filter,build,mongo,neo4j,18.0,11.0,1.2262319295300378e-207,0.4646736060375539
+collection 3 range filter,build,mongo,postgres,18.0,40.0,0.0,-0.7712888494192169
+collection 3 range filter,build,neo4j,postgres,11.0,40.0,0.0,-0.8424671467848196
+collection all,build,mongo,neo4j,65.0,19.0,1.196709483664437e-296,1.0
+collection all,build,mongo,postgres,65.0,56.0,4.972249784338942e-37,0.3465811923321667
+collection all,build,neo4j,postgres,19.0,56.0,2.8083371304860105e-288,-0.9851317947086321
+collection equality,build,mongo,neo4j,27.0,9.0,0.0,0.82803655176019
+collection equality,build,mongo,postgres,27.0,27.0,0.01658049524975967,0.03610339752934002
+collection equality,build,neo4j,postgres,9.0,27.0,0.0,-0.8882954024473099
+collection get by id,build,mongo,neo4j,15.0,7.0,4.996345000696385e-154,0.3992861425598702
+collection get by id,build,mongo,postgres,15.0,22.0,0.0,-0.6974648883232131
+collection get by id,build,neo4j,postgres,7.0,22.0,0.0,-0.7031701111460403
+collection id in list,build,mongo,neo4j,23.0,13.0,0.0,0.5947381283506078
+collection id in list,build,mongo,postgres,23.0,33.0,0.0,-0.6360913274195862
+collection id in list,build,neo4j,postgres,13.0,33.0,0.0,-0.8361731697901597
+connection all,build,mongo,neo4j,1376.5,9.0,4.890677700785741e-291,1.0
+connection all,build,mongo,postgres,1376.5,74.0,5.996639182527326e-309,1.0
+connection all,build,neo4j,postgres,9.0,74.0,1.6642397308464774e-291,-1.0
+connection equality,build,mongo,neo4j,457.0,11.0,0.0,0.9595235440850625
+connection equality,build,mongo,postgres,457.0,40.0,1.1740401236637435e-102,0.33503515421441044
+connection equality,build,neo4j,postgres,11.0,40.0,0.0,-1.0
+connection filter near node and edge,build,mongo,neo4j,14009.5,12.0,0.0,1.0
+connection filter near node and edge,build,mongo,postgres,14009.5,77.0,0.0,1.0
+connection filter near node and edge,build,neo4j,postgres,12.0,77.0,0.0,-1.0
+connection filter on edge property,build,mongo,neo4j,17630.0,12.0,0.0,1.0
+connection filter on edge property,build,mongo,postgres,17630.0,75.0,0.0,1.0
+connection filter on edge property,build,neo4j,postgres,12.0,75.0,0.0,-1.0
+connection filter on far node,build,mongo,neo4j,23.0,14.0,0.0,0.8095235551338789
+connection filter on far node,build,mongo,postgres,23.0,39.0,0.0,-0.994473168287399
+connection filter on far node,build,neo4j,postgres,14.0,39.0,0.0,-1.0
+connection get one by id,build,mongo,neo4j,59.0,9.0,0.0,1.0
+connection get one by id,build,mongo,postgres,59.0,39.0,0.0,0.8733762938400663
+connection get one by id,build,neo4j,postgres,9.0,39.0,0.0,-1.0
+connection id in list,build,mongo,neo4j,301.0,14.0,0.0,1.0
+connection id in list,build,mongo,postgres,301.0,47.0,0.0,1.0
+connection id in list,build,neo4j,postgres,14.0,47.0,0.0,-1.0
+deep sub collection collect all,build,mongo,neo4j,832.0,6.0,4.046081656862686e-296,1.0
+deep sub collection collect all,build,mongo,postgres,832.0,70.0,8.915622529792501e-292,1.0
+deep sub collection collect all,build,neo4j,postgres,6.0,70.0,0.0,-1.0
+sub collection child and parent range filter,build,mongo,neo4j,731.5,9.0,0.0,1.0
+sub collection child and parent range filter,build,mongo,postgres,731.5,32.0,0.0,1.0
+sub collection child and parent range filter,build,neo4j,postgres,9.0,32.0,0.0,-1.0
+sub collection child range filter,build,mongo,neo4j,3444.0,9.0,0.0,1.0
+sub collection child range filter,build,mongo,postgres,3444.0,45.0,0.0,1.0
+sub collection child range filter,build,neo4j,postgres,9.0,45.0,0.0,-1.0
+"sub collection child, grandchild and parent range filter",build,mongo,neo4j,480.0,7.0,0.0,1.0
+"sub collection child, grandchild and parent range filter",build,mongo,postgres,480.0,45.0,0.0,0.9949339392506387
+"sub collection child, grandchild and parent range filter",build,neo4j,postgres,7.0,45.0,0.0,-1.0
+sub collection collect all,build,mongo,neo4j,655.0,15.0,7.181481204094117e-282,1.0
+sub collection collect all,build,mongo,postgres,655.0,34.0,2.1199385597187263e-292,1.0
+sub collection collect all,build,neo4j,postgres,15.0,34.0,8.53321152790045e-297,-1.0
+sub collection equality,build,mongo,neo4j,321.0,8.0,0.0,0.9998645534935857
+sub collection equality,build,mongo,postgres,321.0,35.0,0.0,0.7343237183991007
+sub collection equality,build,neo4j,postgres,8.0,35.0,0.0,-1.0
+sub collection get one by id,build,mongo,neo4j,43.0,8.0,0.0,0.9998138426033891
+sub collection get one by id,build,mongo,postgres,43.0,35.0,0.0,0.43074413336406947
+sub collection get one by id,build,neo4j,postgres,8.0,35.0,0.0,-1.0
+sub collection grand child range filter,build,mongo,neo4j,8985.0,9.0,0.0,1.0
+sub collection grand child range filter,build,mongo,postgres,8985.0,77.0,0.0,1.0
+sub collection grand child range filter,build,neo4j,postgres,9.0,77.0,0.0,-1.0
+sub collection id in list,build,mongo,neo4j,217.0,12.0,0.0,1.0
+sub collection id in list,build,mongo,postgres,217.0,42.0,0.0,1.0
+sub collection id in list,build,neo4j,postgres,12.0,42.0,0.0,-1.0
+sub collection parent range filter,build,mongo,neo4j,3076.0,9.0,0.0,1.0
+sub collection parent range filter,build,mongo,postgres,3076.0,44.0,0.0,1.0
+sub collection parent range filter,build,neo4j,postgres,9.0,44.0,0.0,-1.0
+very deep sub collection all,build,mongo,neo4j,1119.0,7.0,5.7755997713791125e-283,1.0
+very deep sub collection all,build,mongo,postgres,1119.0,33.0,1.6554823532203827e-292,1.0
+very deep sub collection all,build,neo4j,postgres,7.0,33.0,6.2628598321098495e-295,-1.0
+very deep sub collection equality,build,mongo,neo4j,260.0,9.0,0.0,1.0
+very deep sub collection equality,build,mongo,postgres,260.0,35.0,1.970442834431786e-247,0.5054979653035575
+very deep sub collection equality,build,neo4j,postgres,9.0,35.0,0.0,-1.0
+very deep sub collection filter all,build,mongo,neo4j,455.0,9.0,0.0,1.0
+very deep sub collection filter all,build,mongo,postgres,455.0,39.0,0.0,0.8518330173647483
+very deep sub collection filter all,build,neo4j,postgres,9.0,39.0,0.0,-1.0
+very deep sub collection id in list,build,mongo,neo4j,339.0,13.0,0.0,1.0
+very deep sub collection id in list,build,mongo,postgres,339.0,38.0,0.0,1.0
+very deep sub collection id in list,build,neo4j,postgres,13.0,38.0,0.0,-1.0
+very deep sub collection one doc by id,build,mongo,neo4j,35.0,10.0,0.0,0.9990533590805053
+very deep sub collection one doc by id,build,mongo,postgres,35.0,31.0,2.1272107180690906e-57,0.2443377866747254
+very deep sub collection one doc by id,build,neo4j,postgres,10.0,31.0,0.0,-1.0

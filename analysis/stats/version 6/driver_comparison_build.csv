@@ -1,0 +1,10 @@
+query_shape,phase,driver_a,driver_b,median_a,median_b,p_value,cliffs_delta
+collection get one by id,build,mongo,neo4j,31.0,32.0,0.0029621766394337876,-0.07957149802069588
+collection get one by id,build,mongo,postgres,31.0,53.0,3.464517483842625e-204,-0.8182098099475738
+collection get one by id,build,neo4j,postgres,32.0,53.0,1.6250825325812485e-183,-0.7775189187402928
+connection get one by id,build,mongo,neo4j,84.0,35.0,2.061769725801346e-308,0.999503693470234
+connection get one by id,build,mongo,postgres,84.0,56.0,5.18774826969381e-100,0.5731480419974587
+connection get one by id,build,neo4j,postgres,35.0,56.0,6.477451310480679e-288,-0.9802243608213758
+sub collection get one by id,build,mongo,neo4j,15.0,24.0,3.947409173487224e-298,-0.9932564866176344
+sub collection get one by id,build,mongo,postgres,15.0,55.0,7.773560708812176e-285,-1.0
+sub collection get one by id,build,neo4j,postgres,24.0,55.0,5.596408723784822e-287,-1.0

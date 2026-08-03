@@ -1,7 +1,11 @@
 package ch.flavianz.stat
 
 import ch.flavianz.core.DatabaseManager
+import ch.flavianz.stat.environments.BenchEnvironmentConnection
+import ch.flavianz.stat.environments.BenchEnvironmentDeepSubCollection
+import ch.flavianz.stat.environments.BenchEnvironmentSubCollection
 import ch.flavianz.stat.environments.BenchEnvironmentSimpleCollection
+import ch.flavianz.stat.environments.BenchEnvironmentVeryDeepSubCollection
 import net.datafaker.Faker
 import java.io.File
 import java.util.Random
@@ -25,12 +29,12 @@ object Benchmark {
 
         val environmentTypes = listOf(
             ::BenchEnvironmentSimpleCollection,
-            /*::BenchEnvironmentSubCollection,
+            ::BenchEnvironmentSubCollection,
             ::BenchEnvironmentDeepSubCollection,
             ::BenchEnvironmentVeryDeepSubCollection,
-            ::BenchEnvironmentConnection*/
+            ::BenchEnvironmentConnection
         )
-        val depths = listOf(100)
+        val depths = listOf(100, 2000, 10000)
 
         val environments = buildList {
             for (envType in environmentTypes) {
