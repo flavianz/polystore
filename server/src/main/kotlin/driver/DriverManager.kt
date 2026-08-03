@@ -163,11 +163,7 @@ object DriverManager {
         }
 
         if (schemas.distinct().size > 1) {
-            val connections = schemas[0].connections.filter { !schemas[1].connections.contains(it) }
-            println(connections)
-            val collections = schemas[0].collections.filter { !schemas[1].collections.contains(it) }
-            println(collections)
-            throw IllegalStateException("not all connected sources have the same schema")
+            throw IllegalStateException("not all connected sources have the same schema: $schemas")
         }
         return schemas.first()
     }

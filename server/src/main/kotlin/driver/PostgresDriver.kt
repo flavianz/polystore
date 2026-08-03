@@ -624,7 +624,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 }"
             }.joinToString(", "))
             append("}'::jsonb")
-            println(this)
         }
     }
 }

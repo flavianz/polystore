@@ -1,0 +1,12 @@
+package ch.flavianz.stat
+
+import ch.flavianz.query.GetQuery
+
+data class BenchmarkQuery(
+    val queryShape: String,
+    val depth: Int,
+    val filterCount: Int,
+    val filterType: BenchFilterType,
+    val query: GetQuery,
+    val sizeLimit: Int? = null
+)
