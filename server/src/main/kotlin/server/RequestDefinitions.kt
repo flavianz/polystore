@@ -3,6 +3,8 @@ package ch.flavianz.server
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull.content
+import kotlinx.serialization.json.JsonNull.isString
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -11,6 +13,7 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
 import java.util.UUID
 import kotlin.uuid.Uuid
 
@@ -76,14 +79,25 @@ fun JsonElement.toPolyValue(): Any = when (this) {
             }
             return content
         }
+
         booleanOrNull != null -> boolean
         intOrNull != null -> int
         doubleOrNull != null -> double
         else -> throw IllegalArgumentException("Unknown primitive: $this")
     }
 
+    is JsonObject -> when (val type = jsonObject["type"]) {
+        is JsonPrimitive -> {
+            if (type.content == "uuid") {
+                return UUID.fromString((jsonObject["value"] as JsonPrimitive).content)
+            }
+            throw IllegalArgumentException("Nested objects not supported")
+        }
+
+        else -> throw IllegalArgumentException("Nested objects not supported")
+    }
+
     is JsonArray -> throw IllegalArgumentException("Arrays not supported")
-    is JsonObject -> throw IllegalArgumentException("Nested objects not supported")
 }
 
 @Serializable

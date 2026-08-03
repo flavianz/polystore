@@ -17,6 +17,7 @@ import ch.flavianz.query.PolyDriverQueryDuration
 import ch.flavianz.server.FieldDefinition
 import ch.flavianz.server.toPolyValue
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.booleanOrNull
@@ -257,16 +258,21 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                 while (rs.next()) {
                     val fields = buildMap {
-                        for(column in columnNames) {
+                        for (column in columnNames) {
                             val value = rs.getObject(column)
-                            if(column.endsWith("._dynamic_data")) {
+                            if (column.endsWith("._dynamic_data")) {
                                 val segment = column.split(".").first()
                                 val jsonData = Json.parseToJsonElement((value as PGobject).value ?: "{}")
-                                for((key, parsedValue) in jsonData.jsonObject) {
+                                for ((key, parsedValue) in jsonData.jsonObject) {
                                     put("${segment}.$key", parsedValue.toPolyValue())
                                 }
                             } else {
-                                put(column, value)
+                                if (column.startsWith("_dyn.")) {
+                                    val json = Json.parseToJsonElement((value as PGobject).value ?: "{}")
+                                    put(column.substring(5), json.toPolyValue())
+                                } else {
+                                    put(column, value)
+                                }
                             }
                         }
                     }
@@ -382,7 +388,11 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                         )
                     }
                     projections.add(
-                        "${quoteIdentifier("ps_con_${model.collection1Name}__${model.name}__${model.collection2Name}")}._dynamic_data AS ${quoteIdentifier("${segmentName}._dynamic_data")}"
+                        "${quoteIdentifier("ps_con_${model.collection1Name}__${model.name}__${model.collection2Name}")}._dynamic_data AS ${
+                            quoteIdentifier(
+                                "${segmentName}._dynamic_data"
+                            )
+                        }"
                     )
                 } else {
                     val model = DatabaseManager.getCollectionModel(segmentName)
@@ -400,7 +410,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 }
             } else {
                 for (f in only) {
-                    if(schema.containsKey(f)) {
+                    if (schema.containsKey(f)) {
                         // column data
                         projections.add(
                             "${quoteIdentifier("ps_col_${segmentName}")}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
@@ -408,7 +418,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     } else {
                         // dynamic data
                         projections.add(
-                            "${quoteIdentifier("ps_col_${segmentName}")}._dynamic_data->'$f' AS ${quoteIdentifier("${segmentName}.$f")}"
+                            "${quoteIdentifier("ps_col_${segmentName}")}._dynamic_data->'$f' AS ${quoteIdentifier("_dyn.${segmentName}.$f")}"
                         )
                     }
                 }
@@ -603,13 +613,16 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     private fun dynamicDataToJson(data: PolyData): String {
         return buildString {
             append("'{")
-            append(data.map {entry ->  "\"${entry.key}\": ${
-                when (entry.value) {
-                    is String, is UUID -> "\"${entry.value.toString()}\""
-                    is Int, is Float, is Boolean, null -> entry.value.toString()
-                    else -> throw IllegalArgumentException("unallowed data type ${entry.value?.javaClass?.name}")
-                }
-            }" }.joinToString(", "))
+            append(data.map { entry ->
+                "\"${entry.key}\": ${
+                    when (entry.value) {
+                        is String -> "\"${entry.value.toString()}\""
+                        is UUID -> "{\"type\": \"uuid\", \"value\": \"${entry.value.toString()}\"}"
+                        is Int, is Float, is Boolean, null -> entry.value.toString()
+                        else -> throw IllegalArgumentException("unallowed data type ${entry.value?.javaClass?.name}")
+                    }
+                }"
+            }.joinToString(", "))
             append("}'::jsonb")
             println(this)
         }

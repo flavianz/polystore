@@ -27,7 +27,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         // Optionally create an index on ps_id for the label.
         connection.neo4jSession.use { session ->
             val label = collectionLabel(collectionName)
-            session.run("CREATE INDEX IF NOT EXISTS FOR (n:`$label`) ON (n.ps_id)")
+            session.run("CREATE INDEX IF NOT EXISTS FOR (n:`$label`) ON (n._id)")
         }
         registerCollection(collectionName, schema, parentCollectionName)
     }
@@ -86,9 +86,9 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
 
     override fun insertDocument(collection: CollectionModel, uuid: UUID, data: PolyData, parentDocUuid: UUID?) {
         val label = collectionLabel(collection.name)
-        val params = mutableMapOf<String, Any?>("ps_id" to uuid.toString())
+        val params = mutableMapOf<String, Any?>("_id" to uuid.toString())
         for ((key, value) in data) {
-            params["ps_f_$key"] = value.toNeo4j()
+            params["$key"] = value.toNeo4j()
         }
 
         connection.neo4jSession.use { session ->
@@ -97,7 +97,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                 // Create child node and link to parent via ps_parent_of relationship
                 session.run(
                     $$"""
-                    MATCH (parent:`$$parentLabel` {ps_id: $parentId})
+                    MATCH (parent:`$$parentLabel` {_id: $parentId})
                     CREATE (child:`$$label`)
                     SET child = $props
                     CREATE (parent)-[:ps_parent_of]->(child)
@@ -116,16 +116,16 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     override fun updateDocument(collectionName: String, uuid: UUID, data: PolyData) {
         val label = collectionLabel(collectionName)
         val updates = data.entries.joinToString(", ") { (key, _) ->
-            $$"n.`ps_f_$$key` = $ps_f_$$key"
+            $$"n.`$$key` = $$$key"
         }
-        val params = mutableMapOf<String, Any?>("ps_id" to uuid.toString())
+        val params = mutableMapOf<String, Any?>("_id" to uuid.toString())
         for ((key, value) in data) {
-            params["ps_f_$key"] = value.toNeo4j()
+            params["$key"] = value.toNeo4j()
         }
 
         connection.neo4jSession.use { session ->
             session.run(
-                $$"MATCH (n:`$$label` {ps_id: $ps_id}) SET $$updates",
+                $$"MATCH (n:`$$label` {_id: $_id}) SET $$updates",
                 params
             )
         }
@@ -144,14 +144,14 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         val relType = connection.name
         val relProps = mutableMapOf<String, Any?>()
         for ((key, value) in connectionData) {
-            relProps["ps_f_$key"] = value.toNeo4j()
+            relProps["$key"] = value.toNeo4j()
         }
 
         this.connection.neo4jSession.use { session ->
             session.run(
                 """
-                MATCH (a:`$label1` {ps_id: ${'$'}uuid1})
-                MATCH (b:`$label2` {ps_id: ${'$'}uuid2})
+                MATCH (a:`$label1` {_id: ${'$'}uuid1})
+                MATCH (b:`$label2` {_id: ${'$'}uuid2})
                 CREATE (a)-[r:`$relType`]->(b)
                 SET r = ${'$'}props
                 """.trimIndent(),
@@ -165,10 +165,10 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         val cypher = buildMatchClause(query)
         val returnClause = buildReturnClause(query.path.flatMap {
             when (it) {
-                is QuerySegment.Collection -> listOf(Triple(it.name, it.only, false))
+                is QuerySegment.Collection -> listOf(Pair(it.name, it.only))
                 is QuerySegment.Connection -> listOf(
-                    Triple(it.connectionName, it.connectionOnly, true),
-                    Triple(it.collectionName, it.collectionOnly, false)
+                    Pair(it.connectionName, it.connectionOnly),
+                    Pair(it.collectionName, it.collectionOnly)
                 )
             }
         })
@@ -188,11 +188,32 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
             connection.neo4jSession.use { session ->
                 val result = session.run(queryString)
                 result.list { record ->
-                    val map = mutableMapOf<String, Any?>()
-                    for (key in record.keys()) {
-                        map[key] = record[key].toPolyValue()
+                    buildMap {
+                        for (key in record.keys()) {
+                            if (key.startsWith("_props.")) {
+                                for (entry in record[key].asMap()) {
+                                    put(
+                                        "${key.substring(7)}.${entry.key}", when (val value = entry.value) {
+                                            is String -> {
+                                                if (value.length == 36) {
+                                                    runCatching { UUID.fromString(value) }.getOrElse {
+                                                        value
+                                                    }
+                                                } else {
+                                                    value
+                                                }
+                                            }
+
+                                            is Long -> value.toInt()
+                                            is Float, is Boolean -> value
+                                            else -> throw IllegalStateException("unknown neo4j type ${value.javaClass.name}")
+                                        })
+                                }
+                            } else {
+                                put(key, record[key].toPolyValue())
+                            }
+                        }
                     }
-                    map
                 }
             }
         }
@@ -389,35 +410,18 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     }
 
     private fun buildReturnClause(
-        segments: List<Triple<String, List<String>?, Boolean>>
+        segments: List<Pair<String, List<String>?>>
     ): String {
         val projections = mutableListOf<String>()
 
         for (segment in segments) {
-            val (segmentName, only, isConnection) = segment
+            val (segmentName, only) = segment
             if (only == null) {
-                if (isConnection) {
-                    val model = DatabaseManager.getConnectionModel(segmentName)
-                    for (f in model.connectionDataSchema.keys) {
-                        projections.add(
-                            "$segmentName.`ps_f_$f` AS `$segmentName.$f`"
-                        )
-                    }
-                } else {
-                    val model = DatabaseManager.getCollectionModel(segmentName)
-                    projections.add(
-                        "$segmentName.ps_id AS `$segmentName._id`"
-                    )
-                    for (f in model.schema.keys) {
-                        projections.add(
-                            "$segmentName.`ps_f_$f` AS `$segmentName.$f`"
-                        )
-                    }
-                }
+                projections.add("properties(${segmentName}) as `_props.${segmentName}`")
             } else {
                 for (f in only) {
                     projections.add(
-                        "$segmentName.`ps_f_$f` AS `$segmentName.$f`"
+                        "$segmentName.$f"
                     )
                 }
             }
@@ -429,13 +433,13 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     private fun translateCondition(condition: Condition, cyAlias: String): String {
         return when (condition) {
             is Condition.Comparison.Equals ->
-                "$cyAlias.`ps_f_${condition.field}` = ${condition.value.toCypherLiteral()}"
+                "$cyAlias.`${condition.field}` = ${condition.value.toCypherLiteral()}"
 
             is Condition.Comparison.GreaterThan ->
-                "$cyAlias.`ps_f_${condition.field}` > ${condition.value.toCypherLiteral()}"
+                "$cyAlias.`${condition.field}` > ${condition.value.toCypherLiteral()}"
 
             is Condition.Comparison.LessThan ->
-                "$cyAlias.`ps_f_${condition.field}` < ${condition.value.toCypherLiteral()}"
+                "$cyAlias.`${condition.field}` < ${condition.value.toCypherLiteral()}"
 
             is Condition.Logic.And ->
                 "(${translateCondition(condition.left, cyAlias)} AND ${translateCondition(condition.right, cyAlias)})"
@@ -447,7 +451,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                 "NOT (${translateCondition(condition.condition, cyAlias)})"
 
             is Condition.In ->
-                "$cyAlias.`ps_f_${condition.field}` IN [${condition.list.joinToString(", ") { it.toCypherLiteral() }}]"
+                "$cyAlias.`${condition.field}` IN [${condition.list.joinToString(", ") { it.toCypherLiteral() }}]"
         }
     }
 
