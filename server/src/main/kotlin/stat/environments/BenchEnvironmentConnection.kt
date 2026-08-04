@@ -21,54 +21,58 @@ class BenchEnvironmentConnection(
 ) : BenchEnvironment(
     "connection",
 ) {
-    override val benchQueries: List<BenchmarkQuery>
-        get() = listOf(
-            BenchmarkQuery(
-                "connection all", 3, 0, BenchFilterType.None,
-                get {
-                    collection("users")
-                    connection("practices", "hobbies")
-                }, 100
-            ),
-            BenchmarkQuery(
-                "connection filter on edge property", 3, 1, BenchFilterType.NumberRange,
-                get {
-                    collection("users")
-                    connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
-                }),
-            BenchmarkQuery(
-                "connection filter on far node", 3, 1, BenchFilterType.NumberRange,
-                get {
-                    collection("users")
-                    connection("practices", "hobbies", collectionCondition = "name" eq faker.hobby().activity())
-                }),
-            BenchmarkQuery(
-                "connection filter near node and edge", 3, 2, BenchFilterType.NumberRange,
-                get {
-                    collection("users", "age" lt 80)
-                    connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
-                }),
-            BenchmarkQuery(
-                "connection get one by id", 3, 1, BenchFilterType.GetDocByID,
-                get {
-                    collection("users", "_id" eq userIds.random(Benchmark.seed.asKotlinRandom()))
-                    connection("practices", "hobbies")
-                }),
-            BenchmarkQuery(
-                "connection id in list", 3, 1, BenchFilterType.IdInList,
-                get {
-                    collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
-                    connection("practices", "hobbies")
-                }),
-            BenchmarkQuery(
-                "connection equality", 3, 1, BenchFilterType.Equality,
-                get {
-                    collection("users", "age" eq 50)
-                    connection("practices", "hobbies")
-                }),
-        )
+    override fun benchQueries() = listOf(
+        BenchmarkQuery(
+            "connection all", 3, 0, BenchFilterType.None,
+            get {
+                collection("users")
+                connection("practices", "hobbies")
+            }, 100
+        ),
+        BenchmarkQuery(
+            "connection filter on edge property", 3, 1, BenchFilterType.NumberRange,
+            get {
+                collection("users")
+                connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
+            }),
+        BenchmarkQuery(
+            "connection filter on far node", 3, 1, BenchFilterType.Equality,
+            get {
+                collection("users")
+                connection(
+                    "practices",
+                    "hobbies",
+                    collectionCondition = "name" eq hobbies.random(Benchmark.seed.asKotlinRandom())
+                )
+            }),
+        BenchmarkQuery(
+            "connection filter near node and edge", 3, 2, BenchFilterType.NumberRange,
+            get {
+                collection("users", "age" lt 80)
+                connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
+            }),
+        BenchmarkQuery(
+            "connection get one by id", 3, 1, BenchFilterType.GetDocByID,
+            get {
+                collection("users", "_id" eq userIds.random(Benchmark.seed.asKotlinRandom()))
+                connection("practices", "hobbies")
+            }),
+        BenchmarkQuery(
+            "connection id in list", 3, 1, BenchFilterType.IdInList,
+            get {
+                collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
+                connection("practices", "hobbies")
+            }),
+        BenchmarkQuery(
+            "connection equality", 3, 1, BenchFilterType.Equality,
+            get {
+                collection("users", "age" eq 50)
+                connection("practices", "hobbies")
+            }),
+    )
 
     val userIds = mutableListOf<UUID>()
+    val hobbies = mutableListOf<String>()
 
     override fun init() {
         DatabaseManager.createCollection(
@@ -92,8 +96,21 @@ class BenchEnvironmentConnection(
             )
         )
 
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        val hobbyIds = mutableListOf<UUID>()
+
+        repeat(10) {
+            userIds.add(
+                DatabaseManager.insertDocument(
+                    "users", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to 50,
+                        "male" to faker.bool().bool()
+                    )
+                )
+            )
+        }
+
+        repeat(collectionSize - 10) {
             userIds.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(
@@ -105,18 +122,32 @@ class BenchEnvironmentConnection(
             )
         }
 
-        val hobbyIds = mutableListOf<UUID>()
-        for (i in 0..<20) {
+        repeat(collectionSize / 10) {
+            val hobby = faker.hobby().activity()
+            hobbies.add(hobby)
             hobbyIds.add(
                 DatabaseManager.insertDocument(
                     "hobbies", mapOf(
-                        "name" to faker.hobby().activity()
+                        "name" to hobby
                     )
                 )
             )
         }
 
+
         val rng = Benchmark.seed.asKotlinRandom()
+        for (userId in userIds.shuffled(rng).take(10)) {
+            val connectionCount = rng.nextInt(1, 4)
+            repeat(connectionCount) {
+                DatabaseManager.insertConnection(
+                    "practices",
+                    "users",
+                    userId, "hobbies",
+                    hobbyIds.random(rng),
+                    mapOf("years_active" to faker.number().numberBetween(10, 30))
+                )
+            }
+        }
         for (userId in userIds) {
             val connectionCount = rng.nextInt(1, 4)
             repeat(connectionCount) {
@@ -125,7 +156,7 @@ class BenchEnvironmentConnection(
                     "users",
                     userId, "hobbies",
                     hobbyIds.random(rng),
-                    mapOf("years_active" to faker.number().numberBetween(0, 30))
+                    mapOf("years_active" to faker.number().numberBetween(0, 10))
                 )
             }
         }

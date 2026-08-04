@@ -34,7 +34,7 @@ object Benchmark {
             ::BenchEnvironmentVeryDeepSubCollection,
             ::BenchEnvironmentConnection
         )
-        val depths = listOf(100, 2000, 10000)
+        val depths = listOf(100/*, 2000, 10000*/)
 
         val environments = buildList {
             for (envType in environmentTypes) {
@@ -52,9 +52,9 @@ object Benchmark {
                     append("\n")
                 }
             }
-            File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\bench-data-raw.csv").appendText(
+            /*File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\bench-data-raw.csv").appendText(
                 csv
-            )
+            )*/
         }
         println("bench done in ${(System.nanoTime() - start).nanoseconds} s")
     }

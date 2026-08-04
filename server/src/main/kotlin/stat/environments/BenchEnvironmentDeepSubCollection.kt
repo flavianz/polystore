@@ -19,69 +19,71 @@ class BenchEnvironmentDeepSubCollection(
 ) : BenchEnvironment(
     "deep sub collection",
 ) {
-    override val benchQueries: List<BenchmarkQuery>
-        get() = listOf(
-            BenchmarkQuery(
-                "deep sub collection collect all", 3, 0, BenchFilterType.None,
-                get {
-                    collection("users")
-                    collection("children")
-                    collection("grandchildren")
-                }, 100
-            ),
-            BenchmarkQuery(
-                "sub collection grand child range filter", 3, 1, BenchFilterType.NumberRange,
-                get {
-                    collection("users")
-                    collection("children")
-                    collection("grandchildren", "age" gt 79)
+    override fun benchQueries() = listOf(
+        BenchmarkQuery(
+            "deep sub collection collect all", 3, 0, BenchFilterType.None,
+            get {
+                collection("users")
+                collection("children")
+                collection("grandchildren")
+            }, 100
+        ),
+        BenchmarkQuery(
+            "deep sub collection grand child range filter", 3, 1, BenchFilterType.NumberRange,
+            get {
+                collection("users")
+                collection("children")
+                collection("grandchildren", "age" gt 79)
 
-                }),
-            BenchmarkQuery(
-                "sub collection parent range filter", 3, 1, BenchFilterType.NumberRange,
-                get {
-                    collection("users", "age" gt 79)
-                    collection("children")
-                    collection("grandchildren")
-                }),
-            BenchmarkQuery(
-                "sub collection child range filter", 3, 1, BenchFilterType.NumberRange,
-                get {
-                    collection("users")
-                    collection("children", "age" gt 79)
-                    collection("grandchildren")
-                }),
-            BenchmarkQuery(
-                "sub collection child, grandchild and parent range filter", 3, 3, BenchFilterType.NumberRange,
-                get {
-                    collection("users", "age" gt 79)
-                    collection("children", "age" gt 79)
-                    collection("grandchildren", "age" gt 79)
-                }),
-            BenchmarkQuery(
-                "sub collection get one by id", 2, 1, BenchFilterType.GetDocByID,
-                get {
-                    collection("users", "_id" eq userIds.random(Benchmark.seed.asKotlinRandom()))
-                    collection("children")
-                    collection("grandchildren")
-                }),
-            BenchmarkQuery(
-                "sub collection id in list", 2, 1, BenchFilterType.IdInList,
-                get {
-                    collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
-                    collection("children")
-                    collection("grandchildren")
-                }),
-            BenchmarkQuery(
-                "sub collection equality", 2, 1, BenchFilterType.Equality,
-                get {
-                    collection("users", "age" eq 50)
-                    collection("children")
-                    collection("grandchildren")
-                }),
-        )
+            }),
+        BenchmarkQuery(
+            "deep sub collection parent range filter", 3, 1, BenchFilterType.NumberRange,
+            get {
+                collection("users", "age" gt 79)
+                collection("children")
+                collection("grandchildren")
+            }),
+        BenchmarkQuery(
+            "deep sub collection child range filter", 3, 1, BenchFilterType.NumberRange,
+            get {
+                collection("users")
+                collection("children", "age" gt 79)
+                collection("grandchildren")
+            }),
+        BenchmarkQuery(
+            "deep sub collection child, grandchild and parent range filter", 3, 3, BenchFilterType.NumberRange,
+            get {
+                collection("users", "age" gt 79)
+                collection("children", "age" gt 79)
+                collection("grandchildren", "age" gt 79)
+            }),
+        BenchmarkQuery(
+            "deep sub collection get one by id", 2, 1, BenchFilterType.GetDocByID,
+            get {
+                collection("users", "_id" eq oneId)
+                collection("children")
+                collection("grandchildren")
+            }),
+        BenchmarkQuery(
+            "deep sub collection id in list", 2, 1, BenchFilterType.IdInList,
+            get {
+                collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
+                collection("children")
+                collection("grandchildren")
+            }),
+        BenchmarkQuery(
+            "deep sub collection equality", 2, 1, BenchFilterType.Equality,
+            get {
+                collection("users", "age" eq 50)
+                collection("children")
+                collection("grandchildren")
+            }),
+    )
 
     val userIds = mutableListOf<UUID>()
+
+    var oneId: UUID? = null
+    var subId: UUID? = null
 
     override fun init() {
         DatabaseManager.createCollection(
@@ -106,39 +108,109 @@ class BenchEnvironmentDeepSubCollection(
             ), "children"
         )
 
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        val childIds = mutableListOf<UUID>()
+
+        repeat(20) {
             userIds.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(
                         "name" to faker.name().firstName(),
-                        "age" to faker.number().numberBetween(0, 100),
+                        "age" to faker.number().numberBetween(80, 100),
+                        "male" to faker.bool().bool()
+                    )
+                )
+            )
+        }
+        repeat(10) {
+            val id = userIds.random(Benchmark.seed.asKotlinRandom())
+            if (it == 0) {
+                oneId = id
+            }
+            val docId = DatabaseManager.insertDocument(
+                "children", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to faker.bool().bool()
+                ), id
+            )
+            if (it == 0) {
+                oneId = id
+                subId = docId
+            }
+            childIds.add(
+                docId
+            )
+        }
+        repeat(10) {
+            val id = if (it == 0) subId else childIds.random(Benchmark.seed.asKotlinRandom())
+            DatabaseManager.insertDocument(
+                "grandchildren", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to faker.bool().bool()
+                ), id
+            )
+        }
+        repeat(collectionSize - 50) {
+            userIds.add(
+                DatabaseManager.insertDocument(
+                    "users", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(0, 80),
+                        "male" to faker.bool().bool()
+                    )
+                )
+            )
+        }
+        repeat(20) {
+            userIds.add(
+                DatabaseManager.insertDocument(
+                    "users", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to 50,
                         "male" to faker.bool().bool()
                     )
                 )
             )
         }
 
-        val childIds = mutableListOf<UUID>()
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        repeat(20) {
             childIds.add(
                 DatabaseManager.insertDocument(
                     "children", mapOf(
                         "name" to faker.name().firstName(),
-                        "age" to faker.number().numberBetween(0, 100),
+                        "age" to faker.number().numberBetween(80, 100),
+                        "male" to faker.bool().bool()
+                    ), userIds.random(Benchmark.seed.asKotlinRandom())
+                )
+            )
+        }
+        repeat(collectionSize - 30) {
+            childIds.add(
+                DatabaseManager.insertDocument(
+                    "children", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(0, 80),
                         "male" to faker.bool().bool()
                     ), userIds.random(Benchmark.seed.asKotlinRandom())
                 )
             )
         }
 
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        repeat(20) {
             DatabaseManager.insertDocument(
                 "grandchildren", mapOf(
                     "name" to faker.name().firstName(),
-                    "age" to faker.number().numberBetween(0, 100),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to faker.bool().bool()
+                ), childIds.random(Benchmark.seed.asKotlinRandom())
+            )
+        }
+        repeat(collectionSize - 30) {
+            DatabaseManager.insertDocument(
+                "grandchildren", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(0, 80),
                     "male" to faker.bool().bool()
                 ), childIds.random(Benchmark.seed.asKotlinRandom())
             )

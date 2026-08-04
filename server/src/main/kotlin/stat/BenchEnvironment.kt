@@ -5,7 +5,7 @@ import ch.flavianz.driver.DriverManager
 abstract class BenchEnvironment(val benchEnvName: String) {
     abstract val runId: Int
     abstract val collectionSize: Int
-    abstract val benchQueries: List<BenchmarkQuery>
+    abstract fun benchQueries(): List<BenchmarkQuery>
     protected abstract fun init()
     protected abstract fun cleanUp()
 
@@ -15,9 +15,10 @@ abstract class BenchEnvironment(val benchEnvName: String) {
     fun bench(): List<DurationMeasurement> {
         println("init bench $benchEnvName")
         init()
+        val benchQueries = benchQueries()
         for ((index, query) in benchQueries.withIndex()) {
             if (query.sizeLimit == null || query.sizeLimit >= collectionSize) {
-                println("benching ${query.queryShape} ($index/${benchQueries.size}")
+                println("benching ${query.queryShape} ($index/${benchQueries.size})")
                 durationMeasurements.addAll(
                     DriverManager.benchmarkGet(
                         runId,

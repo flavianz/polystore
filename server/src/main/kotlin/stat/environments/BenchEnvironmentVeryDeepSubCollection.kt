@@ -19,61 +19,61 @@ class BenchEnvironmentVeryDeepSubCollection(
 ) : BenchEnvironment(
     "very deep sub collection",
 ) {
-    override val benchQueries: List<BenchmarkQuery>
-        get() = listOf(
-            BenchmarkQuery(
-                "very deep sub collection all", 5, 0, BenchFilterType.None,
-                get {
-                    collection("users", only = "name")
-                    collection("children", only = "name")
-                    collection("grandchildren", only = "name")
-                    collection("great_grandchildren", only = "name")
-                    collection("great_great_grandchildren", only = "name")
-                }, 100
-            ),
-            BenchmarkQuery(
-                "very deep sub collection filter all", 5, 0, BenchFilterType.NumberRange,
-                get {
-                    collection("users", "age" gt 79, only = "name")
-                    collection("children", "age" gt 79, only = "name")
-                    collection("grandchildren", "age" gt 79, only = "name")
-                    collection("great_grandchildren", "age" gt 79, only = "name")
-                    collection("great_great_grandchildren", "age" gt 79, only = "name")
-                }),
-            BenchmarkQuery(
-                "very deep sub collection one doc by id", 5, 0, BenchFilterType.GetDocByID,
-                get {
-                    collection("users", "_id" eq userIds.random(Benchmark.seed.asKotlinRandom()), only = "name")
-                    collection("children", only = "name")
-                    collection("grandchildren", only = "name")
-                    collection("great_grandchildren", only = "name")
-                    collection("great_great_grandchildren", only = "name")
-                }),
-            BenchmarkQuery(
-                "very deep sub collection id in list", 5, 0, BenchFilterType.IdInList,
-                get {
-                    collection(
-                        "users",
-                        "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20),
-                        only = "name"
-                    )
-                    collection("children", only = "name")
-                    collection("grandchildren", only = "name")
-                    collection("great_grandchildren", only = "name")
-                    collection("great_great_grandchildren", only = "name")
-                }),
-            BenchmarkQuery(
-                "very deep sub collection equality", 5, 0, BenchFilterType.Equality,
-                get {
-                    collection("users", "age" eq 50, only = "name")
-                    collection("children", only = "name")
-                    collection("grandchildren", only = "name")
-                    collection("great_grandchildren", only = "name")
-                    collection("great_great_grandchildren", only = "name")
-                }),
-        )
+    override fun benchQueries() = listOf(
+        BenchmarkQuery(
+            "very deep sub collection all", 5, 0, BenchFilterType.None,
+            get {
+                collection("users", only = "name")
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
+                collection("great_grandchildren", only = "name")
+                collection("great_great_grandchildren", only = "name")
+            }, 100
+        ),
+        BenchmarkQuery(
+            "very deep sub collection filter all", 5, 0, BenchFilterType.NumberRange,
+            get {
+                collection("users", "age" gt 79, only = "name")
+                collection("children", "age" gt 79, only = "name")
+                collection("grandchildren", "age" gt 79, only = "name")
+                collection("great_grandchildren", "age" gt 79, only = "name")
+                collection("great_great_grandchildren", "age" gt 79, only = "name")
+            }),
+        BenchmarkQuery(
+            "very deep sub collection one doc by id", 5, 0, BenchFilterType.GetDocByID,
+            get {
+                collection("users", "_id" eq oneId, only = "name")
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
+                collection("great_grandchildren", only = "name")
+                collection("great_great_grandchildren", only = "name")
+            }),
+        BenchmarkQuery(
+            "very deep sub collection id in list", 5, 0, BenchFilterType.IdInList,
+            get {
+                collection(
+                    "users",
+                    "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20),
+                    only = "name"
+                )
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
+                collection("great_grandchildren", only = "name")
+                collection("great_great_grandchildren", only = "name")
+            }),
+        BenchmarkQuery(
+            "very deep sub collection equality", 5, 0, BenchFilterType.Equality,
+            get {
+                collection("users", "age" eq 50, only = "name")
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
+                collection("great_grandchildren", only = "name")
+                collection("great_great_grandchildren", only = "name")
+            }),
+    )
 
     val userIds = mutableListOf<UUID>()
+    var oneId: UUID? = null
 
     override fun init() {
         DatabaseManager.createCollection(
@@ -112,8 +112,79 @@ class BenchEnvironmentVeryDeepSubCollection(
             ), "great_grandchildren"
         )
 
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        val childIds = mutableListOf<UUID>()
+        val grandchildIds = mutableListOf<UUID>()
+        val greatGrandchildIds = mutableListOf<UUID>()
+
+        repeat(20) {
+            val id = DatabaseManager.insertDocument(
+                "users", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to faker.bool().bool()
+                )
+            )
+            if (it == 0) {
+                oneId = id
+            }
+            userIds.add(id)
+        }
+
+        repeat(10) {
+            userIds.add(
+                DatabaseManager.insertDocument(
+                    "users", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to 50,
+                        "male" to faker.bool().bool()
+                    )
+                )
+            )
+        }
+        for (userId in userIds) {
+            childIds.add(
+                DatabaseManager.insertDocument(
+                    "children", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(80, 100),
+                        "male" to faker.bool().bool()
+                    ), userId
+                )
+            )
+        }
+        for (userId in childIds) {
+            grandchildIds.add(
+                DatabaseManager.insertDocument(
+                    "grandchildren", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(80, 100),
+                        "male" to faker.bool().bool()
+                    ), userId
+                )
+            )
+        }
+        repeat(30) {
+            greatGrandchildIds.add(
+                DatabaseManager.insertDocument(
+                    "great_grandchildren", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(80, 100),
+                        "male" to faker.bool().bool()
+                    ), grandchildIds.random(Benchmark.seed.asKotlinRandom())
+                )
+            )
+        }
+        repeat(30) {
+            DatabaseManager.insertDocument(
+                "great_great_grandchildren", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to faker.bool().bool()
+                ), greatGrandchildIds.random(Benchmark.seed.asKotlinRandom())
+            )
+        }
+
+        repeat(collectionSize - 30) {
             userIds.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(
@@ -125,9 +196,7 @@ class BenchEnvironmentVeryDeepSubCollection(
             )
         }
 
-        val childIds = mutableListOf<UUID>()
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        repeat(collectionSize - 30) {
             childIds.add(
                 DatabaseManager.insertDocument(
                     "children", mapOf(
@@ -138,9 +207,8 @@ class BenchEnvironmentVeryDeepSubCollection(
                 )
             )
         }
-        val grandchildIds = mutableListOf<UUID>()
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+
+        repeat(collectionSize - 30) {
             grandchildIds.add(
                 DatabaseManager.insertDocument(
                     "grandchildren", mapOf(
@@ -152,9 +220,7 @@ class BenchEnvironmentVeryDeepSubCollection(
             )
         }
 
-        val greatGrandchildIds = mutableListOf<UUID>()
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        repeat(collectionSize - 30) {
             greatGrandchildIds.add(
                 DatabaseManager.insertDocument(
                     "great_grandchildren", mapOf(
@@ -166,8 +232,7 @@ class BenchEnvironmentVeryDeepSubCollection(
             )
         }
 
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        repeat(collectionSize - 30) {
             DatabaseManager.insertDocument(
                 "great_great_grandchildren", mapOf(
                     "name" to faker.name().firstName(),

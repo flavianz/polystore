@@ -21,28 +21,42 @@ class BenchEnvironmentSimpleCollection(
 ) : BenchEnvironment(
     "simple collection",
 ) {
-    override val benchQueries: List<BenchmarkQuery>
-        get() = listOf(
-            BenchmarkQuery(
-                "collection all", 1, 0, BenchFilterType.None,
-                get { collection("users") }, 100
-            ),
-            BenchmarkQuery(
-                "collection 1 range filter", 1, 1, BenchFilterType.NumberRange,
-                get { collection("users", "age" gt 79) }),
-            BenchmarkQuery(
-                "collection 3 range filter", 1, 3, BenchFilterType.NumberRange,
-                get { collection("users", ("age" lt 80) and (("age" gt 59) and ("male" eq true))) }),
-            BenchmarkQuery(
-                "collection get by id", 1, 1, BenchFilterType.GetDocByID,
-                get { collection("users", "_id" eq ids.random(Benchmark.seed.asKotlinRandom())) }),
-            BenchmarkQuery(
-                "collection id in list", 1, 1, BenchFilterType.IdInList,
-                get { collection("users", "_id" isIn ids.shuffled(Benchmark.seed.asKotlinRandom()).take(20)) }),
-            BenchmarkQuery(
-                "collection equality", 1, 1, BenchFilterType.Equality,
-                get { collection("users", "age" eq 50) }),
-        )
+    override fun benchQueries() = listOf(
+        BenchmarkQuery(
+            "collection all", 1, 0, BenchFilterType.None,
+            get { collection("users") }, 100
+        ),
+        BenchmarkQuery(
+            "collection 1 range filter", 1, 1, BenchFilterType.NumberRange,
+            get { collection("users", "age" gt 79) }),
+        BenchmarkQuery(
+            "collection 3 range filter", 1, 3, BenchFilterType.NumberRange,
+            get { collection("users", ("age" lt 90) and (("age" gt 39) and ("male" eq true))) }),
+        BenchmarkQuery(
+            "collection get by id", 1, 1, BenchFilterType.GetDocByID,
+            get { collection("users", "_id" eq ids.random(Benchmark.seed.asKotlinRandom())) }),
+        BenchmarkQuery(
+            "collection id in list", 1, 1, BenchFilterType.IdInList,
+            get { collection("users", "_id" isIn ids.shuffled(Benchmark.seed.asKotlinRandom()).take(20)) }),
+        BenchmarkQuery(
+            "collection equality", 1, 1, BenchFilterType.Equality,
+            get { collection("users", "age" eq 50) }),
+    )
+
+    private val queue = mutableListOf<Map<String, Any?>>()
+
+    private fun insert() {
+        val n = queue.size
+        for ((i, doc) in queue.shuffled(Benchmark.seed.asKotlinRandom()).withIndex()) {
+            if (n > 2000 && i % 2000 == 0) println("inserted $i of $n")
+            ids.add(
+                DatabaseManager.insertDocument(
+                    "users", doc
+                )
+            )
+        }
+    }
+
     val ids = mutableListOf<UUID>()
     override fun init() {
         DatabaseManager.createCollection(
@@ -52,40 +66,43 @@ class BenchEnvironmentSimpleCollection(
                 "male" to DataType.BOOLEAN
             )
         )
-        for (i in 0..<20) {
-            ids.add(
-                DatabaseManager.insertDocument(
-                    "users", mapOf(
-                        "name" to faker.name().firstName(),
-                        "age" to faker.number().numberBetween(0, 20),
-                        "male" to false
-                    )
+        repeat(20) {
+            queue.add(
+                mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(0, 20),
+                    "male" to false
                 )
             )
         }
-        for (i in 0..<10) {
-            ids.add(
-                DatabaseManager.insertDocument(
-                    "users", mapOf(
-                        "name" to faker.name().firstName(),
-                        "age" to faker.number().numberBetween(80, 100),
-                        "male" to true
-                    )
+        repeat(10) {
+            queue.add(
+                mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to true
                 )
             )
         }
-        for (i in 0..<(collectionSize - 20)) {
-            if (i % 2000 == 0) println(i)
-            ids.add(
-                DatabaseManager.insertDocument(
-                    "users", mapOf(
-                        "name" to faker.name().firstName(),
-                        "age" to faker.number().numberBetween(20, 80),
-                        "male" to false
-                    )
+        repeat(10) {
+            queue.add(
+                mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to 50,
+                    "male" to faker.bool().bool()
                 )
             )
         }
+        repeat(collectionSize - 40) {
+            queue.add(
+                mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(20, 80),
+                    "male" to false
+                )
+            )
+        }
+        insert()
     }
 
     override fun cleanUp() {

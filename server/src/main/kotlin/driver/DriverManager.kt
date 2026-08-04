@@ -3,6 +3,7 @@ package ch.flavianz.driver
 import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.DatabaseSchema
+import ch.flavianz.model.PolyData
 import ch.flavianz.query.DriverType
 import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyExecutionEnvironment
@@ -83,14 +84,25 @@ object DriverManager {
         query: GetQuery
     ): List<DurationMeasurement> {
         val measurements = mutableListOf<DurationMeasurement>()
-        for (i in 0..<1000) {
-            if (i % 100 == 0) println("$i von 1000 queries complete")
+        val results = mutableListOf<Set<PolyData>>()
+
+        val n = 2
+
+        for (i in 0..<n) {
+            if (n > 100 && i % 100 == 0) println("$i von ${n} queries complete")
             for (driver in listOf(
                 Pair(postgresDriver, DriverType.Postgres),
                 Pair(mongoDriver, DriverType.Mongo),
                 Pair(neo4jDriver, DriverType.Neo4j)
             )) {
                 val result = driver.first!!.get(query)
+                if (i == 0) {
+                    results.add(result.data.toSet())
+                }
+                if (i == 1) {
+                    check(results.distinct().size == 1) { "not all drivers returned the same result for query '${queryShape}'" }
+                    println("driver results equal")
+                }
                 measurements.add(
                     DurationMeasurement(
                         runId, queryShape, driver.second, collectionSize, depth, filterCount,
@@ -117,6 +129,12 @@ object DriverManager {
                     )
                 )
             }
+        }
+
+        if (results.first().size > 2) {
+            println("query '$queryShape' results in size '${results.first().size}' ")
+        } else {
+            println("query '$queryShape' results in '${results.first()}' ")
         }
 
         return measurements

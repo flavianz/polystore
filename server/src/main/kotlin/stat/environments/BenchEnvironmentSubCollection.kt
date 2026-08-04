@@ -19,54 +19,55 @@ class BenchEnvironmentSubCollection(
 ) : BenchEnvironment(
     "sub collection",
 ) {
-    override val benchQueries: List<BenchmarkQuery>
-        get() = listOf(
-            BenchmarkQuery(
-                "sub collection collect all", 2, 0, BenchFilterType.None,
-                get {
-                    collection("users")
-                    collection("children")
-                }, 100
-            ),
-            BenchmarkQuery(
-                "sub collection child range filter", 2, 1, BenchFilterType.NumberRange,
-                get {
-                    collection("users")
-                    collection("children", "age" gt 79)
-                }),
-            BenchmarkQuery(
-                "sub collection parent range filter", 2, 1, BenchFilterType.NumberRange,
-                get {
-                    collection("users", "age" gt 79)
-                    collection("children")
-                }),
-            BenchmarkQuery(
-                "sub collection child and parent range filter", 2, 2, BenchFilterType.NumberRange,
-                get {
-                    collection("users", "age" gt 79)
-                    collection("children", "age" gt 79)
-                }),
-            BenchmarkQuery(
-                "sub collection get one by id", 2, 1, BenchFilterType.GetDocByID,
-                get {
-                    collection("users", "_id" eq ids.random(Benchmark.seed.asKotlinRandom()))
-                    collection("children")
-                }),
-            BenchmarkQuery(
-                "sub collection id in list", 2, 1, BenchFilterType.GetDocByID,
-                get {
-                    collection("users", "_id" isIn ids.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
-                    collection("children")
-                }),
-            BenchmarkQuery(
-                "sub collection equality", 2, 1, BenchFilterType.Equality,
-                get {
-                    collection("users", "age" eq 50)
-                    collection("children")
-                }),
-        )
+    override fun benchQueries() = listOf(
+        BenchmarkQuery(
+            "sub collection collect all", 2, 0, BenchFilterType.None,
+            get {
+                collection("users")
+                collection("children")
+            }, 100
+        ),
+        BenchmarkQuery(
+            "sub collection child range filter", 2, 1, BenchFilterType.NumberRange,
+            get {
+                collection("users")
+                collection("children", "age" gt 79)
+            }),
+        BenchmarkQuery(
+            "sub collection parent range filter", 2, 1, BenchFilterType.NumberRange,
+            get {
+                collection("users", "age" gt 79)
+                collection("children")
+            }),
+        BenchmarkQuery(
+            "sub collection child and parent range filter", 2, 2, BenchFilterType.NumberRange,
+            get {
+                collection("users", "age" gt 79)
+                collection("children", "age" gt 79)
+            }),
+        BenchmarkQuery(
+            "sub collection get one by id", 2, 1, BenchFilterType.GetDocByID,
+            get {
+                collection("users", "_id" eq parentIds.random(Benchmark.seed.asKotlinRandom()))
+                collection("children")
+            }),
+        BenchmarkQuery(
+            "sub collection id in list", 2, 1, BenchFilterType.GetDocByID,
+            get {
+                collection("users", "_id" isIn parentIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
+                collection("children")
+            }),
+        BenchmarkQuery(
+            "sub collection equality", 2, 1, BenchFilterType.Equality,
+            get {
+                collection("users", "age" eq 50)
+                collection("children")
+            }),
+    )
 
     val ids = mutableListOf<UUID>()
+
+    var parentIds = mutableListOf<UUID>()
 
     override fun init() {
         DatabaseManager.createCollection(
@@ -83,28 +84,77 @@ class BenchEnvironmentSubCollection(
                 "male" to DataType.BOOLEAN
             ), "users"
         )
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        repeat(20) {
             ids.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(
                         "name" to faker.name().firstName(),
-                        "age" to faker.number().numberBetween(0, 100),
+                        "age" to faker.number().numberBetween(80, 100),
                         "male" to faker.bool().bool()
                     )
                 )
             )
         }
-        for (i in 0..<collectionSize) {
-            if (i % 2000 == 0) println(i)
+        repeat(20) {
             DatabaseManager.insertDocument(
                 "children", mapOf(
                     "name" to faker.name().firstName(),
-                    "age" to faker.number().numberBetween(0, 100),
+                    "age" to faker.number().numberBetween(80, 100),
                     "male" to faker.bool().bool()
                 ), ids.random(Benchmark.seed.asKotlinRandom())
             )
-
+        }
+        repeat(10) {
+            val id = DatabaseManager.insertDocument(
+                "users", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to 50,
+                    "male" to faker.bool().bool()
+                )
+            )
+            ids.add(
+                id
+            )
+            DatabaseManager.insertDocument(
+                "children", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to faker.bool().bool()
+                ), id
+            )
+        }
+        repeat(collectionSize - 30) {
+            ids.add(
+                DatabaseManager.insertDocument(
+                    "users", mapOf(
+                        "name" to faker.name().firstName(),
+                        "age" to faker.number().numberBetween(0, 80),
+                        "male" to faker.bool().bool()
+                    )
+                )
+            )
+        }
+        repeat(10) {
+            DatabaseManager.insertDocument(
+                "children", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(80, 100),
+                    "male" to faker.bool().bool()
+                ), ids.random(Benchmark.seed.asKotlinRandom())
+            )
+        }
+        repeat(collectionSize - 20) {
+            val id = ids.random(Benchmark.seed.asKotlinRandom())
+            if (parentIds.size < 50) {
+                parentIds.add(id)
+            }
+            DatabaseManager.insertDocument(
+                "children", mapOf(
+                    "name" to faker.name().firstName(),
+                    "age" to faker.number().numberBetween(0, 80),
+                    "male" to faker.bool().bool()
+                ), id
+            )
         }
     }
 
