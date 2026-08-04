@@ -12,7 +12,7 @@ abstract class BenchEnvironment(val benchEnvName: String) {
     val faker = Benchmark.faker
     val durationMeasurements = mutableListOf<DurationMeasurement>()
 
-    fun bench(): List<DurationMeasurement> {
+    fun bench(iterations: Int): List<DurationMeasurement> {
         println("init bench $benchEnvName")
         init()
         val benchQueries = benchQueries()
@@ -21,6 +21,7 @@ abstract class BenchEnvironment(val benchEnvName: String) {
                 println("benching ${query.queryShape} ($index/${benchQueries.size})")
                 durationMeasurements.addAll(
                     DriverManager.benchmarkGet(
+                        iterations,
                         runId,
                         query.queryShape,
                         collectionSize,

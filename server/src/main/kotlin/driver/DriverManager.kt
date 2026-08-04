@@ -76,6 +76,7 @@ object DriverManager {
     }
 
     fun benchmarkGet(
+        iterations: Int,
         runId: Int,
         queryShape: String,
         collectionSize: Int,
@@ -86,10 +87,8 @@ object DriverManager {
         val measurements = mutableListOf<DurationMeasurement>()
         val results = mutableListOf<Set<PolyData>>()
 
-        val n = 2
-
-        for (i in 0..<n) {
-            if (n > 100 && i % 100 == 0) println("$i von ${n} queries complete")
+        for (i in 0..<iterations) {
+            if (iterations > 100 && i % 100 == 0) println("$i von ${iterations} queries complete")
             for (driver in listOf(
                 Pair(postgresDriver, DriverType.Postgres),
                 Pair(mongoDriver, DriverType.Mongo),

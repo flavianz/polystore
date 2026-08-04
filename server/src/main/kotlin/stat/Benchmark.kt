@@ -15,6 +15,7 @@ object Benchmark {
     val seed = Random(55L)
     const val RUN_ID = 6
     val faker = Faker(seed)
+    val iterations = 1000
 
     fun startBenchmark() {
         val start = System.nanoTime()
@@ -34,7 +35,7 @@ object Benchmark {
             ::BenchEnvironmentVeryDeepSubCollection,
             ::BenchEnvironmentConnection
         )
-        val depths = listOf(100/*, 2000, 10000*/)
+        val depths = listOf(100, 2000, 10000)
 
         val environments = buildList {
             for (envType in environmentTypes) {
@@ -45,16 +46,16 @@ object Benchmark {
         }
 
         for (env in environments) {
-            val measurements = env.bench()
+            val measurements = env.bench(1000)
             val csv = buildString {
                 for (measurement in measurements) {
                     append(measurement.toCsvRow())
                     append("\n")
                 }
             }
-            /*File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\bench-data-raw.csv").appendText(
+            File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\bench-data-raw.csv").appendText(
                 csv
-            )*/
+            )
         }
         println("bench done in ${(System.nanoTime() - start).nanoseconds} s")
     }
