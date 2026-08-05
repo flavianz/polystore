@@ -10,6 +10,7 @@ import ch.flavianz.query.isIn
 import ch.flavianz.query.lt
 import ch.flavianz.stat.BenchEnvironment
 import ch.flavianz.stat.BenchFilterType
+import ch.flavianz.stat.BenchResultType
 import ch.flavianz.stat.Benchmark
 import ch.flavianz.stat.BenchmarkQuery
 import java.util.UUID
@@ -27,7 +28,19 @@ class BenchEnvironmentConnection(
             get {
                 collection("users")
                 connection("practices", "hobbies")
-            }, 100
+            }, sizeLimit = 100
+        ),
+        BenchmarkQuery(
+            "connection all only", 3, 0, BenchFilterType.None,
+            get {
+                collection("users", only = "name")
+                connection(
+                    "practices",
+                    "hobbies",
+                    connectionOnly = listOf("years_active"),
+                    collectionOnly = listOf("name")
+                )
+            }, BenchResultType.SingleField, 100
         ),
         BenchmarkQuery(
             "connection filter on edge property", 3, 1, BenchFilterType.NumberRange,
@@ -63,6 +76,18 @@ class BenchEnvironmentConnection(
                 collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
                 connection("practices", "hobbies")
             }),
+        BenchmarkQuery(
+            "connection id in list only", 3, 1, BenchFilterType.IdInList,
+            get {
+                collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20), "name")
+                connection(
+                    "practices",
+                    "hobbies",
+                    connectionOnly = listOf("years_active"),
+                    collectionOnly = listOf("name")
+                )
+            }, BenchResultType.SingleField
+        ),
         BenchmarkQuery(
             "connection equality", 3, 1, BenchFilterType.Equality,
             get {

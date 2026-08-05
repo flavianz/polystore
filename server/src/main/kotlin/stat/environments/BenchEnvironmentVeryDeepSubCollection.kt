@@ -8,6 +8,7 @@ import ch.flavianz.query.gt
 import ch.flavianz.query.isIn
 import ch.flavianz.stat.BenchEnvironment
 import ch.flavianz.stat.BenchFilterType
+import ch.flavianz.stat.BenchResultType
 import ch.flavianz.stat.Benchmark
 import ch.flavianz.stat.BenchmarkQuery
 import java.util.UUID
@@ -21,14 +22,24 @@ class BenchEnvironmentVeryDeepSubCollection(
 ) {
     override fun benchQueries() = listOf(
         BenchmarkQuery(
-            "very deep sub collection all", 5, 0, BenchFilterType.None,
+            "very deep sub collection all only", 5, 0, BenchFilterType.None,
             get {
                 collection("users", only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, 100
+            }, sizeLimit = 100
+        ),
+        BenchmarkQuery(
+            "very deep sub collection all", 5, 0, BenchFilterType.None,
+            get {
+                collection("users")
+                collection("children")
+                collection("grandchildren")
+                collection("great_grandchildren")
+                collection("great_great_grandchildren")
+            }, BenchResultType.SingleField, 100
         ),
         BenchmarkQuery(
             "very deep sub collection filter all", 5, 0, BenchFilterType.NumberRange,
@@ -38,7 +49,8 @@ class BenchEnvironmentVeryDeepSubCollection(
                 collection("grandchildren", "age" gt 79, only = "name")
                 collection("great_grandchildren", "age" gt 79, only = "name")
                 collection("great_great_grandchildren", "age" gt 79, only = "name")
-            }),
+            }, BenchResultType.SingleField
+        ),
         BenchmarkQuery(
             "very deep sub collection one doc by id", 5, 0, BenchFilterType.GetDocByID,
             get {
@@ -47,9 +59,23 @@ class BenchEnvironmentVeryDeepSubCollection(
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }),
+            }, BenchResultType.SingleField
+        ),
         BenchmarkQuery(
             "very deep sub collection id in list", 5, 0, BenchFilterType.IdInList,
+            get {
+                collection(
+                    "users",
+                    "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20),
+                    only = "name"
+                )
+                collection("children")
+                collection("grandchildren")
+                collection("great_grandchildren")
+                collection("great_great_grandchildren")
+            }),
+        BenchmarkQuery(
+            "very deep sub collection id in list only", 5, 0, BenchFilterType.IdInList,
             get {
                 collection(
                     "users",
@@ -60,20 +86,64 @@ class BenchEnvironmentVeryDeepSubCollection(
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }),
+            }, BenchResultType.SingleField
+        ),
         BenchmarkQuery(
-            "very deep sub collection equality", 5, 0, BenchFilterType.Equality,
+            "very deep sub collection int equality", 5, 0, BenchFilterType.Equality,
             get {
                 collection("users", "age" eq 50, only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }),
+            }, BenchResultType.SingleField
+        ),
+        BenchmarkQuery(
+            "very deep sub collection int equality middle", 5, 0, BenchFilterType.Equality,
+            get {
+                collection("users", only = "name")
+                collection("children", only = "name")
+                collection("grandchildren", "age" eq 50, only = "name")
+                collection("great_grandchildren", only = "name")
+                collection("great_great_grandchildren", only = "name")
+            }, BenchResultType.SingleField
+        ),
+        BenchmarkQuery(
+            "very deep sub collection string equality", 5, 0, BenchFilterType.Equality,
+            get {
+                collection("users", "name" eq names.random(Benchmark.seed.asKotlinRandom()), only = "name")
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
+                collection("great_grandchildren", only = "name")
+                collection("great_great_grandchildren", only = "name")
+            }, BenchResultType.SingleField
+        ),
+        BenchmarkQuery(
+            "very deep sub collection string equality multiple", 5, 0, BenchFilterType.Equality,
+            get {
+                collection("users", "name" eq multipleString, only = "name")
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
+                collection("great_grandchildren", only = "name")
+                collection("great_great_grandchildren", only = "name")
+            }, BenchResultType.SingleField
+        ),
+        BenchmarkQuery(
+            "very deep sub collection string in list", 5, 0, BenchFilterType.Equality,
+            get {
+                collection("users", "name" isIn names.shuffled(Benchmark.seed.asKotlinRandom()).take(10), only = "name")
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
+                collection("great_grandchildren", only = "name")
+                collection("great_great_grandchildren", only = "name")
+            }, BenchResultType.SingleField
+        ),
     )
 
     val userIds = mutableListOf<UUID>()
+    val names = mutableListOf<String>()
     var oneId: UUID? = null
+    val multipleString = faker.name().firstName()
 
     override fun init() {
         DatabaseManager.createCollection(
@@ -117,9 +187,11 @@ class BenchEnvironmentVeryDeepSubCollection(
         val greatGrandchildIds = mutableListOf<UUID>()
 
         repeat(20) {
+            val name = faker.name().firstName()
+            names.add(name)
             val id = DatabaseManager.insertDocument(
                 "users", mapOf(
-                    "name" to faker.name().firstName(),
+                    "name" to name,
                     "age" to faker.number().numberBetween(80, 100),
                     "male" to faker.bool().bool()
                 )
@@ -184,7 +256,19 @@ class BenchEnvironmentVeryDeepSubCollection(
             )
         }
 
-        repeat(collectionSize - 30) {
+        repeat(10) {
+            userIds.add(
+                DatabaseManager.insertDocument(
+                    "users", mapOf(
+                        "name" to multipleString,
+                        "age" to faker.number().numberBetween(0, 100),
+                        "male" to faker.bool().bool()
+                    )
+                )
+            )
+        }
+
+        repeat(collectionSize - 40) {
             userIds.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(

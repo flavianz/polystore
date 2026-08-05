@@ -8,5 +8,6 @@ data class BenchmarkQuery(
     val filterCount: Int,
     val filterType: BenchFilterType,
     val query: GetQuery,
+    val benchResultType: BenchResultType = BenchResultType.EntireDoc,
     val sizeLimit: Int? = null
 )

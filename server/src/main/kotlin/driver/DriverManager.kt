@@ -88,7 +88,7 @@ object DriverManager {
         val results = mutableListOf<Set<PolyData>>()
 
         for (i in 0..<iterations) {
-            if (iterations > 100 && i % 100 == 0) println("$i von ${iterations} queries complete")
+            if (iterations > 100 && i % 100 == 0) println("$i von $iterations queries complete")
             for (driver in listOf(
                 Pair(postgresDriver, DriverType.Postgres),
                 Pair(mongoDriver, DriverType.Mongo),

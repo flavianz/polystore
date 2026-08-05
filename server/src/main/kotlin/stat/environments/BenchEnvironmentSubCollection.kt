@@ -8,6 +8,7 @@ import ch.flavianz.query.gt
 import ch.flavianz.query.isIn
 import ch.flavianz.stat.BenchEnvironment
 import ch.flavianz.stat.BenchFilterType
+import ch.flavianz.stat.BenchResultType
 import ch.flavianz.stat.Benchmark
 import ch.flavianz.stat.BenchmarkQuery
 import java.util.UUID
@@ -25,7 +26,14 @@ class BenchEnvironmentSubCollection(
             get {
                 collection("users")
                 collection("children")
-            }, 100
+            }, sizeLimit = 100
+        ),
+        BenchmarkQuery(
+            "sub collection collect all", 2, 0, BenchFilterType.None,
+            get {
+                collection("users", only = "name")
+                collection("children", only = "name")
+            }, BenchResultType.SingleField, sizeLimit = 100
         ),
         BenchmarkQuery(
             "sub collection child range filter", 2, 1, BenchFilterType.NumberRange,
@@ -58,15 +66,34 @@ class BenchEnvironmentSubCollection(
                 collection("children")
             }),
         BenchmarkQuery(
+            "sub collection id in list only", 2, 1, BenchFilterType.IdInList,
+            get {
+                collection("users", "_id" isIn parentIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
+                collection("children")
+            }, BenchResultType.SingleField
+        ),
+        BenchmarkQuery(
             "sub collection equality", 2, 1, BenchFilterType.Equality,
             get {
                 collection("users", "age" eq 50)
                 collection("children")
             }),
+        BenchmarkQuery(
+            "sub collection string equality", 2, 1, BenchFilterType.Equality,
+            get {
+                collection("users", "name" eq names.random(Benchmark.seed.asKotlinRandom()))
+                collection("children")
+            }),
+        BenchmarkQuery(
+            "sub collection string in list", 2, 1, BenchFilterType.Equality,
+            get {
+                collection("users", "name" isIn names.shuffled(Benchmark.seed.asKotlinRandom()).take(10))
+                collection("children")
+            }),
     )
 
     val ids = mutableListOf<UUID>()
-
+    val names = mutableListOf<String>()
     var parentIds = mutableListOf<UUID>()
 
     override fun init() {
@@ -85,10 +112,12 @@ class BenchEnvironmentSubCollection(
             ), "users"
         )
         repeat(20) {
+            val name = faker.name().firstName()
+            names.add(name)
             ids.add(
                 DatabaseManager.insertDocument(
                     "users", mapOf(
-                        "name" to faker.name().firstName(),
+                        "name" to name,
                         "age" to faker.number().numberBetween(80, 100),
                         "male" to faker.bool().bool()
                     )

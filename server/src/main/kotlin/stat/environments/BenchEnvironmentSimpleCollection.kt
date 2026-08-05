@@ -10,6 +10,7 @@ import ch.flavianz.query.isIn
 import ch.flavianz.query.lt
 import ch.flavianz.stat.BenchEnvironment
 import ch.flavianz.stat.BenchFilterType
+import ch.flavianz.stat.BenchResultType
 import ch.flavianz.stat.Benchmark
 import ch.flavianz.stat.BenchmarkQuery
 import java.util.UUID
@@ -24,7 +25,11 @@ class BenchEnvironmentSimpleCollection(
     override fun benchQueries() = listOf(
         BenchmarkQuery(
             "collection all", 1, 0, BenchFilterType.None,
-            get { collection("users") }, 100
+            get { collection("users") }, sizeLimit = 100
+        ),
+        BenchmarkQuery(
+            "collection all only", 1, 0, BenchFilterType.None,
+            get { collection("users", only = "name") }, BenchResultType.SingleField, 100
         ),
         BenchmarkQuery(
             "collection 1 range filter", 1, 1, BenchFilterType.NumberRange,
@@ -39,11 +44,30 @@ class BenchEnvironmentSimpleCollection(
             "collection id in list", 1, 1, BenchFilterType.IdInList,
             get { collection("users", "_id" isIn ids.shuffled(Benchmark.seed.asKotlinRandom()).take(20)) }),
         BenchmarkQuery(
-            "collection equality", 1, 1, BenchFilterType.Equality,
+            "collection id in list only",
+            1,
+            1,
+            BenchFilterType.IdInList,
+            get { collection("users", "_id" isIn ids.shuffled(Benchmark.seed.asKotlinRandom()).take(20)) },
+            BenchResultType.SingleField
+        ),
+        BenchmarkQuery(
+            "collection int equality", 1, 1, BenchFilterType.Equality,
             get { collection("users", "age" eq 50) }),
+        BenchmarkQuery(
+            "collection string equality", 1, 1, BenchFilterType.Equality,
+            get { collection("users", "name" eq names.random(Benchmark.seed.asKotlinRandom())) }),
+        BenchmarkQuery(
+            "collection string equality multiple", 1, 1, BenchFilterType.Equality,
+            get { collection("users", "name" eq multipleString) }),
+        BenchmarkQuery(
+            "collection string in list", 1, 1, BenchFilterType.Equality,
+            get { collection("users", "name" isIn names.shuffled(Benchmark.seed.asKotlinRandom()).take(10)) }),
     )
 
     private val queue = mutableListOf<Map<String, Any?>>()
+    val names = mutableListOf<String>()
+    val multipleString: String = faker.name().firstName()
 
     private fun insert() {
         val n = queue.size
@@ -67,9 +91,11 @@ class BenchEnvironmentSimpleCollection(
             )
         )
         repeat(20) {
+            val name = faker.name().firstName()
+            names.add(name)
             queue.add(
                 mapOf(
-                    "name" to faker.name().firstName(),
+                    "name" to name,
                     "age" to faker.number().numberBetween(0, 20),
                     "male" to false
                 )
@@ -93,7 +119,16 @@ class BenchEnvironmentSimpleCollection(
                 )
             )
         }
-        repeat(collectionSize - 40) {
+        repeat(10) {
+            queue.add(
+                mapOf(
+                    "name" to multipleString,
+                    "age" to faker.number().numberBetween(20, 80),
+                    "male" to false
+                )
+            )
+        }
+        repeat(collectionSize - 50) {
             queue.add(
                 mapOf(
                     "name" to faker.name().firstName(),

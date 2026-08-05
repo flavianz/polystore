@@ -8,6 +8,7 @@ import ch.flavianz.query.gt
 import ch.flavianz.query.isIn
 import ch.flavianz.stat.BenchEnvironment
 import ch.flavianz.stat.BenchFilterType
+import ch.flavianz.stat.BenchResultType
 import ch.flavianz.stat.Benchmark
 import ch.flavianz.stat.BenchmarkQuery
 import java.util.UUID
@@ -26,7 +27,15 @@ class BenchEnvironmentDeepSubCollection(
                 collection("users")
                 collection("children")
                 collection("grandchildren")
-            }, 100
+            }, sizeLimit = 100
+        ),
+        BenchmarkQuery(
+            "deep sub collection collect all only", 3, 0, BenchFilterType.None,
+            get {
+                collection("users", only = "name")
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
+            }, BenchResultType.SingleField, 100
         ),
         BenchmarkQuery(
             "deep sub collection grand child range filter", 3, 1, BenchFilterType.NumberRange,
@@ -70,6 +79,13 @@ class BenchEnvironmentDeepSubCollection(
                 collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
                 collection("children")
                 collection("grandchildren")
+            }),
+        BenchmarkQuery(
+            "deep sub collection id in list only", 2, 1, BenchFilterType.IdInList,
+            get {
+                collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20), "name")
+                collection("children", only = "name")
+                collection("grandchildren", only = "name")
             }),
         BenchmarkQuery(
             "deep sub collection equality", 2, 1, BenchFilterType.Equality,
