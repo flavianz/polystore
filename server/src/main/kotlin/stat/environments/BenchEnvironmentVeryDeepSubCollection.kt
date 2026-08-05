@@ -103,7 +103,7 @@ class BenchEnvironmentVeryDeepSubCollection(
             get {
                 collection("users", only = "name")
                 collection("children", only = "name")
-                collection("grandchildren", "age" eq 50, only = "name")
+                collection("grandchildren", "name" eq middleName, only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
             }, BenchResultType.SingleField
@@ -144,6 +144,7 @@ class BenchEnvironmentVeryDeepSubCollection(
     val names = mutableListOf<String>()
     var oneId: UUID? = null
     val multipleString = faker.name().firstName()
+    val middleName = faker.name().firstName()
 
     override fun init() {
         DatabaseManager.createCollection(
@@ -228,7 +229,7 @@ class BenchEnvironmentVeryDeepSubCollection(
             grandchildIds.add(
                 DatabaseManager.insertDocument(
                     "grandchildren", mapOf(
-                        "name" to faker.name().firstName(),
+                        "name" to middleName,
                         "age" to faker.number().numberBetween(80, 100),
                         "male" to faker.bool().bool()
                     ), userId

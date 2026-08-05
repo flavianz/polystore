@@ -13,9 +13,10 @@ import kotlin.time.Duration.Companion.nanoseconds
 
 object Benchmark {
     val seed = Random(55L)
-    const val RUN_ID = 6
     val faker = Faker(seed)
-    val iterations = 1000
+
+    const val RUN_ID = 9
+    const val ITERATIONS = 1000
 
     fun startBenchmark() {
         val start = System.nanoTime()
@@ -29,13 +30,13 @@ object Benchmark {
         }
 
         val environmentTypes = listOf(
-            ::BenchEnvironmentSimpleCollection,
+            /*::BenchEnvironmentSimpleCollection,
             ::BenchEnvironmentSubCollection,
             ::BenchEnvironmentDeepSubCollection,
-            ::BenchEnvironmentVeryDeepSubCollection,
+            ::BenchEnvironmentVeryDeepSubCollection,*/
             ::BenchEnvironmentConnection
         )
-        val depths = listOf(100, 2000, 10000)
+        val depths = listOf(100/*, 2000, 10000*/)
 
         val environments = buildList {
             for (envType in environmentTypes) {
@@ -46,7 +47,7 @@ object Benchmark {
         }
 
         for (env in environments) {
-            val measurements = env.bench(1000)
+            val measurements = env.bench(ITERATIONS)
             val csv = buildString {
                 for (measurement in measurements) {
                     append(measurement.toCsvRow())

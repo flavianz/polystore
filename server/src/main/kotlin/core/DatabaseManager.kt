@@ -11,6 +11,7 @@ import ch.flavianz.query.QueryPath
 import ch.flavianz.query.QuerySegment
 import ch.flavianz.query.Condition
 import ch.flavianz.query.GetQuery
+import ch.flavianz.query.GetQueryBuilder
 import ch.flavianz.query.PolyQueryDuration
 import ch.flavianz.query.PolyQueryResult
 import ch.flavianz.query.PolyResultData
@@ -183,6 +184,10 @@ object DatabaseManager {
 
     }
 
+    fun get(block: GetQueryBuilder.() -> Unit) {
+        get(GetQueryBuilder().apply(block).build())
+    }
+
     fun get(query: GetQuery): PolyQueryResult {
         require(query.path.isNotEmpty()) { "query path cannot be empty" }
         require(query.path[0] is QuerySegment.Collection) { "query path must start with a collection" }
@@ -303,7 +308,7 @@ object DatabaseManager {
         if (data.keys.firstOrNull { it.startsWith("_") } != null) {
             throw IllegalArgumentException("data keys cannot start with an underscore")
         }
-        if(data.keys.firstOrNull { it.contains(".") } != null) {
+        if (data.keys.firstOrNull { it.contains(".") } != null) {
             throw IllegalArgumentException("data keys cannot contain a dot")
         }
         for (entry in data) {

@@ -206,13 +206,14 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 var compTime = Duration.ZERO
 
                 val result = measureTimedValue {
+                    val projection = if (segment.only == null) Projections.exclude(
+                        collectionModel.childCollections.map { "_sub_${it}" } +
+                                collectionModel.getConnectedCollections().map { "_con_${it}" }
+                    ) else Projections.include(segment.only)
                     mongoCollection
                         .find(condition)
                         .projection(
-                            Projections.exclude(
-                                collectionModel.childCollections.map { "_sub_${it}" } +
-                                        collectionModel.getConnectedCollections().map { "_con_${it}" }
-                            )
+                            projection
                         )
                         .let { if (query.limit == null) it else it.limit(query.limit) }
                         .asSequence().map { doc ->
@@ -253,6 +254,11 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 var compTime = Duration.ZERO
 
                 val result = measureTimedValue {
+                    val projection = if (parentCol.only == null)
+                        Projections.exclude(
+                            (parentCollectionModel.childCollections.map { "_sub_${it}" } - "_sub_${childCol.name}") +
+                                    parentCollectionModel.getConnectedCollections().map { "_con_${it}" }
+                        ) else Projections.include(parentCol.only + "_sub_${childCol.name}")
                     val query = mongoParentCollection.find(
                         Filters.and(
                             parentCondition,
@@ -262,10 +268,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                             )
                         )
                     ).projection(
-                        Projections.exclude(
-                            (parentCollectionModel.childCollections.map { "_sub_${it}" } - "_sub_${childCol.name}") +
-                                    parentCollectionModel.getConnectedCollections().map { "_con_${it}" }
-                        )
+                        projection
                     )
                     buildList {
                         for (doc in query.asSequence()) {
@@ -344,52 +347,81 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 }
 
                 val result = measureTimedValue {
+                    val projection = if (collectionSegment.only == null) Projections.exclude(
+                        collectionModel.childCollections.map { "_sub_${it}" } +
+                                (collectionModel.getConnectedCollections()
+                                    .map { "_con_${it}" } - "_con_${connectionSegment.connectionName}")
+                    ) else Projections.include(collectionSegment.only - "_con_${connectionSegment.connectionName}")
                     val query = mongoCollection.find(
                         if (filters.isEmpty()) Filters.empty() else Filters.and(filters)
                     ).projection(
-                        Projections.exclude(
-                            collectionModel.childCollections.map { "_sub_${it}" } +
-                                    (collectionModel.getConnectedCollections()
-                                        .map { "_con_${it}" } - "_con_${connectionSegment.connectionName}")
-                        )
+                        projection
                     )
+                    val collectionPrefix = collectionSegment.name
+                    val connectionPrefix = connectionSegment.connectionName
+                    val collectionOnlyPrefixed = collectionSegment.only?.map { it to "$collectionPrefix.$it" }
+                    val connOnlyPrefixed = connectionSegment.connectionOnly?.map { it to "$connectionPrefix.$it" }
+                    val collOnlyPrefixed =
+                        connectionSegment.collectionOnly?.map { it to "${connectionSegment.collectionName}.$it" }
+
+                    fun prefixedOnly(source: Document, prefix: String): Map<String, Any?> =
+                        buildMap(source.size) {
+                            for ((k, v) in source) put("$prefix.$k", v)
+                        }
+
+                    fun filteredPrefixed(source: Document, prefix: String): Map<String, Any?> =
+                        buildMap(source.size) {
+                            for ((k, v) in source) {
+                                if (!k.startsWith("_") || k == "_id") put("$prefix.$k", v)
+                            }
+                        }
+
+                    val connKey = "_con_$connectionPrefix"
+
                     buildList {
                         for (doc in query.asSequence()) {
                             measureTimedValue {
-                                val collectionData = (if (collectionSegment.only == null) {
-                                    doc.filter { !it.key.startsWith("_") || it.key == "_id" }
-                                        .mapKeys { "${collectionSegment.name}.${it.key}" }
-                                } else {
-                                    collectionSegment.only.associate {
-                                        "${collectionSegment.name}.$it" to doc[it]
+                                val collectionData: Map<String, Any?> =
+                                    if (collectionOnlyPrefixed == null) {
+                                        filteredPrefixed(doc, collectionPrefix)
+                                    } else {
+                                        buildMap(collectionOnlyPrefixed.size) {
+                                            for ((field, key) in collectionOnlyPrefixed) put(key, doc[field])
+                                        }
                                     }
-                                })
-                                for (connection in (doc["_con_${connectionSegment.connectionName}"] as? List<*>
-                                    ?: emptyList<Document>()).filterIsInstance<Document>()
-                                    .filter {
-                                        checkCondition(it["_rel"] as Document, connectionSegment.connectionCondition)
-                                                && checkCondition(
-                                            it["_doc"] as Document,
-                                            connectionSegment.collectionCondition
-                                        )
-                                    }) {
-                                    add(
-                                        collectionData + (if (connectionSegment.connectionOnly == null) {
-                                            (connection["_rel"] as Document)
-                                                .mapKeys { "${connectionSegment.connectionName}.${it.key}" }
-                                        } else {
-                                            collectionData + connectionSegment.connectionOnly.associate {
-                                                "${connectionSegment.connectionName}.$it" to connection[it]
-                                            }
-                                        }) + (if (connectionSegment.collectionOnly == null) {
-                                            (connection["_doc"] as Document).filter { !it.key.startsWith("_") || it.key == "_id" }
-                                                .mapKeys { "${connectionSegment.collectionName}.${it.key}" }
-                                        } else {
-                                            collectionData + connectionSegment.collectionOnly.associate {
-                                                "${connectionSegment.collectionName}.$it" to connection[it]
-                                            }
-                                        }))
 
+                                val rawConnections = doc[connKey] as? List<*> ?: emptyList<Any?>()
+                                for (raw in rawConnections) {
+                                    val connection = raw as? Document ?: continue
+                                    val rel = connection["_rel"] as Document
+                                    val docPart = connection["_doc"] as Document
+
+                                    if (!checkCondition(rel, connectionSegment.connectionCondition)) continue
+                                    if (!checkCondition(docPart, connectionSegment.collectionCondition)) continue
+
+                                    val relMap: Map<String, Any?> =
+                                        if (connOnlyPrefixed == null) {
+                                            prefixedOnly(rel, connectionPrefix)
+                                        } else {
+                                            buildMap(connOnlyPrefixed.size) {
+                                                for ((field, key) in connOnlyPrefixed) put(key, rel[field])
+                                            }
+                                        }
+
+                                    val docMap: Map<String, Any?> =
+                                        if (collOnlyPrefixed == null) {
+                                            filteredPrefixed(docPart, connectionSegment.collectionName)
+                                        } else {
+                                            buildMap(collOnlyPrefixed.size) {
+                                                for ((field, key) in collOnlyPrefixed) put(key, docPart[field])
+                                            }
+                                        }
+
+                                    add(buildMap(collectionData.size + relMap.size + docMap.size) {
+                                        putAll(collectionData)
+                                        putAll(relMap)
+                                        putAll(docMap)
+                                    })
                                 }
                             }.let { compTime += it.duration; it.value }
                         }

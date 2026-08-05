@@ -99,7 +99,7 @@ object DriverManager {
                     results.add(result.data.toSet())
                 }
                 if (i == 1) {
-                    check(results.distinct().size == 1) { "not all drivers returned the same result for query '${queryShape}'" }
+                    check(results.distinct().size == 1) { "not all drivers returned the same result for query '${queryShape}:\npostgres:${results[0]}\nmongo:${results[1]}\nneo4j:${results[2]}'" }
                     println("driver results equal")
                 }
                 measurements.add(

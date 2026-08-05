@@ -30,70 +30,71 @@ class BenchEnvironmentConnection(
                 connection("practices", "hobbies")
             }, sizeLimit = 100
         ),
-        BenchmarkQuery(
-            "connection all only", 3, 0, BenchFilterType.None,
-            get {
-                collection("users", only = "name")
-                connection(
-                    "practices",
-                    "hobbies",
-                    connectionOnly = listOf("years_active"),
-                    collectionOnly = listOf("name")
-                )
-            }, BenchResultType.SingleField, 100
-        ),
-        BenchmarkQuery(
-            "connection filter on edge property", 3, 1, BenchFilterType.NumberRange,
-            get {
-                collection("users")
-                connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
-            }),
-        BenchmarkQuery(
-            "connection filter on far node", 3, 1, BenchFilterType.Equality,
-            get {
-                collection("users")
-                connection(
-                    "practices",
-                    "hobbies",
-                    collectionCondition = "name" eq hobbies.random(Benchmark.seed.asKotlinRandom())
-                )
-            }),
-        BenchmarkQuery(
-            "connection filter near node and edge", 3, 2, BenchFilterType.NumberRange,
-            get {
-                collection("users", "age" lt 80)
-                connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
-            }),
-        BenchmarkQuery(
-            "connection get one by id", 3, 1, BenchFilterType.GetDocByID,
-            get {
-                collection("users", "_id" eq userIds.random(Benchmark.seed.asKotlinRandom()))
-                connection("practices", "hobbies")
-            }),
-        BenchmarkQuery(
-            "connection id in list", 3, 1, BenchFilterType.IdInList,
-            get {
-                collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
-                connection("practices", "hobbies")
-            }),
-        BenchmarkQuery(
-            "connection id in list only", 3, 1, BenchFilterType.IdInList,
-            get {
-                collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20), "name")
-                connection(
-                    "practices",
-                    "hobbies",
-                    connectionOnly = listOf("years_active"),
-                    collectionOnly = listOf("name")
-                )
-            }, BenchResultType.SingleField
-        ),
-        BenchmarkQuery(
-            "connection equality", 3, 1, BenchFilterType.Equality,
-            get {
-                collection("users", "age" eq 50)
-                connection("practices", "hobbies")
-            }),
+        /*
+                BenchmarkQuery(
+                    "connection all only", 3, 0, BenchFilterType.None,
+                    get {
+                        collection("users", only = "name")
+                        connection(
+                            "practices",
+                            "hobbies",
+                            connectionOnly = listOf("years_active"),
+                            collectionOnly = listOf("name")
+                        )
+                    }, BenchResultType.SingleField, 100
+                ),
+                BenchmarkQuery(
+                    "connection filter on edge property", 3, 1, BenchFilterType.NumberRange,
+                    get {
+                        collection("users")
+                        connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
+                    }),
+                BenchmarkQuery(
+                    "connection filter on far node", 3, 1, BenchFilterType.Equality,
+                    get {
+                        collection("users")
+                        connection(
+                            "practices",
+                            "hobbies",
+                            collectionCondition = "name" eq hobbies.random(Benchmark.seed.asKotlinRandom())
+                        )
+                    }),
+                BenchmarkQuery(
+                    "connection filter near node and edge", 3, 2, BenchFilterType.NumberRange,
+                    get {
+                        collection("users", "age" lt 80)
+                        connection("practices", "hobbies", connectionCondition = "years_active" gt 10)
+                    }),
+                BenchmarkQuery(
+                    "connection get one by id", 3, 1, BenchFilterType.GetDocByID,
+                    get {
+                        collection("users", "_id" eq userIds.random(Benchmark.seed.asKotlinRandom()))
+                        connection("practices", "hobbies")
+                    }),
+                BenchmarkQuery(
+                    "connection id in list", 3, 1, BenchFilterType.IdInList,
+                    get {
+                        collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
+                        connection("practices", "hobbies")
+                    }),
+                BenchmarkQuery(
+                    "connection id in list only", 3, 1, BenchFilterType.IdInList,
+                    get {
+                        collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20), "name")
+                        connection(
+                            "practices",
+                            "hobbies",
+                            connectionOnly = listOf("years_active"),
+                            collectionOnly = listOf("name")
+                        )
+                    }, BenchResultType.SingleField
+                ),
+                BenchmarkQuery(
+                    "connection equality", 3, 1, BenchFilterType.Equality,
+                    get {
+                        collection("users", "age" eq 50)
+                        connection("practices", "hobbies")
+                    }),*/
     )
 
     val userIds = mutableListOf<UUID>()

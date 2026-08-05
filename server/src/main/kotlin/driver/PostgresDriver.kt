@@ -28,6 +28,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import org.postgresql.util.PGobject
 import java.sql.Connection
+import java.sql.ResultSet
 import java.util.UUID
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -262,13 +263,13 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                             val value = rs.getObject(column)
                             if (column.endsWith("._dynamic_data")) {
                                 val segment = column.split(".").first()
-                                val jsonData = Json.parseToJsonElement((value as PGobject).value ?: "{}")
+                                val jsonData = Json.parseToJsonElement((value as PGobject?)?.value ?: "{}")
                                 for ((key, parsedValue) in jsonData.jsonObject) {
                                     put("${segment}.$key", parsedValue.toPolyValue())
                                 }
                             } else {
                                 if (column.startsWith("_dyn.")) {
-                                    val json = Json.parseToJsonElement((value as PGobject).value ?: "{}")
+                                    val json = Json.parseToJsonElement((value as PGobject?)?.value ?: "{}")
                                     put(column.substring(5), json.toPolyValue())
                                 } else {
                                     put(column, value)
@@ -409,16 +410,22 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     )
                 }
             } else {
+                val tableName = if (isConnection) {
+                    val model = DatabaseManager.getConnectionModel(segmentName)
+                    "ps_con_${model.collection1Name}__${model.name}__${model.collection2Name}"
+                } else {
+                    "ps_col_${segmentName}"
+                }
                 for (f in only) {
                     if (schema.containsKey(f)) {
                         // column data
                         projections.add(
-                            "${quoteIdentifier("ps_col_${segmentName}")}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
+                            "${quoteIdentifier(tableName)}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
                         )
                     } else {
                         // dynamic data
                         projections.add(
-                            "${quoteIdentifier("ps_col_${segmentName}")}._dynamic_data->'$f' AS ${quoteIdentifier("_dyn.${segmentName}.$f")}"
+                            "${quoteIdentifier(tableName)}._dynamic_data->'$f' AS ${quoteIdentifier("_dyn.${segmentName}.$f")}"
                         )
                     }
                 }
