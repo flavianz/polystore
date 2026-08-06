@@ -8,6 +8,7 @@ import ch.flavianz.query.DriverType
 import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyExecutionEnvironment
 import ch.flavianz.query.GetQueryResult
+import ch.flavianz.stat.BenchmarkQuery
 import ch.flavianz.stat.DurationMeasurement
 import ch.flavianz.stat.MeasurementPhase
 import java.sql.Connection
@@ -78,12 +79,10 @@ object DriverManager {
     fun benchmarkGet(
         iterations: Int,
         runId: Int,
-        queryShape: String,
         collectionSize: Int,
-        depth: Int,
-        filterCount: Int,
-        query: GetQuery
+        benchmarkQuery: BenchmarkQuery
     ): List<DurationMeasurement> {
+        val (queryShape, depth, filterCount, filterType, query, benchResultType, _, dynamicData) = benchmarkQuery
         val measurements = mutableListOf<DurationMeasurement>()
         val results = mutableListOf<Set<PolyData>>()
 
@@ -99,19 +98,23 @@ object DriverManager {
                     results.add(result.data.toSet())
                 }
                 if (i == 1) {
-                    check(results.distinct().size == 1) { "not all drivers returned the same result for query '${queryShape}:\npostgres:${results[0]}\nmongo:${results[1]}\nneo4j:${results[2]}'" }
+                    check(results.distinct().size == 1) { "not all drivers returned the same result for query '${queryShape}:\npostgres:(size ${results[0].size})${results[0]}\nmongo:(size ${results[1].size})${results[1]}\nneo4j:(size ${results[2].size})${results[2]}'" }
                     println("driver results equal")
                 }
                 measurements.add(
                     DurationMeasurement(
-                        runId, queryShape, driver.second, collectionSize, depth, filterCount,
-                        MeasurementPhase.Build, i, result.duration.queryBuildingDuration
-                    )
-                )
-                measurements.add(
-                    DurationMeasurement(
-                        runId, queryShape, driver.second, collectionSize, depth, filterCount,
-                        MeasurementPhase.Exec, i, result.duration.queryExecutionDuration
+                        runId,
+                        queryShape,
+                        driver.second,
+                        collectionSize,
+                        depth,
+                        filterCount,
+                        filterType,
+                        benchResultType,
+                        dynamicData,
+                        MeasurementPhase.Build,
+                        i,
+                        result.duration.queryBuildingDuration
                     )
                 )
                 measurements.add(
@@ -122,6 +125,22 @@ object DriverManager {
                         collectionSize,
                         depth,
                         filterCount,
+                        filterType,
+                        benchResultType,
+                        dynamicData,
+                        MeasurementPhase.Exec,
+                        i,
+                        result.duration.queryExecutionDuration
+                    )
+                )
+                measurements.add(
+                    DurationMeasurement(
+                        runId,
+                        queryShape,
+                        driver.second,
+                        collectionSize,
+                        depth,
+                        filterCount, filterType, benchResultType, dynamicData,
                         MeasurementPhase.Total,
                         i,
                         result.duration.queryBuildingDuration.plus(result.duration.queryExecutionDuration)

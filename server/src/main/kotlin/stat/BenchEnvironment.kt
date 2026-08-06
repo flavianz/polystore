@@ -23,11 +23,7 @@ abstract class BenchEnvironment(val benchEnvName: String) {
                     DriverManager.benchmarkGet(
                         iterations,
                         runId,
-                        query.queryShape,
-                        collectionSize,
-                        query.depth,
-                        query.filterCount,
-                        query.query
+                        collectionSize, query
                     )
                 )
             } else {

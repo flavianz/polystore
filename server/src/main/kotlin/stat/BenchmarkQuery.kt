@@ -9,5 +9,6 @@ data class BenchmarkQuery(
     val filterType: BenchFilterType,
     val query: GetQuery,
     val benchResultType: BenchResultType = BenchResultType.EntireDoc,
-    val sizeLimit: Int? = null
+    val sizeLimit: Int? = null,
+    val dynamicData: Boolean = false
 )

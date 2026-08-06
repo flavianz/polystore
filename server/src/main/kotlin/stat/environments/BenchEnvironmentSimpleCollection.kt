@@ -29,7 +29,7 @@ class BenchEnvironmentSimpleCollection(
         ),
         BenchmarkQuery(
             "collection all only", 1, 0, BenchFilterType.None,
-            get { collection("users", only = "name") }, BenchResultType.SingleField, 100
+            get { collection("users", only = "name") }, BenchResultType.Only, 100
         ),
         BenchmarkQuery(
             "collection 1 range filter", 1, 1, BenchFilterType.NumberRange,
@@ -48,8 +48,14 @@ class BenchEnvironmentSimpleCollection(
             1,
             1,
             BenchFilterType.IdInList,
-            get { collection("users", "_id" isIn ids.shuffled(Benchmark.seed.asKotlinRandom()).take(20)) },
-            BenchResultType.SingleField
+            get {
+                collection(
+                    "users",
+                    "_id" isIn ids.shuffled(Benchmark.seed.asKotlinRandom()).take(20),
+                    only = listOf("_id", "name")
+                )
+            },
+            BenchResultType.Only
         ),
         BenchmarkQuery(
             "collection int equality", 1, 1, BenchFilterType.Equality,
@@ -61,7 +67,7 @@ class BenchEnvironmentSimpleCollection(
             "collection string equality multiple", 1, 1, BenchFilterType.Equality,
             get { collection("users", "name" eq multipleString) }),
         BenchmarkQuery(
-            "collection string in list", 1, 1, BenchFilterType.Equality,
+            "collection string in list", 1, 1, BenchFilterType.ValueInList,
             get { collection("users", "name" isIn names.shuffled(Benchmark.seed.asKotlinRandom()).take(10)) }),
     )
 

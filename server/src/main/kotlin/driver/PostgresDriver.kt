@@ -251,7 +251,6 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         appendWhere(sql, query.path)
         appendLimit(sql, query.limit)
 
-        println(sql)
         val data = measureTimedValue {
             val rs = connection.prepareStatement(sql.toString()).executeQuery()
             buildList {

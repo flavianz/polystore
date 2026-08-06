@@ -29,7 +29,7 @@ class BenchEnvironmentVeryDeepSubCollection(
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, sizeLimit = 100
+            }, BenchResultType.Only, sizeLimit = 100
         ),
         BenchmarkQuery(
             "very deep sub collection all", 5, 0, BenchFilterType.None,
@@ -39,27 +39,27 @@ class BenchEnvironmentVeryDeepSubCollection(
                 collection("grandchildren")
                 collection("great_grandchildren")
                 collection("great_great_grandchildren")
-            }, BenchResultType.SingleField, 100
+            }, sizeLimit = 100
         ),
         BenchmarkQuery(
-            "very deep sub collection filter all", 5, 0, BenchFilterType.NumberRange,
+            "very deep sub collection filter all only", 5, 0, BenchFilterType.NumberRange,
             get {
                 collection("users", "age" gt 79, only = "name")
                 collection("children", "age" gt 79, only = "name")
                 collection("grandchildren", "age" gt 79, only = "name")
                 collection("great_grandchildren", "age" gt 79, only = "name")
                 collection("great_great_grandchildren", "age" gt 79, only = "name")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
-            "very deep sub collection one doc by id", 5, 0, BenchFilterType.GetDocByID,
+            "very deep sub collection one doc by id only", 5, 0, BenchFilterType.GetDocByID,
             get {
                 collection("users", "_id" eq oneId, only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
             "very deep sub collection id in list", 5, 0, BenchFilterType.IdInList,
@@ -67,7 +67,6 @@ class BenchEnvironmentVeryDeepSubCollection(
                 collection(
                     "users",
                     "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20),
-                    only = "name"
                 )
                 collection("children")
                 collection("grandchildren")
@@ -86,57 +85,57 @@ class BenchEnvironmentVeryDeepSubCollection(
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
-            "very deep sub collection int equality", 5, 0, BenchFilterType.Equality,
+            "very deep sub collection int equality only", 5, 0, BenchFilterType.Equality,
             get {
                 collection("users", "age" eq 50, only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
-            "very deep sub collection int equality middle", 5, 0, BenchFilterType.Equality,
+            "very deep sub collection int equality middle only", 5, 0, BenchFilterType.Equality,
             get {
                 collection("users", only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", "name" eq middleName, only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
-            "very deep sub collection string equality", 5, 0, BenchFilterType.Equality,
+            "very deep sub collection string equality only", 5, 0, BenchFilterType.Equality,
             get {
                 collection("users", "name" eq names.random(Benchmark.seed.asKotlinRandom()), only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
-            "very deep sub collection string equality multiple", 5, 0, BenchFilterType.Equality,
+            "very deep sub collection string equality multiple only", 5, 0, BenchFilterType.Equality,
             get {
                 collection("users", "name" eq multipleString, only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
-            "very deep sub collection string in list", 5, 0, BenchFilterType.Equality,
+            "very deep sub collection string in list only", 5, 0, BenchFilterType.ValueInList,
             get {
                 collection("users", "name" isIn names.shuffled(Benchmark.seed.asKotlinRandom()).take(10), only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
                 collection("great_grandchildren", only = "name")
                 collection("great_great_grandchildren", only = "name")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
     )
 

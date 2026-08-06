@@ -35,7 +35,7 @@ class BenchEnvironmentDeepSubCollection(
                 collection("users", only = "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
-            }, BenchResultType.SingleField, 100
+            }, BenchResultType.Only, 100
         ),
         BenchmarkQuery(
             "deep sub collection grand child range filter", 3, 1, BenchFilterType.NumberRange,
@@ -86,7 +86,8 @@ class BenchEnvironmentDeepSubCollection(
                 collection("users", "_id" isIn userIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20), "name")
                 collection("children", only = "name")
                 collection("grandchildren", only = "name")
-            }),
+            }, BenchResultType.Only
+        ),
         BenchmarkQuery(
             "deep sub collection equality", 2, 1, BenchFilterType.Equality,
             get {

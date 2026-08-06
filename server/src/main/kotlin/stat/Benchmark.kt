@@ -3,8 +3,9 @@ package ch.flavianz.stat
 import ch.flavianz.core.DatabaseManager
 import ch.flavianz.stat.environments.BenchEnvironmentConnection
 import ch.flavianz.stat.environments.BenchEnvironmentDeepSubCollection
-import ch.flavianz.stat.environments.BenchEnvironmentSubCollection
+import ch.flavianz.stat.environments.BenchEnvironmentDynamicData
 import ch.flavianz.stat.environments.BenchEnvironmentSimpleCollection
+import ch.flavianz.stat.environments.BenchEnvironmentSubCollection
 import ch.flavianz.stat.environments.BenchEnvironmentVeryDeepSubCollection
 import net.datafaker.Faker
 import java.io.File
@@ -15,8 +16,8 @@ object Benchmark {
     val seed = Random(55L)
     val faker = Faker(seed)
 
-    const val RUN_ID = 9
-    const val ITERATIONS = 1000
+    const val RUN_ID = 10
+    const val ITERATIONS = 2
 
     fun startBenchmark() {
         val start = System.nanoTime()
@@ -30,17 +31,18 @@ object Benchmark {
         }
 
         val environmentTypes = listOf(
-            /*::BenchEnvironmentSimpleCollection,
+            ::BenchEnvironmentSimpleCollection,
             ::BenchEnvironmentSubCollection,
             ::BenchEnvironmentDeepSubCollection,
-            ::BenchEnvironmentVeryDeepSubCollection,*/
-            ::BenchEnvironmentConnection
+            ::BenchEnvironmentVeryDeepSubCollection,
+            ::BenchEnvironmentConnection,
+            ::BenchEnvironmentDynamicData
         )
-        val depths = listOf(100/*, 2000, 10000*/)
+        val collectionSizes = listOf(100/*, 2000, 10000*/)
 
         val environments = buildList {
             for (envType in environmentTypes) {
-                for (depth in depths) {
+                for (depth in collectionSizes) {
                     add(envType(RUN_ID, depth))
                 }
             }
@@ -54,9 +56,9 @@ object Benchmark {
                     append("\n")
                 }
             }
-            File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\bench-data-raw.csv").appendText(
+            /*File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\bench-data-raw.csv").appendText(
                 csv
-            )
+            )*/
         }
         println("bench done in ${(System.nanoTime() - start).nanoseconds} s")
     }

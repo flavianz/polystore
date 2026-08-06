@@ -41,7 +41,7 @@ class BenchEnvironmentConnection(
                     connectionOnly = listOf("years_active"),
                     collectionOnly = listOf("name")
                 )
-            }, BenchResultType.SingleField, 100
+            }, BenchResultType.Only, 100
         ),
         BenchmarkQuery(
             "connection filter on edge property", 3, 1, BenchFilterType.NumberRange,
@@ -87,7 +87,7 @@ class BenchEnvironmentConnection(
                     connectionOnly = listOf("years_active"),
                     collectionOnly = listOf("name")
                 )
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
             "connection equality", 3, 1, BenchFilterType.Equality,

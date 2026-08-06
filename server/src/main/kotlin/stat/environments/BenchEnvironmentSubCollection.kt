@@ -29,11 +29,11 @@ class BenchEnvironmentSubCollection(
             }, sizeLimit = 100
         ),
         BenchmarkQuery(
-            "sub collection collect all", 2, 0, BenchFilterType.None,
+            "sub collection collect all only", 2, 0, BenchFilterType.None,
             get {
                 collection("users", only = "name")
                 collection("children", only = "name")
-            }, BenchResultType.SingleField, sizeLimit = 100
+            }, BenchResultType.Only, sizeLimit = 100
         ),
         BenchmarkQuery(
             "sub collection child range filter", 2, 1, BenchFilterType.NumberRange,
@@ -60,7 +60,7 @@ class BenchEnvironmentSubCollection(
                 collection("children")
             }),
         BenchmarkQuery(
-            "sub collection id in list", 2, 1, BenchFilterType.GetDocByID,
+            "sub collection id in list", 2, 1, BenchFilterType.IdInList,
             get {
                 collection("users", "_id" isIn parentIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
                 collection("children")
@@ -68,9 +68,13 @@ class BenchEnvironmentSubCollection(
         BenchmarkQuery(
             "sub collection id in list only", 2, 1, BenchFilterType.IdInList,
             get {
-                collection("users", "_id" isIn parentIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20))
+                collection(
+                    "users",
+                    "_id" isIn parentIds.shuffled(Benchmark.seed.asKotlinRandom()).take(20),
+                    only = listOf("_id", "name")
+                )
                 collection("children")
-            }, BenchResultType.SingleField
+            }, BenchResultType.Only
         ),
         BenchmarkQuery(
             "sub collection equality", 2, 1, BenchFilterType.Equality,
@@ -85,7 +89,7 @@ class BenchEnvironmentSubCollection(
                 collection("children")
             }),
         BenchmarkQuery(
-            "sub collection string in list", 2, 1, BenchFilterType.Equality,
+            "sub collection string in list", 2, 1, BenchFilterType.ValueInList,
             get {
                 collection("users", "name" isIn names.shuffled(Benchmark.seed.asKotlinRandom()).take(10))
                 collection("children")

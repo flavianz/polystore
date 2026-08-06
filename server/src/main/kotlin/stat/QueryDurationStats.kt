@@ -24,11 +24,14 @@ data class DurationMeasurement(
     val collectionSize: Int,
     val depth: Int,
     val filterCount: Int,
+    val filterType: BenchFilterType,
+    val benchResultType: BenchResultType = BenchResultType.EntireDoc,
+    val dynamicData: Boolean,
     val phase: MeasurementPhase,
     val iteration: Int,
     val duration: Duration
 ) {
     fun toCsvRow(): String {
-        return "$runId;$queryShape;$driver;$collectionSize;$depth;$filterCount;$phase;$iteration;${duration.inWholeMicroseconds}"
+        return "$runId;$queryShape;$driver;$collectionSize;$depth;$filterCount;$filterType;$benchResultType;$dynamicData;$phase;$iteration;${duration.inWholeMicroseconds}"
     }
 }
