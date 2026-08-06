@@ -351,7 +351,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                         collectionModel.childCollections.map { "_sub_${it}" } +
                                 (collectionModel.getConnectedCollections()
                                     .map { "_con_${it}" } - "_con_${connectionSegment.connectionName}")
-                    ) else Projections.include(collectionSegment.only - "_con_${connectionSegment.connectionName}")
+                    ) else Projections.include(collectionSegment.only + "_con_${connectionSegment.connectionName}")
                     val query = mongoCollection.find(
                         if (filters.isEmpty()) Filters.empty() else Filters.and(filters)
                     ).projection(
