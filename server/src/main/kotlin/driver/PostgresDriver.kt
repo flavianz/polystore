@@ -487,23 +487,32 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             buildList {
                 when (segment) {
                     is QuerySegment.Collection -> {
+                        val collectionModel = DatabaseManager.getCollectionModel(segment.name)
                         if (segment.condition != null) {
                             val col = path[i - 1].collectionName()
                             val pgTable = "ps_col_${col}"
-                            add(translateCondition(segment.condition, pgTable))
+                            add(translateCondition(collectionModel.schema, segment.condition, pgTable))
                         }
                     }
 
                     is QuerySegment.Connection -> {
                         if (segment.collectionCondition != null) {
+                            val collectionModel = DatabaseManager.getCollectionModel(segment.collectionName)
                             val col = path[i - 1].collectionName()
                             val pgTable = "ps_col_${col}"
-                            add(translateCondition(segment.collectionCondition, pgTable))
+                            add(translateCondition(collectionModel.schema, segment.collectionCondition, pgTable))
                         }
                         if (segment.connectionCondition != null) {
+                            val connectionModel = DatabaseManager.getConnectionModel(segment.connectionName)
                             val con = DatabaseManager.getConnectionModel(segment.connectionName)
                             val pgTable = "ps_con_${con.toPostgresPath()}"
-                            add(translateCondition(segment.connectionCondition, pgTable))
+                            add(
+                                translateCondition(
+                                    connectionModel.connectionDataSchema,
+                                    segment.connectionCondition,
+                                    pgTable
+                                )
+                            )
                         }
                     }
                 }
@@ -521,45 +530,54 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
     }
 
-    private fun translateCondition(condition: Condition, tableAlias: String): String {
+    private fun translateCondition(schema: PolySchema, condition: Condition, tableAlias: String): String {
         return when (condition) {
-            is Condition.Comparison.Equals -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier(condition.field)} = ${
-                prepareValue(
-                    condition.value
-                )
-            }"
-
-            is Condition.Comparison.GreaterThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier(condition.field)} > ${
-                prepareValue(
-                    condition.value
-                )
-            }"
-
-            is Condition.Comparison.LessThan -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier(condition.field)} < ${
-                prepareValue(
-                    condition.value
-                )
-            }"
+            is Condition.Comparison -> {
+                val isColumnValue = schema.containsKey(condition.field)
+                val dataSelector = if (isColumnValue) "${quoteIdentifier(tableAlias)}.${
+                    quoteIdentifier(
+                        condition.field
+                    )
+                }" else "${quoteIdentifier(tableAlias)}.${"_dynamic_data"}->'${condition.field}'"
+                val preparedValue =
+                    if (isColumnValue) prepareValue(condition.value) else prepareDynamicValue(condition.value)
+                when (condition) {
+                    is Condition.Comparison.Equals -> "$dataSelector = $preparedValue"
+                    is Condition.Comparison.GreaterThan -> "$dataSelector > $preparedValue"
+                    is Condition.Comparison.LessThan -> "$dataSelector < $preparedValue"
+                }
+            }
 
             is Condition.Logic.And -> "(${
                 translateCondition(
+                    schema,
                     condition.left,
                     tableAlias
                 )
-            } AND ${translateCondition(condition.right, tableAlias)})"
+            } AND ${translateCondition(schema, condition.right, tableAlias)})"
 
             is Condition.Logic.Or -> "(${
                 translateCondition(
+                    schema,
                     condition.left,
                     tableAlias
                 )
-            } OR ${translateCondition(condition.right, tableAlias)})"
+            } OR ${translateCondition(schema, condition.right, tableAlias)})"
 
-            is Condition.Not -> "NOT (${translateCondition(condition.condition, tableAlias)})"
+            is Condition.Not -> "NOT (${translateCondition(schema, condition.condition, tableAlias)})"
 
-            is Condition.In -> "${quoteIdentifier(tableAlias)}.${quoteIdentifier(condition.field)} IN (${
-                condition.list.joinToString(",") { prepareValue(it) }
-            })"
+            is Condition.In -> {
+                val isColumnValue = schema.containsKey(condition.field)
+                val dataSelector = if (isColumnValue) "${quoteIdentifier(tableAlias)}.${
+                    quoteIdentifier(
+                        condition.field
+                    )
+                }" else "${quoteIdentifier(tableAlias)}.${"_dynamic_data"}->'${condition.field}'"
+
+                "$dataSelector IN (${
+                    condition.list.joinToString(",") { if (isColumnValue) prepareValue(it) else prepareDynamicValue(it) }
+                })"
+            }
         }
     }
 
@@ -567,6 +585,28 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         // Reject anything that's not a safe identifier character
         require(name.matches("[a-zA-Z_.][a-zA-Z0-9_.]*".toRegex())) { "Invalid identifier: $name" }
         return "\"${name}\""
+    }
+
+    private fun prepareDynamicValue(value: Any?): String {
+        return when (value) {
+            is String -> {
+                "'\"$value\"'::jsonb"
+            }
+
+            is UUID -> """
+                '{"type": "uuid", "value": "$value"}'::jsonb
+            """.trimIndent()
+
+            is Int, is Float, is Boolean -> {
+                "'${value}'::jsonb"
+            }
+
+            null -> {
+                "'null'::jsonb"
+            }
+
+            else -> throw IllegalArgumentException("illegal type ${value.javaClass.name}")
+        }
     }
 
     private fun prepareValue(value: Any?): String {

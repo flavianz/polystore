@@ -5,6 +5,7 @@ import ch.flavianz.driver.DriverManager
 import ch.flavianz.model.CollectionModel
 import ch.flavianz.driver.DatabaseDriver
 import ch.flavianz.model.ConnectionModel
+import ch.flavianz.model.DataType
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolySchema
 import ch.flavianz.query.QueryPath
@@ -184,8 +185,8 @@ object DatabaseManager {
 
     }
 
-    fun get(block: GetQueryBuilder.() -> Unit) {
-        get(GetQueryBuilder().apply(block).build())
+    fun get(block: GetQueryBuilder.() -> Unit): PolyQueryResult {
+        return get(GetQueryBuilder().apply(block).build())
     }
 
     fun get(query: GetQuery): PolyQueryResult {
@@ -331,11 +332,11 @@ object DatabaseManager {
     private fun validateConditionFields(condition: Condition, schema: PolySchema, allowIdField: Boolean) {
         when (condition) {
             is Condition.Comparison.Equals, is Condition.Comparison.GreaterThan, is Condition.Comparison.LessThan -> {
-                if (!(allowIdField && condition.field == "_id" && condition.value is UUID)) {
-                    val fieldType = schema[condition.field]
-                    require(fieldType != null) { "Unknown field: ${condition.field}" }
-                    check(fieldType.matchesType(condition.value)) { "condition value ${condition.value} does not match field type $fieldType" }
+                if (allowIdField && condition.field == "_id" && condition.value is UUID) {
+                    return
                 }
+                val fieldType = schema[condition.field] ?: return /*filter on dynamic data*/
+                check(fieldType.matchesType(condition.value)) { "condition value ${condition.value} does not match field type $fieldType" }
             }
 
             is Condition.Logic.And, is Condition.Logic.Or -> {
@@ -348,10 +349,16 @@ object DatabaseManager {
 
             is Condition.Not -> validateConditionFields(condition.condition, schema, allowIdField)
             is Condition.In -> {
-                if (!(allowIdField && condition.field == "_id")) {
-                    val fieldType = schema[condition.field]
-                    require(fieldType != null) { "Unknown field: ${condition.field}" }
+                if (allowIdField && condition.field == "_id" &&
+                    condition.list.filterIsInstance<UUID>().size == condition.list.size /*only allow filter on uuid*/) {
+                    return
                 }
+
+                val fieldType = schema[condition.field] ?: return
+                require(fieldType != DataType.NULL) { "cannot check for array membership of null field" }
+                require(condition.list.filter {
+                    fieldType.toType().isInstance(it)
+                }.size == condition.list.size) { "Unknown field: ${condition.field}" }
             }
         }
     }

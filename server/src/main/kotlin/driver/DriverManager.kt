@@ -154,6 +154,10 @@ object DriverManager {
         )
     }
 
+    fun chooseDriver(query: GetQuery) {
+
+    }
+
     /*fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
         return getActiveDriver().count(query.path, terminal)
     }*/

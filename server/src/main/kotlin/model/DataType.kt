@@ -2,6 +2,7 @@ package ch.flavianz.model
 
 import kotlinx.serialization.Serializable
 import java.util.UUID
+import kotlin.reflect.KClass
 
 @Serializable
 enum class DataType {
@@ -21,6 +22,17 @@ enum class DataType {
             is UUID -> this == UUID
             null -> this == NULL
             else -> false
+        }
+    }
+
+    fun toType(): KClass<*> {
+        return when (this) {
+            INT -> Int::class
+            STRING -> String::class
+            FLOAT -> Float::class
+            UUID -> UUID::class
+            BOOLEAN -> Boolean::class
+            NULL -> throw IllegalArgumentException("cannot get type of null")
         }
     }
 

@@ -8,7 +8,9 @@ import ch.flavianz.model.CollectionModel
 import ch.flavianz.model.ConnectionModel
 import ch.flavianz.model.DataType
 import ch.flavianz.query.PolyResultData
+import ch.flavianz.query.eq
 import ch.flavianz.query.get
+import ch.flavianz.query.lt
 import com.mongodb.client.model.Filters
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
@@ -376,6 +378,62 @@ abstract class DriversTest {
         )
         val responseOnly = DatabaseManager.get(get {
             collection("test", only = listOf("name", "age", "someId", "male"))
+        })
+        assertEquals(
+            setOf(
+                mapOf(
+                    "test.name" to "Tim",
+                    "test.age" to 18,
+                    "test.someId" to randomId,
+                    "test.male" to true
+                )
+            ), (responseOnly.resultData as PolyResultData.Documents).polyData.toSet()
+        )
+        DatabaseManager.dropCollection("test")
+    }
+
+    @Test
+    fun `insert doc with dynamic data and filter on dynamic data`() {
+        DatabaseManager.createCollection(
+            "test", mapOf(
+                "name" to DataType.STRING,
+                "age" to DataType.INT,
+            )
+        )
+        val randomId = UUID.randomUUID()
+        val docId = DatabaseManager.insertDocument(
+            "test", mapOf(
+                "name" to "Tim",
+                "age" to 18,
+                "someId" to randomId,
+                "male" to true
+            )
+        )
+        DatabaseManager.insertDocument(
+            "test", mapOf(
+                "name" to "Peter",
+                "age" to 20,
+                "someId" to UUID.randomUUID(),
+                "male" to false
+            )
+        )
+        val response = DatabaseManager.get(get {
+            collection("test", "male" eq true)
+        })
+        println(response.executionEnvironment.executedQueries)
+        assertEquals(
+            setOf(
+                mapOf(
+                    "test._id" to docId,
+                    "test.name" to "Tim",
+                    "test.age" to 18,
+                    "test.someId" to randomId,
+                    "test.male" to true
+                )
+            ), (response.resultData as PolyResultData.Documents).polyData.toSet()
+        )
+        val responseOnly = DatabaseManager.get(get {
+            collection("test", "someId" eq randomId, only = listOf("name", "age", "someId", "male"))
         })
         assertEquals(
             setOf(
