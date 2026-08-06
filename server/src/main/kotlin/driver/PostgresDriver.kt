@@ -251,6 +251,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         appendWhere(sql, query.path)
         appendLimit(sql, query.limit)
 
+        println(sql)
         val data = measureTimedValue {
             val rs = connection.prepareStatement(sql.toString()).executeQuery()
             buildList {
@@ -417,7 +418,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     "ps_col_${segmentName}"
                 }
                 for (f in only) {
-                    if (schema.containsKey(f)) {
+                    if ((f == "_id" && !isConnection) || schema.containsKey(f)) {
                         // column data
                         projections.add(
                             "${quoteIdentifier(tableName)}.${quoteIdentifier(f)} AS ${quoteIdentifier("${segmentName}.$f")}"
@@ -491,7 +492,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                         if (segment.condition != null) {
                             val col = path[i - 1].collectionName()
                             val pgTable = "ps_col_${col}"
-                            add(translateCondition(collectionModel.schema, segment.condition, pgTable))
+                            add(translateCondition(collectionModel.schema, segment.condition, pgTable, false))
                         }
                     }
 
@@ -500,7 +501,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                             val collectionModel = DatabaseManager.getCollectionModel(segment.collectionName)
                             val col = path[i - 1].collectionName()
                             val pgTable = "ps_col_${col}"
-                            add(translateCondition(collectionModel.schema, segment.collectionCondition, pgTable))
+                            add(translateCondition(collectionModel.schema, segment.collectionCondition, pgTable, false))
                         }
                         if (segment.connectionCondition != null) {
                             val connectionModel = DatabaseManager.getConnectionModel(segment.connectionName)
@@ -510,7 +511,8 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                                 translateCondition(
                                     connectionModel.connectionDataSchema,
                                     segment.connectionCondition,
-                                    pgTable
+                                    pgTable,
+                                    true
                                 )
                             )
                         }
@@ -530,10 +532,15 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         }
     }
 
-    private fun translateCondition(schema: PolySchema, condition: Condition, tableAlias: String): String {
+    private fun translateCondition(
+        schema: PolySchema,
+        condition: Condition,
+        tableAlias: String,
+        isConnection: Boolean
+    ): String {
         return when (condition) {
             is Condition.Comparison -> {
-                val isColumnValue = schema.containsKey(condition.field)
+                val isColumnValue = (condition.field == "_id" && !isConnection) || schema.containsKey(condition.field)
                 val dataSelector = if (isColumnValue) "${quoteIdentifier(tableAlias)}.${
                     quoteIdentifier(
                         condition.field
@@ -552,22 +559,22 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 translateCondition(
                     schema,
                     condition.left,
-                    tableAlias
+                    tableAlias, isConnection
                 )
-            } AND ${translateCondition(schema, condition.right, tableAlias)})"
+            } AND ${translateCondition(schema, condition.right, tableAlias, isConnection)})"
 
             is Condition.Logic.Or -> "(${
                 translateCondition(
                     schema,
                     condition.left,
-                    tableAlias
+                    tableAlias, isConnection
                 )
-            } OR ${translateCondition(schema, condition.right, tableAlias)})"
+            } OR ${translateCondition(schema, condition.right, tableAlias, isConnection)})"
 
-            is Condition.Not -> "NOT (${translateCondition(schema, condition.condition, tableAlias)})"
+            is Condition.Not -> "NOT (${translateCondition(schema, condition.condition, tableAlias, isConnection)})"
 
             is Condition.In -> {
-                val isColumnValue = schema.containsKey(condition.field)
+                val isColumnValue = (condition.field == "_id" && !isConnection) || schema.containsKey(condition.field)
                 val dataSelector = if (isColumnValue) "${quoteIdentifier(tableAlias)}.${
                     quoteIdentifier(
                         condition.field

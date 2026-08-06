@@ -67,7 +67,7 @@ data class InsertConnectionRequest(
     val fields: Map<String, JsonElement>,
 )
 
-fun JsonElement.toPolyValue(): Any = when (this) {
+fun JsonElement.toPolyValue(): Any? = when (this) {
     is JsonPrimitive -> when {
         isString -> {
             if (content.length == 36) {
@@ -93,6 +93,8 @@ fun JsonElement.toPolyValue(): Any = when (this) {
             }
             throw IllegalArgumentException("Nested objects not supported")
         }
+
+        null -> null
 
         else -> throw IllegalArgumentException("Nested objects not supported")
     }
