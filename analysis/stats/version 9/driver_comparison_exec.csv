@@ -1,0 +1,154 @@
+query_shape,phase,driver_a,driver_b,median_a,median_b,p_value,cliffs_delta
+collection 1 range filter,exec,mongo,neo4j,2113.0,2595.0,2.2408723326712767e-34,-0.18441441278891435
+collection 1 range filter,exec,mongo,postgres,2113.0,584.0,0.0,0.7575376571860091
+collection 1 range filter,exec,neo4j,postgres,2595.0,584.0,0.0,0.9966997727165252
+collection 3 range filter,exec,mongo,neo4j,2162.0,2556.0,2.3336563898365846e-22,-0.14636097831039035
+collection 3 range filter,exec,mongo,postgres,2162.0,603.0,0.0,0.7643361485112858
+collection 3 range filter,exec,neo4j,postgres,2556.0,603.0,0.0,0.9955722958086997
+collection all,exec,mongo,neo4j,1156.0,4685.0,3.5800678917483073e-295,-1.0
+collection all,exec,mongo,postgres,1156.0,640.0,6.621571897799772e-279,0.964305487315302
+collection all,exec,neo4j,postgres,4685.0,640.0,2.777912062566545e-296,1.0
+collection all only,exec,mongo,neo4j,913.0,3175.0,1.3938611388983805e-300,-1.0
+collection all only,exec,mongo,postgres,913.0,410.0,8.004781770467716e-303,1.0
+collection all only,exec,neo4j,postgres,3175.0,410.0,1.739302298098383e-304,1.0
+collection get by id,exec,mongo,neo4j,494.0,1108.0,0.0,-0.9657193152709371
+collection get by id,exec,mongo,postgres,494.0,337.0,0.0,0.6832553896972171
+collection get by id,exec,neo4j,postgres,1108.0,337.0,0.0,0.9999687770922507
+collection id in list,exec,mongo,neo4j,878.0,1639.5,0.0,-0.9676499026149693
+collection id in list,exec,mongo,postgres,878.0,576.0,0.0,0.8654789105074251
+collection id in list,exec,neo4j,postgres,1639.5,576.0,0.0,0.9999215750229041
+collection id in list only,exec,mongo,neo4j,813.0,1461.0,0.0,-0.9684163564814225
+collection id in list only,exec,mongo,postgres,813.0,564.0,0.0,0.7930622119692857
+collection id in list only,exec,neo4j,postgres,1461.0,564.0,0.0,0.9984079681195616
+collection int equality,exec,mongo,neo4j,2119.5,2500.0,1.2618126126028267e-06,-0.07289425640848436
+collection int equality,exec,mongo,postgres,2119.5,581.0,0.0,0.6878044479278926
+collection int equality,exec,neo4j,postgres,2500.0,581.0,0.0,0.9069544512460078
+collection string equality,exec,mongo,neo4j,2075.0,2355.5,0.000706410891523719,-0.05093939498544421
+collection string equality,exec,mongo,postgres,2075.0,582.0,0.0,0.6713923832302279
+collection string equality,exec,neo4j,postgres,2355.5,582.0,0.0,0.8357168057140699
+collection string equality multiple,exec,mongo,neo4j,2079.5,2366.5,0.00022091643719275347,-0.055561901252763446
+collection string equality multiple,exec,mongo,postgres,2079.5,583.5,0.0,0.6654671646078713
+collection string equality multiple,exec,neo4j,postgres,2366.5,583.5,0.0,0.833995486366986
+collection string in list,exec,mongo,neo4j,2284.5,2697.0,9.04804606932107e-08,-0.08036277738503715
+collection string in list,exec,mongo,postgres,2284.5,670.0,0.0,0.6261985143619345
+collection string in list,exec,neo4j,postgres,2697.0,670.0,0.0,0.769225522254629
+connection all,exec,mongo,neo4j,1192.5,2894.5,8.371927095093896e-299,-1.0
+connection all,exec,mongo,postgres,1192.5,1298.0,1.831422670654384e-27,-0.29055010303195145
+connection all,exec,neo4j,postgres,2894.5,1298.0,1.1984307631289282e-298,1.0
+connection all only,exec,mongo,neo4j,1309.0,2661.0,1.385437217567447e-309,-0.9995191014258811
+connection all only,exec,mongo,postgres,1309.0,703.0,1.165954699115461e-236,0.8715767195767196
+connection all only,exec,neo4j,postgres,2661.0,703.0,0.0,1.0
+connection equality,exec,mongo,neo4j,2691.0,2795.0,0.25105934670963126,-0.017263380155561496
+connection equality,exec,mongo,postgres,2691.0,1544.5,1.227417147779078e-52,0.2295790012127064
+connection equality,exec,neo4j,postgres,2795.0,1544.5,5.510819520168995e-159,0.4040431725867882
+connection filter near node and edge,exec,mongo,neo4j,3331.0,4050.0,1.8028182068002447e-14,-0.11522160298764723
+connection filter near node and edge,exec,mongo,postgres,3331.0,1389.0,7.688267530441653e-235,0.49198521762619907
+connection filter near node and edge,exec,neo4j,postgres,4050.0,1389.0,0.0,0.666619652740659
+connection filter on edge property,exec,mongo,neo4j,3315.0,3764.0,1.0830642007714174e-07,-0.0798716025541551
+connection filter on edge property,exec,mongo,postgres,3315.0,1381.5,2.5077906152823797e-253,0.511110255673657
+connection filter on edge property,exec,neo4j,postgres,3764.0,1381.5,0.0,0.6646306992890437
+connection filter on far node,exec,mongo,neo4j,3815.5,2298.0,3.679498862146355e-112,0.33852213061901254
+connection filter on far node,exec,mongo,postgres,3815.5,1298.0,4.255836748490432e-235,0.49221488078138464
+connection filter on far node,exec,neo4j,postgres,2298.0,1298.0,7.095402019817835e-75,0.2753919491525424
+connection get one by id,exec,mongo,neo4j,580.0,1130.0,0.0,-0.9934356984509877
+connection get one by id,exec,mongo,postgres,580.0,824.5,0.0,-0.588294842342212
+connection get one by id,exec,neo4j,postgres,1130.0,824.5,2.360133011889398e-34,0.18397289059252758
+connection id in list,exec,mongo,neo4j,958.0,2066.5,0.0,-0.9997240743852733
+connection id in list,exec,mongo,postgres,958.0,1514.5,0.0,-0.595136160555989
+connection id in list,exec,neo4j,postgres,2066.5,1514.5,6.047341670471474e-80,0.2849397145527339
+connection id in list only,exec,mongo,neo4j,952.0,1721.0,0.0,-0.9700229235017477
+connection id in list only,exec,mongo,postgres,952.0,1432.5,1.736731079362963e-207,-0.4642388677942699
+connection id in list only,exec,neo4j,postgres,1721.0,1432.5,3.356053064847717e-31,0.17479423002668296
+deep sub collection child range filter,exec,mongo,neo4j,4093.5,2476.0,8.17616500117726e-27,0.16118442907966504
+deep sub collection child range filter,exec,mongo,postgres,4093.5,1524.5,0.0,0.6233958058029302
+deep sub collection child range filter,exec,neo4j,postgres,2476.0,1524.5,1.195496524523419e-281,0.5392020276910875
+"deep sub collection child, grandchild and parent range filter",exec,mongo,neo4j,3489.0,2169.0,1.7742637474235683e-45,0.2128242071614194
+"deep sub collection child, grandchild and parent range filter",exec,mongo,postgres,3489.0,1136.0,0.0,0.7201554103373163
+"deep sub collection child, grandchild and parent range filter",exec,neo4j,postgres,2169.0,1136.0,0.0,0.6942504714934529
+deep sub collection collect all,exec,mongo,neo4j,1580.0,2035.0,8.628619607334098e-251,-0.922564762490908
+deep sub collection collect all,exec,mongo,postgres,1580.0,961.0,8.400591057214913e-297,0.9999975550421144
+deep sub collection collect all,exec,neo4j,postgres,2035.0,961.0,5.902988324877217e-291,1.0
+deep sub collection collect all only,exec,mongo,neo4j,1499.5,1668.0,1.9808148395798544e-128,-0.6545007979619029
+deep sub collection collect all only,exec,mongo,postgres,1499.5,586.0,1.183619469858774e-294,1.0
+deep sub collection collect all only,exec,neo4j,postgres,1668.0,586.0,7.684425380297079e-289,1.0
+deep sub collection equality,exec,mongo,neo4j,3346.5,2760.5,1.6851038617582421e-12,0.1061344663431686
+deep sub collection equality,exec,mongo,postgres,3346.5,1500.5,2.2364365972258407e-125,0.3580666475150819
+deep sub collection equality,exec,neo4j,postgres,2760.5,1500.5,7.772963263065116e-142,0.3812673918542879
+deep sub collection get one by id,exec,mongo,neo4j,986.0,1230.0,1.5539107967558952e-283,-0.5417072628842949
+deep sub collection get one by id,exec,mongo,postgres,986.0,945.0,0.4769616774449862,-0.01070147626965451
+deep sub collection get one by id,exec,neo4j,postgres,1230.0,945.0,2.617980827559178e-29,0.169086844691388
+deep sub collection grand child range filter,exec,mongo,neo4j,13249.5,2407.0,2.8715880658413215e-205,0.4597446412036371
+deep sub collection grand child range filter,exec,mongo,postgres,13249.5,1496.0,0.0,0.7290722538864574
+deep sub collection grand child range filter,exec,neo4j,postgres,2407.0,1496.0,0.0,0.6967750240678868
+deep sub collection id in list,exec,mongo,neo4j,1556.0,1795.0,2.1241112388996847e-169,-0.41808522350180455
+deep sub collection id in list,exec,mongo,postgres,1556.0,1488.0,0.0005416881414178704,0.052060138609047464
+deep sub collection id in list,exec,neo4j,postgres,1795.0,1488.0,3.828742633947524e-37,0.19173847208430347
+deep sub collection id in list only,exec,mongo,neo4j,1650.0,1673.0,3.2989616386464595e-08,-0.08315237777564896
+deep sub collection id in list only,exec,mongo,postgres,1650.0,1404.0,1.5364192982192725e-25,0.15711970504806957
+deep sub collection id in list only,exec,neo4j,postgres,1673.0,1404.0,2.1222022332734076e-32,0.17830895446935083
+deep sub collection parent range filter,exec,mongo,neo4j,3317.5,2696.0,7.428172416774794e-16,0.12127627981928578
+deep sub collection parent range filter,exec,mongo,postgres,3317.5,1527.0,4.309034114606031e-224,0.4804895655522412
+deep sub collection parent range filter,exec,neo4j,postgres,2696.0,1527.0,2.230546256487115e-208,0.4633675712926197
+sub collection child and parent range filter,exec,mongo,neo4j,2499.0,1946.0,1.1576525887919381e-10,0.09694984363931651
+sub collection child and parent range filter,exec,mongo,postgres,2499.0,850.0,0.0,0.5696715418725161
+sub collection child and parent range filter,exec,neo4j,postgres,1946.0,850.0,0.0,0.6122913803621598
+sub collection child range filter,exec,mongo,neo4j,2566.0,2197.0,2.90986862949712e-08,0.08345518358220137
+sub collection child range filter,exec,mongo,postgres,2566.0,1052.5,6.020826923361803e-227,0.4835282964665326
+sub collection child range filter,exec,neo4j,postgres,2197.0,1052.5,0.0,0.6156113163399973
+sub collection collect all,exec,mongo,neo4j,913.0,2170.5,0.0,-0.9999864906369086
+sub collection collect all,exec,mongo,postgres,913.0,718.0,1.9116757315337798e-251,0.6328424921417805
+sub collection collect all,exec,neo4j,postgres,2170.5,718.0,0.0,1.0
+sub collection equality,exec,mongo,neo4j,2427.5,2223.0,3.2352842617788474e-06,0.06999453994746854
+sub collection equality,exec,mongo,postgres,2427.5,1025.0,1.1456485775205506e-199,0.45328654930427437
+sub collection equality,exec,neo4j,postgres,2223.0,1025.0,0.0,0.5754767868504028
+sub collection get one by id,exec,mongo,neo4j,632.0,1081.0,0.0,-0.9963722443824323
+sub collection get one by id,exec,mongo,postgres,632.0,580.0,2.1195469113085136e-22,0.14776369777616577
+sub collection get one by id,exec,neo4j,postgres,1081.0,580.0,0.0,0.6413208611937012
+sub collection id in list,exec,mongo,neo4j,850.0,1647.0,0.0,-0.9999882381315318
+sub collection id in list,exec,mongo,postgres,850.0,1033.0,2.5965709446179047e-102,-0.3262382256052692
+sub collection id in list,exec,neo4j,postgres,1647.0,1033.0,0.0,0.6685204646063924
+sub collection id in list only,exec,mongo,neo4j,843.0,1614.0,0.0,-0.9999812900545567
+sub collection id in list only,exec,mongo,postgres,843.0,1071.0,1.5096546317147285e-145,-0.3912114403034294
+sub collection id in list only,exec,neo4j,postgres,1614.0,1071.0,0.0,0.6179474525252496
+sub collection parent range filter,exec,mongo,neo4j,2376.5,2032.0,1.8955702759738372e-09,0.09037223589347564
+sub collection parent range filter,exec,mongo,postgres,2376.5,986.0,4.272541741302878e-196,0.4492470941434265
+sub collection parent range filter,exec,neo4j,postgres,2032.0,986.0,0.0,0.5906793566080202
+sub collection string equality,exec,mongo,neo4j,2316.0,1804.5,6.1415972610279966e-12,0.10339764965618747
+sub collection string equality,exec,mongo,postgres,2316.0,859.0,5.444658371624778e-190,0.442009652398736
+sub collection string equality,exec,neo4j,postgres,1804.5,859.0,3.876446186752717e-280,0.5377882160844468
+sub collection string in list,exec,mongo,neo4j,2467.0,2288.0,4.6269407437388224e-05,0.06125029455546551
+sub collection string in list,exec,mongo,postgres,2467.0,1075.0,8.736765059494059e-132,0.3672472278081011
+sub collection string in list,exec,neo4j,postgres,2288.0,1075.0,3.694629142972846e-304,0.5604960026668047
+very deep sub collection all,exec,mongo,neo4j,3062.0,3424.0,2.7523632863623935e-54,-0.4120854167365795
+very deep sub collection all,exec,mongo,postgres,3062.0,1714.0,1.0187785888701662e-304,0.992896867657251
+very deep sub collection all,exec,neo4j,postgres,3424.0,1714.0,4.11888687321795e-309,0.9998165021940933
+very deep sub collection all only,exec,mongo,neo4j,2859.0,2503.5,4.0579188338954266e-72,0.4777711233991967
+very deep sub collection all only,exec,mongo,postgres,2859.0,999.0,4.875373977088e-310,1.0
+very deep sub collection all only,exec,neo4j,postgres,2503.5,999.0,2.9254178543992e-310,0.9995613134253719
+very deep sub collection filter all,exec,mongo,neo4j,5310.5,2960.5,1.2036786928316279e-99,0.31883200737922285
+very deep sub collection filter all,exec,mongo,postgres,5310.5,1845.5,0.0,0.7351891985061764
+very deep sub collection filter all,exec,neo4j,postgres,2960.5,1845.5,7.986889955330936e-187,0.43864256889196357
+very deep sub collection id in list,exec,mongo,neo4j,2172.0,2009.0,2.6734900066889573e-82,0.28984707928761244
+very deep sub collection id in list,exec,mongo,postgres,2172.0,2147.5,0.7709994305882366,0.004386935052425742
+very deep sub collection id in list,exec,neo4j,postgres,2009.0,2147.5,7.260966401448631e-15,-0.1170533486246463
+very deep sub collection id in list only,exec,mongo,neo4j,2121.5,1770.0,0.0,0.6302492240752962
+very deep sub collection id in list only,exec,mongo,postgres,2121.5,2018.0,4.0758581451646254e-06,0.06934049451373585
+very deep sub collection id in list only,exec,neo4j,postgres,1770.0,2018.0,3.5487841928308517e-35,-0.1861973616722088
+very deep sub collection int equality,exec,mongo,neo4j,4242.0,2917.5,3.799396258876012e-65,0.2563032679437941
+very deep sub collection int equality,exec,mongo,postgres,4242.0,2026.0,8.065993080361092e-170,0.41761551278368286
+very deep sub collection int equality,exec,neo4j,postgres,2917.5,2026.0,2.804871553667984e-127,0.3608765494561093
+very deep sub collection int equality middle,exec,mongo,neo4j,15044.0,3318.0,9.70347181243879e-283,0.540298967412552
+very deep sub collection int equality middle,exec,mongo,postgres,15044.0,2025.0,0.0,0.7594798581535827
+very deep sub collection int equality middle,exec,neo4j,postgres,3318.0,2025.0,3.8883404435998635e-235,0.4923816826346396
+very deep sub collection one doc by id,exec,mongo,neo4j,1524.0,1313.5,1.8017788246610526e-45,0.21297050059780342
+very deep sub collection one doc by id,exec,mongo,postgres,1524.0,1660.5,1.1760834094443543e-24,-0.154148832768745
+very deep sub collection one doc by id,exec,neo4j,postgres,1313.5,1660.5,2.0857599007704764e-68,-0.262955213218265
+very deep sub collection string equality,exec,mongo,neo4j,3268.5,2193.0,8.186108719245676e-58,0.24106586860809762
+very deep sub collection string equality,exec,mongo,postgres,3268.5,2022.5,1.454338498545399e-107,0.33121792588336685
+very deep sub collection string equality,exec,neo4j,postgres,2193.0,2022.5,4.912379349651324e-10,0.0935807314897413
+very deep sub collection string equality multiple,exec,mongo,neo4j,3478.5,2293.0,9.416765388653424e-89,0.30038339834535766
+very deep sub collection string equality multiple,exec,mongo,postgres,3478.5,2017.0,7.557994589997211e-128,0.36163447285262856
+very deep sub collection string equality multiple,exec,neo4j,postgres,2293.0,2017.0,3.2682407429025535e-13,0.1095291518519797
+very deep sub collection string in list,exec,mongo,neo4j,4232.0,2938.5,1.3165088786402708e-93,0.30866546998515654
+very deep sub collection string in list,exec,mongo,postgres,4232.0,2112.0,7.720563512930816e-176,0.42504108014938236
+very deep sub collection string in list,exec,neo4j,postgres,2938.5,2112.0,3.8630112484553416e-106,0.3290886810038317

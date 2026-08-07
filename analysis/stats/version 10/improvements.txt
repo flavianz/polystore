@@ -1,0 +1,3 @@
+- query by dynamic data
+- more recorded data in benchmark file
+- better only projections in mongo
