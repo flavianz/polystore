@@ -1,0 +1,305 @@
+{
+  "mongo": {
+    "build": {
+      "intercept": -778.3938909455563,
+      "numeric_coefficients": {
+        "collection_size": 0.19585624341736266,
+        "depth": -423.063249820883,
+        "filter_count": -354.6257767893147,
+        "multi_query_depth": 174.38113790524724,
+        "multi_query_unpushed_filter": 3675.1861520501297,
+        "first_filtered_segment_index": 2958.309861808463
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": 1398.1063823507116,
+          "equality": 574.1236796954997,
+          "idInList": 1437.0117979150264,
+          "none": -4855.682653166046,
+          "numRange": 260.7449418969773,
+          "valueInList": 1185.6958513064367
+        },
+        "bench_result_type": {
+          "doc": -178.8772294428346,
+          "only": 178.87722944287086
+        },
+        "dynamic_data": {
+          "False": -160.69063635218762,
+          "True": 160.69063635224853
+        },
+        "requires_multi_query": {
+          "False": 473.65303275360884,
+          "True": -473.6530327532681
+        }
+      }
+    },
+    "exec": {
+      "intercept": -1135.7719359127473,
+      "numeric_coefficients": {
+        "collection_size": 0.8064051413836905,
+        "depth": -96.20170034808939,
+        "filter_count": -503.57971827166705,
+        "multi_query_depth": 26.9169606648034,
+        "multi_query_unpushed_filter": 4790.851373737893,
+        "first_filtered_segment_index": 3770.6959118613613
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": -372.26040917397523,
+          "equality": 1960.4729795950575,
+          "idInList": -87.19703294777038,
+          "none": -6223.155031438498,
+          "numRange": 1728.8228023309803,
+          "valueInList": 2993.3166916343157
+        },
+        "bench_result_type": {
+          "doc": -330.3410081739159,
+          "only": 330.3410081735604
+        },
+        "dynamic_data": {
+          "False": -173.52572193726832,
+          "True": 173.52572193725283
+        },
+        "requires_multi_query": {
+          "False": 370.7242666074666,
+          "True": -370.72426660748937
+        }
+      }
+    },
+    "total": {
+      "intercept": -1910.0667509335099,
+      "numeric_coefficients": {
+        "collection_size": 0.9895103676443551,
+        "depth": -518.9324745329743,
+        "filter_count": -837.1245786102052,
+        "multi_query_depth": 225.1837158197519,
+        "multi_query_unpushed_filter": 8324.085784646171,
+        "first_filtered_segment_index": 6691.736292733254
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": 1000.2917901019957,
+          "equality": 2563.904057860065,
+          "idInList": 1312.5958112960584,
+          "none": -11015.398854254116,
+          "numRange": 1972.7049198089937,
+          "valueInList": 4165.902275188872
+        },
+        "bench_result_type": {
+          "doc": -519.4662328371999,
+          "only": 519.4662328373374
+        },
+        "dynamic_data": {
+          "False": -326.9493828383817,
+          "True": 326.9493828384859
+        },
+        "requires_multi_query": {
+          "False": 878.7340303872519,
+          "True": -878.7340303875903
+        }
+      }
+    }
+  },
+  "neo4j": {
+    "build": {
+      "intercept": 9.138556611323526,
+      "numeric_coefficients": {
+        "collection_size": -7.72941796033841e-05,
+        "depth": 1.0972155706369076,
+        "filter_count": 0.3078053716729926,
+        "multi_query_depth": -0.4670193275832285,
+        "multi_query_unpushed_filter": -0.7519908644354701,
+        "first_filtered_segment_index": -0.48930518637308645
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": -1.9455416190046246,
+          "equality": -2.401151881729306,
+          "idInList": 2.9947414253322506,
+          "none": 0.711601654231056,
+          "numRange": -0.20429353468632527,
+          "valueInList": 0.8446439558569678
+        },
+        "bench_result_type": {
+          "doc": 0.19726794059866862,
+          "only": -0.19726794059853656
+        },
+        "dynamic_data": {
+          "False": 0.2905357987056752,
+          "True": -0.29053579870566804
+        },
+        "requires_multi_query": {
+          "False": 1.2883241071232372,
+          "True": -1.2883241071231213
+        }
+      }
+    },
+    "exec": {
+      "intercept": 1272.1655481243001,
+      "numeric_coefficients": {
+        "collection_size": 0.28367984727480383,
+        "depth": 201.66193458976443,
+        "filter_count": -75.68170306113551,
+        "multi_query_depth": -104.20267882454473,
+        "multi_query_unpushed_filter": -45.52315935159222,
+        "first_filtered_segment_index": -85.69112030379445
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": -1573.3355692880582,
+          "equality": 252.2105360294633,
+          "idInList": -1109.3115742394514,
+          "none": 993.6356898192851,
+          "numRange": 550.7928884375947,
+          "valueInList": 886.0080292413518
+        },
+        "bench_result_type": {
+          "doc": 79.7495512716975,
+          "only": -79.7495512717102
+        },
+        "dynamic_data": {
+          "False": -47.36241434706443,
+          "True": 47.36241434703586
+        },
+        "requires_multi_query": {
+          "False": -15.248758824956917,
+          "True": 15.248758824865526
+        }
+      }
+    },
+    "total": {
+      "intercept": 1282.7964471586165,
+      "numeric_coefficients": {
+        "collection_size": 0.28362386607581813,
+        "depth": 202.63130252506457,
+        "filter_count": -75.65680230058386,
+        "multi_query_depth": -104.77123607145616,
+        "multi_query_unpushed_filter": -45.89991556038976,
+        "first_filtered_segment_index": -86.10134986796355
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": -1575.4718889600165,
+          "equality": 249.69016339231766,
+          "idInList": -1106.1114635065562,
+          "none": 994.4225646082094,
+          "numRange": 550.6303583349347,
+          "valueInList": 886.8402661307991
+        },
+        "bench_result_type": {
+          "doc": 79.94010993422305,
+          "only": -79.94010993421398
+        },
+        "dynamic_data": {
+          "False": -46.891783557491706,
+          "True": 46.89178355750217
+        },
+        "requires_multi_query": {
+          "False": -14.16382668874796,
+          "True": 14.163826688752263
+        }
+      }
+    }
+  },
+  "postgres": {
+    "build": {
+      "intercept": 16.292982569317793,
+      "numeric_coefficients": {
+        "collection_size": 6.915853861647778e-05,
+        "depth": 10.421397461937886,
+        "filter_count": 2.3349200938604247,
+        "multi_query_depth": -3.3826008633708486,
+        "multi_query_unpushed_filter": -0.7896020989718039,
+        "first_filtered_segment_index": 1.074574143403759
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": -8.280118914968886,
+          "equality": -3.697339260689314,
+          "idInList": 2.9229715364247015,
+          "none": 8.437929501195319,
+          "numRange": 1.4473962075948956,
+          "valueInList": -0.8308390695577401
+        },
+        "bench_result_type": {
+          "doc": 6.745545991755542,
+          "only": -6.745545991755508
+        },
+        "dynamic_data": {
+          "False": -1.3819774335918111,
+          "True": 1.381977433592128
+        },
+        "requires_multi_query": {
+          "False": -3.179244017942068,
+          "True": 3.1792440179416
+        }
+      }
+    },
+    "exec": {
+      "intercept": 612.4277253428252,
+      "numeric_coefficients": {
+        "collection_size": 0.2298407039116681,
+        "depth": 435.9305185965758,
+        "filter_count": -185.31565241461925,
+        "multi_query_depth": -167.6701216835782,
+        "multi_query_unpushed_filter": -262.93882378603695,
+        "first_filtered_segment_index": -117.42966133899859
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": -508.46232894720464,
+          "equality": 282.70883971675244,
+          "idInList": -95.8675951465551,
+          "none": 141.51036758532447,
+          "numRange": 28.763078198762127,
+          "valueInList": 151.34763859288418
+        },
+        "bench_result_type": {
+          "doc": 65.11728712133386,
+          "only": -65.11728712131205
+        },
+        "dynamic_data": {
+          "False": -714.458209217711,
+          "True": 714.4582092176937
+        },
+        "requires_multi_query": {
+          "False": -400.68398076376184,
+          "True": 400.68398076380777
+        }
+      }
+    },
+    "total": {
+      "intercept": 632.9842877636574,
+      "numeric_coefficients": {
+        "collection_size": 0.229886980263345,
+        "depth": 446.90194829981596,
+        "filter_count": -183.47752029298127,
+        "multi_query_depth": -171.77228038278426,
+        "multi_query_unpushed_filter": -263.93117011603687,
+        "first_filtered_segment_index": -117.17689360721027
+      },
+      "categorical_coefficients": {
+        "filter_type": {
+          "docById": -516.3889385411152,
+          "equality": 278.0174065968755,
+          "idInList": -91.34599456624443,
+          "none": 150.11813962856976,
+          "numRange": 29.706627299348607,
+          "valueInList": 149.8927595825505
+        },
+        "bench_result_type": {
+          "doc": 73.33744978608773,
+          "only": -73.33744978608796
+        },
+        "dynamic_data": {
+          "False": -715.8720123379074,
+          "True": 715.8720123379481
+        },
+        "requires_multi_query": {
+          "False": -406.0782530918361,
+          "True": 406.07825309189326
+        }
+      }
+    }
+  }
+}
