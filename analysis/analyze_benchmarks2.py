@@ -478,10 +478,10 @@ def main(csv_path: str):
         print("\n=== Scaling correlation (Spearman rho vs. duration) ===")
         print(scaling.to_string(index=False))
 
-    for phase in df["phase"].unique():
-        plot_boxplots_by_shape(df, phase)
-        for param in ["collection_size", "depth", "filter_count"]:
-            plot_scaling(df, phase, param)
+    # for phase in df["phase"].unique():
+    #     plot_boxplots_by_shape(df, phase)
+    #     for param in ["collection_size", "depth", "filter_count"]:
+    #         plot_scaling(df, phase, param)
 
     print("\n=== Fitting per-driver, per-phase regression models ===")
     metrics, fitted_linear_models = fit_and_validate_models(df)
