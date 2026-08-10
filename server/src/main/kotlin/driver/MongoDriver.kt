@@ -701,15 +701,15 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             val condition =
                 if (parentSegment.condition == null) Filters.empty() else conditionToFilter(parentSegment.condition)
             val parentDocs = measureTimedValue {
-                mongoParentCollection.find(condition).toList()
-            }
-
-            return TimedQueryValue(
-                parseSubDocs(parentDocs.value.map {
+                mongoParentCollection.find(condition).asSequence().map {
                     MongoPolyCompleteDocument(
                         it
                     )
-                }, subSegment.name),
+                }.toList()
+            }
+
+            return TimedQueryValue(
+                parseSubDocs(parentDocs.value, subSegment.name),
                 parentDocs.duration,
                 "list $mongoParentCollection with ${condition?.toString() ?: "no condition"}"
             )
@@ -725,12 +725,12 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                 )
             )
             val parentDocs = measureTimedValue {
-                mongoParentCollection.find(condition).toList()
+                mongoParentCollection.find(condition).asSequence().map { MongoPolyCompleteDocument(it) }.toList()
             }
 
             // manually filter sub docs to avoid false positives (required)
             val allSubDocs =
-                parseSubDocs(parentDocs.value.map { MongoPolyCompleteDocument(it) }, subSegment.name)
+                parseSubDocs(parentDocs.value, subSegment.name)
             return TimedQueryValue(allSubDocs.map { subDoc ->
                 subDoc.key to subDoc.value.filter { doc ->
                     checkCondition(

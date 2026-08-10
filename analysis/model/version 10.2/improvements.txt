@@ -1,0 +1,1 @@
+- add boolean flag which checks if mongo uses a multi query

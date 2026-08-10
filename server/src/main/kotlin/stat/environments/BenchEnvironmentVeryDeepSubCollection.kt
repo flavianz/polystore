@@ -107,6 +107,7 @@ class BenchEnvironmentVeryDeepSubCollection(
                 collection("great_great_grandchildren", only = "name")
             }, BenchResultType.Only
         ),
+
         BenchmarkQuery(
             "very deep sub collection string equality only", 5, 0, BenchFilterType.Equality,
             get {

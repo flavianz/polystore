@@ -8,7 +8,6 @@ import ch.flavianz.stat.environments.BenchEnvironmentSimpleCollection
 import ch.flavianz.stat.environments.BenchEnvironmentSubCollection
 import ch.flavianz.stat.environments.BenchEnvironmentVeryDeepSubCollection
 import net.datafaker.Faker
-import java.io.File
 import java.util.Random
 import kotlin.time.Duration.Companion.nanoseconds
 
@@ -17,7 +16,7 @@ object Benchmark {
     val faker = Faker(seed)
 
     const val RUN_ID = 10
-    const val ITERATIONS = 2
+    const val ITERATIONS = 1
 
     fun startBenchmark() {
         val start = System.nanoTime()
@@ -31,14 +30,14 @@ object Benchmark {
         }
 
         val environmentTypes = listOf(
-            ::BenchEnvironmentSimpleCollection,
-            ::BenchEnvironmentSubCollection,
+            /*::BenchEnvironmentSimpleCollection,
+            ::BenchEnvironmentSubCollection,*/
             ::BenchEnvironmentDeepSubCollection,
-            ::BenchEnvironmentVeryDeepSubCollection,
+            /*::BenchEnvironmentVeryDeepSubCollection,
             ::BenchEnvironmentConnection,
-            ::BenchEnvironmentDynamicData
+            ::BenchEnvironmentDynamicData*/
         )
-        val collectionSizes = listOf(100/*, 2000, 10000*/)
+        val collectionSizes = listOf(100, 2000/*, 10000*/)
 
         val environments = buildList {
             for (envType in environmentTypes) {

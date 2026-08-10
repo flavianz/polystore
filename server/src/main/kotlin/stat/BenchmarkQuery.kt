@@ -10,5 +10,6 @@ data class BenchmarkQuery(
     val query: GetQuery,
     val benchResultType: BenchResultType = BenchResultType.EntireDoc,
     val sizeLimit: Int? = null,
-    val dynamicData: Boolean = false
+    val dynamicData: Boolean = false,
+    val mongoMutliQuery: Boolean = false
 )
