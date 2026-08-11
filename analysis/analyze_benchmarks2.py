@@ -50,10 +50,21 @@ sns.set_theme(style="whitegrid")
 NUMERIC_FEATURES = [
     "collection_size", "depth", "filter_count",
     "multi_query_depth", "multi_query_unpushed_filter",
-    "first_filtered_segment_index",
+    "first_filtered_segment_index", "unfiltered_fanout_log",
 ]
 CATEGORICAL_FEATURES = ["filter_type", "bench_result_type", "dynamic_data", "requires_multi_query"]
 ALL_FEATURES = NUMERIC_FEATURES + CATEGORICAL_FEATURES
+
+# Phases fit on log1p(duration) instead of raw duration. Build-phase durations span two+
+# orders of magnitude (typical few-hundred us vs up to 70,000us for unfiltered deep fan-out
+# shapes) - fitting on the raw scale lets a handful of extreme rows dominate the squared-error
+# loss and prevents a linear model from representing what's mechanically a MULTIPLICATIVE
+# effect (each unfiltered hop multiplies the working set by roughly the branching factor, not
+# a fixed additive cost). log1p compresses this and turns a multiplicative relationship into
+# something closer to linear in log-space, which pairs with the unfiltered_fanout_log feature
+# below. Predictions must be inverted with expm1() - both in this script's own scoring/plots
+# and in the ported Kotlin estimator.
+LOG_TARGET_PHASES = ("build",)
 
 # query_shape prefixes that indicate Mongo has to run multiple queries and stitch results
 # together client-side (deep hierarchies), rather than resolving everything server-side in
@@ -148,6 +159,13 @@ def load_data(csv_path: str) -> pd.DataFrame:
     df["first_filtered_segment_index"] = (
         df["query_shape"].map(FIRST_FILTERED_SEGMENT_INDEX_OVERRIDES).fillna(0).astype(int)
     )
+
+    # Multiplicative fan-out proxy: each unfiltered hop roughly MULTIPLIES the working set
+    # size by the branching factor rather than adding a fixed cost, so log(fanout) is
+    # approximately first_filtered_segment_index * log(collection_size). Pairs with fitting
+    # build-phase duration in log-space (see LOG_TARGET_PHASES) so a linear model can
+    # represent what is mechanically an exponential relationship.
+    df["unfiltered_fanout_log"] = df["first_filtered_segment_index"] * np.log1p(df["collection_size"])
 
     return df
 
@@ -282,13 +300,24 @@ def build_pipeline(model_type: str) -> Pipeline:
 
 def fit_and_validate_models(df: pd.DataFrame):
     """
-    Fits linear and random-forest models per (driver, phase). Validates two ways:
+    Fits linear and random-forest models per (driver, phase). For phases in LOG_TARGET_PHASES
+    (currently just "build"), fits on log1p(duration) instead of raw duration - build-phase
+    spans two+ orders of magnitude (typical few-hundred us vs up to 70,000us for unfiltered
+    deep fan-out), and the underlying mechanism is multiplicative (each unfiltered hop
+    multiplies working set size), which log-space linear regression can represent directly.
+    All R2 scores are computed on the ORIGINAL duration scale (predictions inverted via
+    expm1 before scoring) so numbers stay comparable across phases regardless of which
+    scale was used internally to fit.
+
+    Validates two ways:
       - k-fold CV over rows (how well the model fits this data distribution generally)
       - GroupKFold by query_shape (how well it generalizes to UNSEEN query shapes -
         the actually relevant test, since at runtime queries won't match your fixed
         benchmark shapes exactly)
     Returns a metrics table and a dict of fitted linear models (driver, phase) -> Pipeline,
-    used afterward for coefficient export.
+    used afterward for coefficient export. Fitted linear models are ALWAYS fit on
+    log1p(duration) if the phase uses it - the export/prediction-formula step must apply
+    expm1() to the raw linear formula output.
     """
     clean = df[~df["is_warmup"] & ~df["is_outlier"]].copy()
     metrics_rows = []
@@ -298,6 +327,8 @@ def fit_and_validate_models(df: pd.DataFrame):
         X = group[ALL_FEATURES]
         y = group["duration"]
         shapes = group["query_shape"]
+        use_log_target = phase in LOG_TARGET_PHASES
+        y_fit = np.log1p(y) if use_log_target else y
 
         if len(group) < 20 or shapes.nunique() < 2:
             print(f"Skipping {driver}/{phase}: not enough data/variety "
@@ -307,22 +338,32 @@ def fit_and_validate_models(df: pd.DataFrame):
         for model_type in ["linear", "forest"]:
             pipeline = build_pipeline(model_type)
 
+            def r2_on_original_scale(estimator, X_test, y_test_fit):
+                pred_fit = estimator.predict(X_test)
+                pred = np.expm1(pred_fit) if use_log_target else pred_fit
+                y_test = np.expm1(y_test_fit) if use_log_target else y_test_fit
+                return r2_score(y_test, pred)
+
             kf = KFold(n_splits=5, shuffle=True, random_state=42)
-            kfold_scores = cross_val_score(pipeline, X, y, cv=kf, scoring="r2")
+            kfold_scores = cross_val_score(pipeline, X, y_fit, cv=kf, scoring=r2_on_original_scale)
 
             n_groups = shapes.nunique()
             gkf_splits = min(5, n_groups)
             group_scores = np.array([np.nan])
             if gkf_splits >= 2:
                 gkf = GroupKFold(n_splits=gkf_splits)
-                group_scores = cross_val_score(pipeline, X, y, cv=gkf, groups=shapes, scoring="r2")
+                group_scores = cross_val_score(
+                    pipeline, X, y_fit, cv=gkf, groups=shapes, scoring=r2_on_original_scale
+                )
 
-            pipeline.fit(X, y)
-            y_pred = pipeline.predict(X)
+            pipeline.fit(X, y_fit)
+            y_pred_fit = pipeline.predict(X)
+            y_pred = np.expm1(y_pred_fit) if use_log_target else y_pred_fit
             in_sample_r2 = r2_score(y, y_pred)
 
             metrics_rows.append({
                 "driver": driver, "phase": phase, "model_type": model_type,
+                "log_target": use_log_target,
                 "n_rows": len(group), "n_query_shapes": n_groups,
                 "in_sample_r2": in_sample_r2,
                 "kfold_r2_mean": kfold_scores.mean(), "kfold_r2_std": kfold_scores.std(),
@@ -331,7 +372,8 @@ def fit_and_validate_models(df: pd.DataFrame):
             })
 
             if model_type == "linear":
-                fitted_linear_models[(driver, phase)] = pipeline
+                fitted_linear_models[(driver, phase)] = (pipeline, use_log_target)
+                # residual plot on the ORIGINAL scale - what actually matters for judging fit
                 plot_residuals(driver, phase, y, y_pred)
 
     return pd.DataFrame(metrics_rows), fitted_linear_models
@@ -362,20 +404,29 @@ def export_linear_coefficients(fitted_linear_models: dict, path: str = "model_co
     port into Kotlin: intercept + one coefficient per numeric feature + one coefficient per
     one-hot category level. Prediction in Kotlin becomes:
 
-        duration = intercept
+        rawFormula = intercept
                  + coef_collection_size * collectionSize
                  + coef_depth * depth
                  + coef_filter_count * filterCount
                  + coef_filter_type[filterType]      // 0 if category unseen in training
                  + coef_bench_result_type[resultType]
                  + coef_dynamic_data[dynamicData]
+                 + ... (remaining numeric/categorical coefficients)
+
+        duration = if (target_transform == "log1p") exp(rawFormula) - 1 else rawFormula
+
+    IMPORTANT: check "target_transform" per driver/phase. Currently "build" phase entries
+    are fit on log1p(duration) (see LOG_TARGET_PHASES) because build-phase cost is
+    multiplicative (unfiltered fan-out) rather than additive - the Kotlin side MUST apply
+    expm1 (exp(x) - 1) to the raw formula output for these, or predictions will be wildly
+    wrong (log-scale values, not microseconds).
 
     NOTE: all category levels get explicit coefficients (no drop='first'), so there's no
     implicit "baseline" category to track separately in Kotlin - simpler port.
     """
     export = {}
 
-    for (driver, phase), pipeline in fitted_linear_models.items():
+    for (driver, phase), (pipeline, use_log_target) in fitted_linear_models.items():
         preprocessor: ColumnTransformer = pipeline.named_steps["preprocess"]
         model: LinearRegression = pipeline.named_steps["model"]
 
@@ -398,6 +449,7 @@ def export_linear_coefficients(fitted_linear_models: dict, path: str = "model_co
             "intercept": model.intercept_,
             "numeric_coefficients": numeric_coefs,
             "categorical_coefficients": categorical_coefs,
+            "target_transform": "log1p" if use_log_target else "none",
         }
 
     with open(path, "w") as f:
