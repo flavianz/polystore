@@ -4,10 +4,12 @@ import ch.flavianz.connection.MongoConnection
 import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.model.DatabaseSchema
 import ch.flavianz.model.PolyData
+import ch.flavianz.query.Condition
 import ch.flavianz.query.DriverType
 import ch.flavianz.query.GetQuery
 import ch.flavianz.query.PolyExecutionEnvironment
 import ch.flavianz.query.GetQueryResult
+import ch.flavianz.query.QuerySegment
 import ch.flavianz.stat.BenchmarkQuery
 import ch.flavianz.stat.DurationMeasurement
 import ch.flavianz.stat.MeasurementPhase
@@ -173,8 +175,113 @@ object DriverManager {
         )
     }
 
-    fun chooseDriver(query: GetQuery) {
+    fun chooseDriverSimple(query: GetQuery): DatabaseDriver {
+        val isPostgresActive = postgresDriver != null
+        val isMongoActive = mongoDriver != null
+        val isNeo4jActive = neo4jDriver != null
 
+        if (!isPostgresActive && !isMongoActive && !isNeo4jActive) {
+            throw IllegalStateException("no driver active")
+        }
+
+        if (query.path.size == 1 && isPostgresActive) {
+            return postgresDriver!!
+        }
+
+        assert(query.path[0] is QuerySegment.Collection)
+
+        val conditions = buildList {
+            for (segment in query.path) {
+                when (segment) {
+                    is QuerySegment.Connection -> {
+                        segment.collectionCondition?.let { add(it) }
+                        segment.connectionCondition?.let { add(it) }
+                    }
+
+                    is QuerySegment.Collection -> segment.condition?.let { add(it) }
+                }
+            }
+        }
+        val queryContainsRangeQuery =
+            conditions.firstOrNull { it is Condition.Comparison && it !is Condition.Comparison.Equals } != null
+        if ((queryContainsRangeQuery) && isPostgresActive) {
+            return postgresDriver!!
+        }
+
+        val depth = query.path.map {
+            when (it) {
+                is QuerySegment.Connection -> 2
+
+                is QuerySegment.Collection -> 1
+            }
+        }.sum()
+
+        val basicConditions = extractBasicConditions((query.path[0] as QuerySegment.Collection).condition)
+        val conditionFields = basicConditions.map {
+            when (it) {
+                is Condition.In -> it.field
+                is Condition.Comparison -> it.field
+                else -> throw AssertionError()
+            }
+        }
+
+        if (query.path[1] is QuerySegment.Collection) {
+            if (conditionFields.firstOrNull { it == "_id" } == null && isMongoActive) {
+                // only filters on id
+                return mongoDriver!!
+            }
+            if (isPostgresActive) {
+                return postgresDriver!!
+            }
+            if (isMongoActive) {
+                return mongoDriver!!
+            }
+            return neo4jDriver!!
+        }
+
+        if (query.path[0] is QuerySegment.Connection) {
+            if (conditionFields.firstOrNull { it == "_id" } == null) {
+                // only filters on id
+                if (isMongoActive) {
+                    return mongoDriver!!
+                }
+                if (isNeo4jActive) {
+                    return neo4jDriver!!
+                }
+            }
+            if (isPostgresActive) {
+                return postgresDriver!!
+            }
+            if (isMongoActive) {
+                return mongoDriver!!
+            }
+            return neo4jDriver!!
+        }
+        if (conditionFields.firstOrNull { it == "_id" } == null) {
+            // only filters on id
+            if (isNeo4jActive) {
+                return neo4jDriver!!
+            }
+            if (isMongoActive) {
+                return mongoDriver!!
+            }
+        }
+        if (isPostgresActive) {
+            return postgresDriver!!
+        }
+        if (isNeo4jActive) {
+            return neo4jDriver!!
+        }
+        return mongoDriver!!
+    }
+
+    private fun extractBasicConditions(condition: Condition?): List<Condition> {
+        return when (condition) {
+            null -> emptyList()
+            is Condition.Comparison, is Condition.In -> listOf(condition)
+            is Condition.Not -> extractBasicConditions(condition)
+            is Condition.Logic -> extractBasicConditions(condition.left) + extractBasicConditions(condition.right)
+        }
     }
 
     /*fun count(query: PolyQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
