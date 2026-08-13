@@ -132,9 +132,8 @@ class ConditionParser(input: String?) {
     private fun consumeValue(): Any? {
         val token = consume()
 
-        if (token.startsWith("\"") && token.endsWith("\"")) {
+        if (token.startsWith("'") && token.endsWith("'")) {
             return token.substring(1, token.length - 1)
-
         }
 
         if (token.equals("true", true))
@@ -181,6 +180,7 @@ class ConditionParser(input: String?) {
         }
         val regex = Regex(
             "\"[^\"]*\"" +
+                    "|'[^']*'" +
                     "|&&" +
                     "|\\|\\|" +
                     "|==" +
@@ -222,5 +222,5 @@ class ConditionParser(input: String?) {
         token.matches(Regex("[a-zA-Z_][a-zA-Z0-9_]*"))
 
     private fun isValidUUID(token: String): Boolean =
-        runCatching { UUID.fromString(token) }.isSuccess
+        token.length == 36 && runCatching { UUID.fromString(token) }.isSuccess
 }
