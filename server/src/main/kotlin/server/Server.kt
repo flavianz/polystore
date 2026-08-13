@@ -166,7 +166,7 @@ fun startServer() {
                     }
                 )
             }
-            post("/query/take") {
+            post("/query/get") {
                 val body = call.receive<QueryRequest>()
 
                 val querySegments = mutableListOf<QuerySegment>()
@@ -178,7 +178,8 @@ fun startServer() {
                         "collection" -> querySegments.add(
                             QuerySegment.Collection(
                                 requestSegment.name,
-                                ConditionParser(requestSegment.condition).parse()
+                                ConditionParser(requestSegment.condition).parse(),
+                                only = requestSegment.only
                             )
                         )
 
@@ -190,8 +191,10 @@ fun startServer() {
                                 QuerySegment.Connection(
                                     requestSegment.name,
                                     nextSegment.name,
-                                    if (!requestSegment.condition.isNullOrEmpty()) ConditionParser(requestSegment.condition).parse() else null,
-                                    if (!nextSegment.condition.isNullOrEmpty()) ConditionParser(nextSegment.condition).parse() else null
+                                    ConditionParser(requestSegment.condition).parse(),
+                                    ConditionParser(nextSegment.condition).parse(),
+                                    requestSegment.only,
+                                    nextSegment.only
                                 )
                             )
                             i++
