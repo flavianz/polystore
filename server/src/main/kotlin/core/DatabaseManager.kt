@@ -24,6 +24,18 @@ object DatabaseManager {
     private var collections = mutableMapOf<String, CollectionModel>()
     private var connections = mutableMapOf<String, ConnectionModel>()
 
+    fun dropAllConnections() {
+        for (connection in connections) {
+            dropConnection(connection.key)
+        }
+    }
+
+    fun dropAllCollections() {
+        while (collections.isNotEmpty()) {
+            dropCollection(collections.keys.first(), true)
+        }
+    }
+
     fun initCollections(collections: List<CollectionModel>) {
         this.collections = collections.associateBy { it.name }.toMutableMap()
     }
