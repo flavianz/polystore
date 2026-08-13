@@ -19,10 +19,7 @@ class PolyQueryResult(
     val queryDuration: PolyQueryDuration,
     val executionEnvironment: PolyExecutionEnvironment
 ) {
-
-
     fun toJson() = buildJsonObject {
-
         put("duration", buildJsonObject {
             put("queryBuilding", queryDuration.queryBuildingDuration.toString())
             put("queryExecuting", queryDuration.queryExecutionDuration.toString())

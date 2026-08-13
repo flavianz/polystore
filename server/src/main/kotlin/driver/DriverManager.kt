@@ -161,7 +161,7 @@ object DriverManager {
     }
 
     fun get(query: GetQuery): GetQueryResult {
-        val activeDriver = getActiveDriver()
+        val activeDriver = chooseDriverSimple(query)
         val result = activeDriver.get(query)
         return GetQueryResult(
             result.data, result.duration, PolyExecutionEnvironment(
@@ -208,14 +208,6 @@ object DriverManager {
             return postgresDriver!!
         }
 
-        val depth = query.path.map {
-            when (it) {
-                is QuerySegment.Connection -> 2
-
-                is QuerySegment.Collection -> 1
-            }
-        }.sum()
-
         val basicConditions = extractBasicConditions((query.path[0] as QuerySegment.Collection).condition)
         val conditionFields = basicConditions.map {
             when (it) {
@@ -226,7 +218,10 @@ object DriverManager {
         }
 
         if (query.path[1] is QuerySegment.Collection) {
-            if (conditionFields.firstOrNull { it == "_id" } == null && isMongoActive) {
+            if (conditions.isEmpty() && isPostgresActive) {
+                return postgresDriver!!
+            }
+            if (conditionFields.firstOrNull { it != "_id" } == null && isMongoActive) {
                 // only filters on id
                 return mongoDriver!!
             }
@@ -240,7 +235,10 @@ object DriverManager {
         }
 
         if (query.path[0] is QuerySegment.Connection) {
-            if (conditionFields.firstOrNull { it == "_id" } == null) {
+            if (conditions.isEmpty() && isPostgresActive) {
+                return postgresDriver!!
+            }
+            if (conditionFields.firstOrNull { it != "_id" } == null) {
                 // only filters on id
                 if (isMongoActive) {
                     return mongoDriver!!
@@ -257,13 +255,24 @@ object DriverManager {
             }
             return neo4jDriver!!
         }
-        if (conditionFields.firstOrNull { it == "_id" } == null) {
+        if (query.path.size <= 5 && conditions.isEmpty() && isPostgresActive) {
+            return postgresDriver!!
+        }
+        if (conditionFields.firstOrNull { it != "_id" } == null) {
             // only filters on id
             if (isNeo4jActive) {
                 return neo4jDriver!!
             }
             if (isMongoActive) {
                 return mongoDriver!!
+            }
+        }
+        if (query.path.size >= 5) {
+            if (isNeo4jActive) {
+                return neo4jDriver!!
+            }
+            if (isPostgresActive) {
+                return postgresDriver!!
             }
         }
         if (isPostgresActive) {
