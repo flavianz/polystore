@@ -7,7 +7,6 @@ import ch.flavianz.connection.Neo4jConnection
 import ch.flavianz.connection.PostgresConnection
 import ch.flavianz.driver.DriverManager
 import ch.flavianz.server.startServer
-import ch.flavianz.stat.Benchmark
 
 fun main() {
     val manager = ConnectionManager()
@@ -61,7 +60,9 @@ fun main() {
         databaseSchema.connections.toList()
     )
 
-    Benchmark.startBenchmark()
+    initExampleOne()
+
+    //Benchmark.startBenchmark()
 
     // Don't disconnect - keep connections alive for the server
     Runtime.getRuntime().addShutdownHook(Thread {
