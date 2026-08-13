@@ -1,4 +1,4 @@
-package ch.flavianz.query
+package query
 
 sealed class QuerySegment {
     data class Collection(

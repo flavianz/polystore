@@ -1,18 +1,18 @@
-package ch.flavianz.stat.environments
+package benchmark.environments
 
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.model.DataType
-import ch.flavianz.query.and
-import ch.flavianz.query.eq
+import core.DatabaseManager
+import model.DataType
+import query.and
+import query.eq
 import ch.flavianz.query.get
-import ch.flavianz.query.gt
-import ch.flavianz.query.isIn
-import ch.flavianz.query.lt
-import ch.flavianz.stat.BenchEnvironment
-import ch.flavianz.stat.BenchFilterType
-import ch.flavianz.stat.BenchResultType
-import ch.flavianz.stat.Benchmark
-import ch.flavianz.stat.BenchmarkQuery
+import query.gt
+import query.isIn
+import query.lt
+import benchmark.BenchEnvironment
+import benchmark.BenchFilterType
+import benchmark.BenchResultType
+import benchmark.Benchmark
+import benchmark.BenchmarkQuery
 import java.util.UUID
 import kotlin.random.asKotlinRandom
 

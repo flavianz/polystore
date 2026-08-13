@@ -1,21 +1,23 @@
-package ch.flavianz.driver
+package driver
 
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.model.PolyData
-import ch.flavianz.model.ConnectionModel
-import ch.flavianz.query.QuerySegment
-import ch.flavianz.query.Condition
-import ch.flavianz.connection.Neo4jConnection
-import ch.flavianz.core.DatabaseManager.addChildCollections
-import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.DataType
-import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.PolySchema
-import ch.flavianz.query.GetQuery
-import ch.flavianz.query.PolyDriverQueryDuration
-import ch.flavianz.server.FieldDefinition
+import core.DatabaseManager
+import model.PolyData
+import model.ConnectionModel
+import query.QuerySegment
+import query.Condition
+import connection.Neo4jConnection
+import core.DatabaseManager.addChildCollections
+import model.CollectionModel
+import model.DataType
+import model.DatabaseSchema
+import model.PolySchema
+import query.GetQuery
+import query.PolyDriverQueryDuration
+import server.FieldDefinition
 import kotlinx.serialization.json.Json
+import org.neo4j.driver.Value
 import java.util.UUID
+import kotlin.collections.iterator
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.measureTimedValue
 
@@ -474,7 +476,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         else -> throw IllegalArgumentException("illegal type ${this.javaClass.name}")
     }
 
-    private fun org.neo4j.driver.Value.toPolyValue(): Any? = when {
+    private fun Value.toPolyValue(): Any? = when {
         isNull -> null
         type().name() == "STRING" -> {
             val s = asString()

@@ -1,6 +1,6 @@
-package ch.flavianz.stat
+package benchmark
 
-import ch.flavianz.driver.DriverManager
+import driver.DriverManager
 
 abstract class BenchEnvironment(val benchEnvName: String) {
     abstract val runId: Int

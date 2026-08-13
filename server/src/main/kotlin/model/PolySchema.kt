@@ -1,4 +1,4 @@
-package ch.flavianz.model
+package model
 
 typealias PolySchema = Map<String, DataType>
 

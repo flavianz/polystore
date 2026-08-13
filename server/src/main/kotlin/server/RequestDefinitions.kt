@@ -1,10 +1,8 @@
-package ch.flavianz.server
+package server
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull.content
-import kotlinx.serialization.json.JsonNull.isString
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.boolean
@@ -15,7 +13,6 @@ import kotlinx.serialization.json.int
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import java.util.UUID
-import kotlin.uuid.Uuid
 
 @Serializable
 data class CreateCollectionRequest(

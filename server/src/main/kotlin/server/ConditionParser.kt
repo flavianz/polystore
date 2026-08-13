@@ -1,6 +1,6 @@
-package ch.flavianz.server
+package server
 
-import ch.flavianz.query.Condition
+import query.Condition
 import java.util.UUID
 
 class ConditionParser(input: String?) {

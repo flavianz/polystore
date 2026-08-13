@@ -1,17 +1,17 @@
 package ch.flavianz.driver
 
-import ch.flavianz.connection.MongoConnection
-import ch.flavianz.connection.Neo4jConnection
-import ch.flavianz.connection.PostgresConnection
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.DataType
-import ch.flavianz.query.PolyResultData
-import ch.flavianz.query.eq
+import connection.MongoConnection
+import connection.Neo4jConnection
+import connection.PostgresConnection
+import core.DatabaseManager
+import model.CollectionModel
+import model.ConnectionModel
+import model.DataType
+import query.PolyResultData
+import query.eq
 import ch.flavianz.query.get
-import ch.flavianz.query.lt
 import com.mongodb.client.model.Filters
+import driver.DriverManager
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll

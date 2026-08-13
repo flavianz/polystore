@@ -379,6 +379,92 @@ def fit_and_validate_models(df: pd.DataFrame):
     return pd.DataFrame(metrics_rows), fitted_linear_models
 
 
+def evaluate_summed_prediction(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    The number that actually matters for pickBestDriver: accuracy of
+    (predicted_build + predicted_exec) against actual total duration, using the SEPARATE
+    linear models (build fit on log1p, exec on raw scale) - NOT a single model fit directly
+    on "total" (see prior discussion: build's cost fraction ranges ~1%-47% of total and is
+    itself a function of query structure, so a combined model dilutes accuracy on exactly
+    the shapes where it matters most).
+
+    Build and exec rows for the same (driver, query_shape, run_id, iteration) are merged so
+    each row represents one real query execution's true total duration. GroupKFold by
+    query_shape refits BOTH phase models per fold (no leakage) and sums their held-out
+    predictions before scoring against actual total - this is the same information a
+    freshly-deployed estimator would have for a query shape it's never seen.
+    """
+    clean = df[~df["is_warmup"] & ~df["is_outlier"]].copy()
+    rows = []
+    residual_data = {}
+
+    for driver, driver_group in clean.groupby("driver"):
+        build = driver_group[driver_group["phase"] == "build"]
+        exec_ = driver_group[driver_group["phase"] == "exec"]
+
+        join_keys = ["run_id", "query_shape", "iteration"]
+        merged = build.merge(exec_, on=join_keys, suffixes=("_build", "_exec"))
+        if merged.empty:
+            print(f"Skipping summed-prediction eval for {driver}: no matching build/exec pairs.")
+            continue
+
+        # feature columns are identical between build/exec rows for the same query
+        # execution - arbitrarily use the _build-suffixed copies
+        X = merged[[f"{c}_build" for c in ALL_FEATURES]]
+        X.columns = ALL_FEATURES
+        y_build = merged["duration_build"]
+        y_exec = merged["duration_exec"]
+        y_total = y_build + y_exec
+        shapes = merged["query_shape"]
+
+        n_groups = shapes.nunique()
+        if len(merged) < 20 or n_groups < 2:
+            print(f"Skipping summed-prediction eval for {driver}: not enough data/variety.")
+            continue
+
+        # --- in-sample (fit once on everything, for reference only) ---
+        build_pipe = build_pipeline("linear")
+        build_pipe.fit(X, np.log1p(y_build))
+        exec_pipe = build_pipeline("linear")
+        exec_pipe.fit(X, y_exec)
+        pred_total_in_sample = np.expm1(build_pipe.predict(X)) + exec_pipe.predict(X)
+        in_sample_r2 = r2_score(y_total, pred_total_in_sample)
+
+        # --- GroupKFold: refit both phase models per fold, sum held-out predictions ---
+        gkf_splits = min(5, n_groups)
+        gkf = GroupKFold(n_splits=gkf_splits)
+        fold_r2s = []
+        oof_pred = np.full(len(merged), np.nan)
+
+        for train_idx, test_idx in gkf.split(X, y_total, groups=shapes):
+            build_pipe_fold = build_pipeline("linear")
+            build_pipe_fold.fit(X.iloc[train_idx], np.log1p(y_build.iloc[train_idx]))
+            exec_pipe_fold = build_pipeline("linear")
+            exec_pipe_fold.fit(X.iloc[train_idx], y_exec.iloc[train_idx])
+
+            pred_build_test = np.expm1(build_pipe_fold.predict(X.iloc[test_idx]))
+            pred_exec_test = exec_pipe_fold.predict(X.iloc[test_idx])
+            pred_total_test = pred_build_test + pred_exec_test
+
+            oof_pred[test_idx] = pred_total_test
+            fold_r2s.append(r2_score(y_total.iloc[test_idx], pred_total_test))
+
+        rows.append({
+            "driver": driver,
+            "n_rows": len(merged), "n_query_shapes": n_groups,
+            "in_sample_r2": in_sample_r2,
+            "group_kfold_r2_mean": np.mean(fold_r2s),
+            "group_kfold_r2_std": np.std(fold_r2s),
+        })
+
+        residual_data[driver] = (y_total.to_numpy(), oof_pred)
+
+    for driver, (y_true, y_pred) in residual_data.items():
+        plot_residuals(driver, "total_summed_oof", pd.Series(y_true), y_pred)
+
+    return pd.DataFrame(rows)
+
+
 def plot_residuals(driver: str, phase: str, y_true: pd.Series, y_pred: np.ndarray):
     residuals = y_true.to_numpy() - y_pred
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
@@ -551,6 +637,19 @@ def main(csv_path: str):
     else:
         print("Not enough data variety yet to fit/validate models "
               "(need multiple query shapes and enough rows per driver/phase).")
+
+    print("\n=== Summed prediction (predicted_build + predicted_exec) vs. actual total ===")
+    print(
+        "This is the number that matters for pickBestDriver: it uses the SEPARATE build/exec "
+        "linear models (build on log1p scale), refit per GroupKFold fold with no leakage, "
+        "predictions summed and compared against actual total duration."
+    )
+    summed_eval = evaluate_summed_prediction(df)
+    if not summed_eval.empty:
+        summed_eval.to_csv("summed_prediction_metrics.csv", index=False)
+        print(summed_eval.to_string(index=False))
+    else:
+        print("Not enough matched build/exec pairs to evaluate summed prediction.")
 
     print(f"\nPlots written to {PLOTS_DIR.resolve()}")
 

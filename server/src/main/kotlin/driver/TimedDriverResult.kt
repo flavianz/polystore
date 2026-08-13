@@ -1,6 +1,6 @@
-package ch.flavianz.driver
+package driver
 
-import ch.flavianz.query.PolyDriverQueryDuration
+import query.PolyDriverQueryDuration
 
 data class TimedDriverResult<T>(
     val data: T,

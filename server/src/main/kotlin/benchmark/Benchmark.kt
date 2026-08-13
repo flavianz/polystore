@@ -1,12 +1,7 @@
-package ch.flavianz.stat
+package benchmark
 
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.stat.environments.BenchEnvironmentConnection
-import ch.flavianz.stat.environments.BenchEnvironmentDeepSubCollection
-import ch.flavianz.stat.environments.BenchEnvironmentDynamicData
-import ch.flavianz.stat.environments.BenchEnvironmentSimpleCollection
-import ch.flavianz.stat.environments.BenchEnvironmentSubCollection
-import ch.flavianz.stat.environments.BenchEnvironmentVeryDeepSubCollection
+import core.DatabaseManager
+import benchmark.environments.BenchEnvironmentDeepSubCollection
 import net.datafaker.Faker
 import java.util.Random
 import kotlin.time.Duration.Companion.nanoseconds

@@ -1,7 +1,7 @@
 package ch.flavianz
 
-import ch.flavianz.query.Condition
-import ch.flavianz.server.ConditionParser
+import query.Condition
+import server.ConditionParser
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 

@@ -1,4 +1,4 @@
-package ch.flavianz.connection
+package connection
 
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings

@@ -1,5 +1,8 @@
 package ch.flavianz.connection
 
+import connection.ConnectionManager
+import connection.DatabaseConnection
+import connection.PostgresConnection
 import java.lang.reflect.Proxy
 import java.lang.reflect.InvocationHandler
 import java.sql.Connection

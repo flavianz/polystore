@@ -1,17 +1,17 @@
-package ch.flavianz.driver
+package driver
 
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.core.DatabaseManager.addChildCollections
-import ch.flavianz.model.PolyData
-import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.DataType
-import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.PolySchema
-import ch.flavianz.query.QuerySegment
-import ch.flavianz.query.Condition
-import ch.flavianz.query.GetQuery
-import ch.flavianz.query.PolyDriverQueryDuration
+import core.DatabaseManager
+import core.DatabaseManager.addChildCollections
+import model.PolyData
+import model.CollectionModel
+import model.ConnectionModel
+import model.DataType
+import model.DatabaseSchema
+import model.PolySchema
+import query.QuerySegment
+import query.Condition
+import query.GetQuery
+import query.PolyDriverQueryDuration
 import com.mongodb.client.MongoDatabase
 import com.mongodb.client.model.Filters
 import com.mongodb.client.model.Projections
@@ -21,6 +21,7 @@ import org.bson.Document
 import org.bson.conversions.Bson
 import java.util.UUID
 import kotlin.collections.emptyList
+import kotlin.collections.iterator
 import kotlin.sequences.map
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
@@ -784,7 +785,11 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                     }
             }
         }
-        return TimedQueryValue(result, collectionDocs.duration, "list $collection with $filters")
+        return TimedQueryValue(
+            result,
+            collectionDocs.duration,
+            "list $collection with $filters"
+        )
     }
 
     private fun parseSubDocs(

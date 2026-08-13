@@ -1,4 +1,4 @@
-package ch.flavianz.connection
+package connection
 
 interface DatabaseConnection {
     val name: String

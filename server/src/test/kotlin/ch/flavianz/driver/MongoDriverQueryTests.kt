@@ -1,15 +1,15 @@
 package ch.flavianz.driver
 
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.model.PolyData
-import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.DataType
-import ch.flavianz.query.and
-import ch.flavianz.query.eq
-import ch.flavianz.query.gt
-import ch.flavianz.query.lt
-import ch.flavianz.query.or
+import core.DatabaseManager
+import model.PolyData
+import model.CollectionModel
+import model.ConnectionModel
+import model.DataType
+import query.and
+import query.eq
+import query.gt
+import query.lt
+import query.or
 import ch.flavianz.query.get
 import com.mongodb.ConnectionString
 import com.mongodb.MongoClientSettings
@@ -74,7 +74,7 @@ class MongoDriverQueryTests {
     // state
 
     private var mongoDatabase: MongoDatabase? = null
-    private var driver: MongoDriver? = null
+    private var driver: driver.MongoDriver? = null
 
     // lifecycle
 
@@ -98,7 +98,7 @@ class MongoDriverQueryTests {
             ).build()
         val client = MongoClients.create(settings)
         mongoDatabase = client.getDatabase(database)
-        driver = MongoDriver(mongoDatabase!!)
+        driver = _root_ide_package_.driver.MongoDriver(mongoDatabase!!)
 
         DatabaseManager.initCollections(
             listOf(

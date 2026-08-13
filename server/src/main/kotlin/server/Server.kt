@@ -1,11 +1,11 @@
-package ch.flavianz.server
+package server
 
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.DataType
-import ch.flavianz.query.QueryPath
-import ch.flavianz.query.QuerySegment
-import ch.flavianz.query.GetQuery
+import core.DatabaseManager
+import model.ConnectionModel
+import model.DataType
+import query.QueryPath
+import query.QuerySegment
+import query.GetQuery
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode

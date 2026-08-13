@@ -1,3 +1,3 @@
-package ch.flavianz.model
+package model
 
 typealias PolyData = Map<String, Any?>

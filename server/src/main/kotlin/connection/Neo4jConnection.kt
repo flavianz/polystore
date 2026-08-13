@@ -1,9 +1,10 @@
-package ch.flavianz.connection
+package connection
 
 import org.neo4j.driver.AuthTokens
 import org.neo4j.driver.Driver
 import org.neo4j.driver.GraphDatabase
 import org.neo4j.driver.Session
+import org.neo4j.driver.SessionConfig
 
 /**
  * Manages a connection to a Neo4j database via the official Kotlin driver.
@@ -21,7 +22,7 @@ class Neo4jConnection(
     private var driver: Driver? = null
 
     val neo4jSession: Session
-        get() = driver?.session(org.neo4j.driver.SessionConfig.forDatabase(database))
+        get() = driver?.session(SessionConfig.forDatabase(database))
             ?: error("$name is not connected. Call connect() first.")
 
     override val isConnected: Boolean

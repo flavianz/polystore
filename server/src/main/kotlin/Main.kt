@@ -1,12 +1,10 @@
-package ch.flavianz
-
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.connection.ConnectionManager
-import ch.flavianz.connection.MongoConnection
-import ch.flavianz.connection.Neo4jConnection
-import ch.flavianz.connection.PostgresConnection
-import ch.flavianz.driver.DriverManager
-import ch.flavianz.server.startServer
+import core.DatabaseManager
+import connection.ConnectionManager
+import connection.MongoConnection
+import connection.Neo4jConnection
+import connection.PostgresConnection
+import driver.DriverManager
+import server.startServer
 
 fun main() {
     val manager = ConnectionManager()

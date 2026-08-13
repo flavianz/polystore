@@ -1,4 +1,4 @@
-package ch.flavianz.stat
+package benchmark
 
 enum class BenchFilterType {
     GetDocByID,

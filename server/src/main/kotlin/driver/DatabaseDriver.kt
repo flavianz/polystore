@@ -1,11 +1,11 @@
-package ch.flavianz.driver
+package driver
 
-import ch.flavianz.model.PolyData
-import ch.flavianz.model.ConnectionModel
-import ch.flavianz.model.CollectionModel
-import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.PolySchema
-import ch.flavianz.query.GetQuery
+import model.PolyData
+import model.ConnectionModel
+import model.CollectionModel
+import model.DatabaseSchema
+import model.PolySchema
+import query.GetQuery
 import java.util.UUID
 
 interface DatabaseDriver {

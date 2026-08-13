@@ -1,6 +1,6 @@
-package ch.flavianz.stat
+package benchmark
 
-import ch.flavianz.query.DriverType
+import query.DriverType
 import kotlin.time.Duration
 
 enum class MeasurementPhase {

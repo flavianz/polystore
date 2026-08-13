@@ -1,9 +1,7 @@
-package ch.flavianz
-
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.model.DataType
-import ch.flavianz.stat.Benchmark
-import ch.flavianz.stat.Benchmark.faker
+import core.DatabaseManager
+import model.DataType
+import benchmark.Benchmark
+import benchmark.Benchmark.faker
 import java.util.UUID
 import kotlin.random.asKotlinRandom
 

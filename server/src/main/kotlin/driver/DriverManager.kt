@@ -1,18 +1,18 @@
-package ch.flavianz.driver
+package driver
 
-import ch.flavianz.connection.MongoConnection
-import ch.flavianz.connection.Neo4jConnection
-import ch.flavianz.model.DatabaseSchema
-import ch.flavianz.model.PolyData
-import ch.flavianz.query.Condition
-import ch.flavianz.query.DriverType
-import ch.flavianz.query.GetQuery
-import ch.flavianz.query.PolyExecutionEnvironment
-import ch.flavianz.query.GetQueryResult
-import ch.flavianz.query.QuerySegment
-import ch.flavianz.stat.BenchmarkQuery
-import ch.flavianz.stat.DurationMeasurement
-import ch.flavianz.stat.MeasurementPhase
+import connection.MongoConnection
+import connection.Neo4jConnection
+import model.DatabaseSchema
+import model.PolyData
+import query.Condition
+import query.DriverType
+import query.GetQuery
+import query.PolyExecutionEnvironment
+import query.GetQueryResult
+import query.QuerySegment
+import benchmark.BenchmarkQuery
+import benchmark.DurationMeasurement
+import benchmark.MeasurementPhase
 import java.sql.Connection
 import kotlin.collections.mutableListOf
 

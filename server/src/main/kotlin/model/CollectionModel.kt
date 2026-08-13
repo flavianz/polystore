@@ -1,6 +1,6 @@
-package ch.flavianz.model
+package model
 
-import ch.flavianz.core.DatabaseManager
+import core.DatabaseManager
 import kotlinx.serialization.Serializable
 
 @Serializable

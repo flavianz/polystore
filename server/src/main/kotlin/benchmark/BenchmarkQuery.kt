@@ -1,6 +1,6 @@
-package ch.flavianz.stat
+package benchmark
 
-import ch.flavianz.query.GetQuery
+import query.GetQuery
 
 data class BenchmarkQuery(
     val queryShape: String,

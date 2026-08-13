@@ -1,5 +1,10 @@
 package ch.flavianz.query
 
+import query.Condition
+import query.GetQuery
+import query.QueryPath
+import query.QuerySegment
+
 class GetQueryBuilder {
     private var segments = mutableListOf<QuerySegment>()
     private var limit: Int? = null

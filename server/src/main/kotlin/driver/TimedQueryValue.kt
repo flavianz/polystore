@@ -1,4 +1,4 @@
-package ch.flavianz.driver
+package driver
 
 import kotlin.time.Duration
 

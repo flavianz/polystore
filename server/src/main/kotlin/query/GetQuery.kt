@@ -1,4 +1,4 @@
-package ch.flavianz.query
+package query
 
 data class GetQuery(
     val path: QueryPath,

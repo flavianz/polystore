@@ -1,4 +1,4 @@
-package ch.flavianz.query
+package query
 
 infix fun String.eq(value: Any?) = Condition.Comparison.Equals(this, value)
 infix fun String.gt(value: Number) = Condition.Comparison.GreaterThan(this, value)

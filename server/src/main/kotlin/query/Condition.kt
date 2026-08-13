@@ -1,4 +1,4 @@
-package ch.flavianz.query
+package query
 
 sealed class Condition {
     sealed class Comparison : Condition() {

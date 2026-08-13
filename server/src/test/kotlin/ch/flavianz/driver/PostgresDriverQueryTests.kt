@@ -1,13 +1,16 @@
 package ch.flavianz.driver
 
-import ch.flavianz.core.DatabaseManager
-import ch.flavianz.model.*
-import ch.flavianz.query.and
-import ch.flavianz.query.eq
-import ch.flavianz.query.gt
-import ch.flavianz.query.lt
-import ch.flavianz.query.or
+import core.DatabaseManager
+import query.and
+import query.eq
+import query.gt
+import query.lt
+import query.or
 import ch.flavianz.query.get
+import driver.PostgresDriver
+import model.CollectionModel
+import model.ConnectionModel
+import model.DataType
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.sql.Connection
 import java.sql.DriverManager
