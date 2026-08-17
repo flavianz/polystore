@@ -1,3 +1,5 @@
+import benchmark.regression.BenchEnvironmentRegression
+import benchmark.regression.RegressionBenchMeasurement
 import core.DatabaseManager
 import connection.ConnectionManager
 import connection.MongoConnection
@@ -57,8 +59,7 @@ fun main() {
     DatabaseManager.initConnections(
         databaseSchema.connections.toList()
     )
-
-    initExampleOne()
+    BenchEnvironmentRegression().init()
 
     //Benchmark.startBenchmark()
 
