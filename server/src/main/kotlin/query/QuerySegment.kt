@@ -5,7 +5,11 @@ sealed class QuerySegment {
         val name: String,
         val condition: Condition? = null,
         val only: List<String>? = null
-    ) : QuerySegment()
+    ) : QuerySegment() {
+        override fun toString(): String {
+            return "$name ${condition ?: ""} ${only ?: ""}"
+        }
+    }
 
     data class Connection(
         val connectionName: String,
@@ -14,7 +18,11 @@ sealed class QuerySegment {
         val collectionCondition: Condition? = null,
         val connectionOnly: List<String>? = null,
         val collectionOnly: List<String>? = null,
-    ) : QuerySegment()
+    ) : QuerySegment() {
+        override fun toString(): String {
+            return "$connectionName $collectionName ${connectionCondition ?: ""} ${collectionCondition ?: ""} ${connectionOnly ?: ""} ${collectionOnly ?: ""}"
+        }
+    }
 
     fun collectionName(): String {
         return when (this) {
