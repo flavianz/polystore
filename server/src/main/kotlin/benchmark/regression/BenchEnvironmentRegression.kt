@@ -2,10 +2,14 @@ package benchmark.regression
 
 import benchmark.Benchmark
 import benchmark.Benchmark.faker
+import ch.flavianz.query.GetQueryBuilder
+import ch.flavianz.query.get
 import core.DatabaseManager
 import model.ConnectionModel
 import model.DataType
 import model.PolyData
+import query.QueryPath
+import query.QuerySegment
 import java.util.UUID
 import kotlin.random.asKotlinRandom
 
@@ -72,6 +76,115 @@ class BenchEnvironmentRegression {
     val ids = mutableMapOf<String, MutableList<UUID>>()
 
     fun init() {
+
+        val collectionDepthPairs = buildList {
+            for (i in 0..<7) {
+                for (j in 0..<3) {
+                    add(i to j)
+                }
+            }
+        }
+
+        val collectionDepthTriples = buildList {
+            for (i in 0..<6) {
+                for (j in 0..<3) {
+                    for (k in 0..<(7 - i)) {
+                        add(Triple(i, j, k))
+                    }
+                }
+            }
+        }
+
+        val collectionDepthFours = buildList {
+            for (i in 0..<6) {
+                for (j in 0..<2) {
+                    for (k in 0..<(6 - i)) {
+                        for (l in 0..<(2 - j)) {
+                            add((i to j) to (k to l))
+                        }
+                    }
+                }
+            }
+        }
+
+        val queries = buildList {
+            // simple sub collection queries
+            /*for (i in 0..<7) {
+                add(get {
+                    for (i in 0..i) {
+                        collection(userCollections[i])
+                    }
+                })
+            }
+            // with one connection
+            for (collectionDepthPair in collectionDepthPairs) {
+                add(get {
+                    for (i in 0..collectionDepthPair.first) {
+                        collection(userCollections[i])
+                    }
+                    connection(
+                        "${userCollections[collectionDepthPair.first]}_owns_${petCollections[0]}",
+                        petCollections[0]
+                    )
+                    for (i in 1..collectionDepthPair.second) {
+                        collection(petCollections[i])
+                    }
+                })
+            }
+            // with two connections
+            for (collectionDepthTriple in collectionDepthTriples) {
+                add(get {
+                    for (i in 0..collectionDepthTriple.first) {
+                        collection(userCollections[i])
+                    }
+                    connection(
+                        "${userCollections[collectionDepthTriple.first]}_owns_${petCollections[0]}",
+                        petCollections[0]
+                    )
+                    for (i in 1..collectionDepthTriple.second) {
+                        collection(petCollections[i])
+                    }
+                    connection(
+                        "${userCollections[collectionDepthTriple.first + 1]}_owns_${petCollections[collectionDepthTriple.second]}",
+                        userCollections[collectionDepthTriple.first + 1]
+                    )
+                    for (i in (collectionDepthTriple.first + 2)..collectionDepthTriple.third) {
+                        collection(userCollections[i])
+                    }
+                })
+            }*/
+
+            // with three connections
+            for (collectionDepthFour in collectionDepthFours) {
+                add(get {
+                    for (i in 0..collectionDepthFour.first.first) {
+                        collection(userCollections[i])
+                    }
+                    connection(
+                        "${userCollections[collectionDepthFour.first.first]}_owns_${petCollections[0]}",
+                        petCollections[0]
+                    )
+                    for (i in 1..collectionDepthFour.first.second) {
+                        collection(petCollections[i])
+                    }
+                    connection(
+                        "${userCollections[collectionDepthFour.first.first + 1]}_owns_${petCollections[collectionDepthFour.first.second]}",
+                        userCollections[collectionDepthFour.first.first + 1]
+                    )
+                    for (i in (collectionDepthFour.first.first + 2)..collectionDepthFour.second.first) {
+                        collection(userCollections[i])
+                    }
+                    connection(
+                        "${userCollections[collectionDepthFour.second.first + 1]}_owns_${petCollections[collectionDepthFour.first.second + 1]}",
+                        petCollections[collectionDepthFour.first.second + 1]
+                    )
+                    for (i in (collectionDepthFour.first.first + collectionDepthFour.second.first + 2)..(collectionDepthFour.first.first + collectionDepthFour.second.second)) {
+                        collection(petCollections[i])
+                    }
+                })
+            }
+        }
+
         DatabaseManager.dropAllConnections()
         DatabaseManager.dropAllCollections()
 
@@ -125,17 +238,60 @@ class BenchEnvironmentRegression {
                 for (petCollection in petCollections) {
                     val userUuids = ids[userCollection] ?: emptyList()
                     val petUuids = ids[petCollection] ?: emptyList()
-                    DatabaseManager.insertConnection(
-                        "${userCollection}_owns_$petCollection",
-                        userCollection, userUuids.random(Benchmark.seed.asKotlinRandom()),
-                        petCollection, petUuids.random(Benchmark.seed.asKotlinRandom()), generateConnectionData()
-                    )
+                    repeat((collectionSize - currentCollectionSize) / 10) {
+                        DatabaseManager.insertConnection(
+                            "${userCollection}_owns_$petCollection",
+                            userCollection, userUuids.random(Benchmark.seed.asKotlinRandom()),
+                            petCollection, petUuids.random(Benchmark.seed.asKotlinRandom()), generateConnectionData()
+                        )
+                    }
                 }
             }
-            
 
+            // hier
 
             currentCollectionSize = collectionSize
         }
     }
+
+    private fun generateQueryPaths(
+        userIndex: Int,
+        petIndex: Int,
+        remainingDepth: Int,
+        remainingConnectionCount: Int,
+        currentSide: Side
+    ): List<List<QuerySegment>> {
+        if (remainingDepth == 0) {
+            return listOf(listOf(QuerySegment.Collection(if (currentSide == Side.Pet) petCollections[petIndex] else userCollections[userIndex])))
+        }
+        val subCollectionPaths =
+            if ((currentSide == Side.User && userIndex < 6) || (currentSide == Side.Pet && petIndex < 2)) generateQueryPaths(
+                if (currentSide == Side.User) userIndex + 1 else userIndex,
+                if (currentSide == Side.Pet) userIndex + 1 else userIndex,
+                remainingDepth - 1,
+                remainingConnectionCount,
+                currentSide
+            ) else emptyList()
+        val connectionPaths =
+            if (remainingConnectionCount > 0 && ((currentSide == Side.User && petIndex < 2) || (currentSide == Side.Pet && userIndex < 6))) generateQueryPaths(
+                if (currentSide == Side.User) userIndex else userIndex + 1,
+                if (currentSide == Side.Pet) petIndex else petIndex + 1,
+                remainingDepth - 1,
+                remainingConnectionCount + 1,
+                if (currentSide == Side.Pet) Side.User else Side.Pet
+            ) else emptyList()
+        return subCollectionPaths
+            .map { it + QuerySegment.Collection(if (currentSide == Side.Pet) petCollections[petIndex] else userCollections[userIndex]) } +
+                connectionPaths.map {
+                    val collectionName =
+                        if (currentSide == Side.Pet) userCollections[userIndex] else petCollections[petIndex]
+                    val connectionName = "${userCollections[userIndex]}_owns_${petCollections[petIndex]}"
+                    it + QuerySegment.Connection(connectionName, collectionName)
+                }
+    }
+}
+
+private enum class Side {
+    User,
+    Pet
 }
