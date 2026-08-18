@@ -6,7 +6,6 @@ import java.util.UUID
 import kotlin.random.asKotlinRandom
 
 fun initExampleOne() {
-    DatabaseManager.dropCollection("users", true)
     DatabaseManager.createCollection(
         "users", mapOf(
             "name" to DataType.STRING,

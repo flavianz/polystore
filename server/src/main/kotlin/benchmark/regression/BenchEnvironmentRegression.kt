@@ -95,13 +95,11 @@ class BenchEnvironmentRegression {
             }
         }
 
-        val collectionDepthFours = buildList {
+        val collectionDepthDeepTriple = buildList {
             for (i in 0..<6) {
                 for (j in 0..<2) {
-                    for (k in 0..<(6 - i)) {
-                        for (l in 0..<(2 - j)) {
-                            add((i to j) to (k to l))
-                        }
+                    for (k in i..<7) {
+                        add(Triple(i, j, k))
                     }
                 }
             }
@@ -109,7 +107,7 @@ class BenchEnvironmentRegression {
 
         val queries = buildList {
             // simple sub collection queries
-            /*for (i in 0..<7) {
+            for (i in 0..<7) {
                 add(get {
                     for (i in 0..i) {
                         collection(userCollections[i])
@@ -128,6 +126,21 @@ class BenchEnvironmentRegression {
                     )
                     for (i in 1..collectionDepthPair.second) {
                         collection(petCollections[i])
+                    }
+                })
+            }
+            // with one connection, reverse direction
+            for (collectionDepthPair in collectionDepthPairs) {
+                add(get {
+                    for (i in 0..collectionDepthPair.second) {
+                        collection(petCollections[i])
+                    }
+                    connection(
+                        "${userCollections[0]}_owns_${petCollections[collectionDepthPair.second]}",
+                        userCollections[0]
+                    )
+                    for (i in 1..collectionDepthPair.first) {
+                        collection(userCollections[i])
                     }
                 })
             }
@@ -152,36 +165,44 @@ class BenchEnvironmentRegression {
                         collection(userCollections[i])
                     }
                 })
-            }*/
+            }
 
             // with three connections
-            for (collectionDepthFour in collectionDepthFours) {
+            for (collectionDepthDeepTriple in collectionDepthDeepTriple) {
                 add(get {
-                    for (i in 0..collectionDepthFour.first.first) {
+                    for (i in 0..collectionDepthDeepTriple.first) {
                         collection(userCollections[i])
                     }
                     connection(
-                        "${userCollections[collectionDepthFour.first.first]}_owns_${petCollections[0]}",
+                        "${userCollections[collectionDepthDeepTriple.first]}_owns_${petCollections[0]}",
                         petCollections[0]
                     )
-                    for (i in 1..collectionDepthFour.first.second) {
+                    for (i in 1..collectionDepthDeepTriple.second) {
                         collection(petCollections[i])
                     }
                     connection(
-                        "${userCollections[collectionDepthFour.first.first + 1]}_owns_${petCollections[collectionDepthFour.first.second]}",
-                        userCollections[collectionDepthFour.first.first + 1]
+                        "${userCollections[collectionDepthDeepTriple.first + 1]}_owns_${petCollections[collectionDepthDeepTriple.second]}",
+                        userCollections[collectionDepthDeepTriple.first + 1]
                     )
-                    for (i in (collectionDepthFour.first.first + 2)..collectionDepthFour.second.first) {
+                    for (i in (collectionDepthDeepTriple.first + 2)..collectionDepthDeepTriple.third) {
                         collection(userCollections[i])
                     }
                     connection(
-                        "${userCollections[collectionDepthFour.second.first + 1]}_owns_${petCollections[collectionDepthFour.first.second + 1]}",
-                        petCollections[collectionDepthFour.first.second + 1]
+                        "${userCollections[collectionDepthDeepTriple.third]}_owns_${petCollections[collectionDepthDeepTriple.second + 1]}",
+                        petCollections[collectionDepthDeepTriple.second + 1]
                     )
-                    for (i in (collectionDepthFour.first.first + collectionDepthFour.second.first + 2)..(collectionDepthFour.first.first + collectionDepthFour.second.second)) {
+                    for (i in (collectionDepthDeepTriple.second + 2)..<3) {
                         collection(petCollections[i])
                     }
                 })
+            }
+        }
+
+        val conditionQueries = buildList {
+            for(conditionCount in 0..<11) {
+                for (query in queries) {
+
+                }
             }
         }
 
