@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="DataSourcePerFileMappings">
-    <file url="file://$PROJECT_DIR$/src/main/kotlin/driver/PostgresDriver.kt" value="1ede6266-7cec-469b-9856-659f928ad578" />
-    <file url="file://$PROJECT_DIR$/src/test/kotlin/ch/flavianz/driver/DriversTest.kt" value="1ede6266-7cec-469b-9856-659f928ad578" />
-    <file url="file://$PROJECT_DIR$/src/test/kotlin/ch/flavianz/driver/PostgresDriverIntegrationTests.kt" value="1ede6266-7cec-469b-9856-659f928ad578" />
-    <file url="file://$PROJECT_DIR$/src/test/kotlin/ch/flavianz/driver/PostgresDriverQueryTests.kt" value="1ede6266-7cec-469b-9856-659f928ad578" />
-  </component>
-</project>
