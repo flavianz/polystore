@@ -371,8 +371,9 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                     val conAlias = segment.connectionName
                     val nodeAlias = segment.collectionName
                     val model = DatabaseManager.getConnectionModel(segment.connectionName)
-                    val targetLabel = collectionLabel(model.collection2Name)
-                    sb.append("-[$conAlias:`${model.name}`]->($nodeAlias:`$targetLabel`)")
+                    val targetLabel =
+                        collectionLabel(if (segment.collectionName == model.collection1Name) model.collection1Name else model.collection2Name)
+                    sb.append("${if (segment.collectionName == model.collection1Name) "<" else ""}-[$conAlias:`${model.name}`]-${if (segment.collectionName == model.collection2Name) ">" else ""}($nodeAlias:`$targetLabel`)")
                 }
             }
         }
