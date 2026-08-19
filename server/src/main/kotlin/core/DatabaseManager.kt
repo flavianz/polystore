@@ -25,8 +25,8 @@ object DatabaseManager {
     private var connections = mutableMapOf<String, ConnectionModel>()
 
     fun dropAllConnections() {
-        for (connection in connections) {
-            dropConnection(connection.key)
+        while (connections.isNotEmpty()) {
+            dropConnection(connections.keys.first())
         }
     }
 
