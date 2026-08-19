@@ -207,7 +207,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
                                             }
 
                                             is Long -> value.toInt()
-                                            is Float, is Boolean -> value
+                                            is Float, is Double, is Boolean -> value
                                             else -> throw IllegalStateException("unknown neo4j type ${value.javaClass.name}")
                                         })
                                 }
@@ -462,7 +462,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     private fun collectionLabel(name: String): String = "ps_col_$name"
 
     private fun Any?.toNeo4j(): Any? = when (this) {
-        is String, is Int, is Float, is Boolean -> this
+        is String, is Int, is Float, is Double, is Boolean -> this
         is UUID -> this.toString()
         null -> null
         else -> throw IllegalArgumentException("illegal type ${this.javaClass.name}")
@@ -471,7 +471,7 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
     private fun Any?.toCypherLiteral(): String = when (this) {
         is String -> "'${this.replace("'", "\\'")}'"
         is UUID -> this.toString().toCypherLiteral()
-        is Int, is Float, is Boolean -> this.toString()
+        is Int, is Float, is Double, is Boolean -> this.toString()
         null -> "null"
         else -> throw IllegalArgumentException("illegal type ${this.javaClass.name}")
     }

@@ -16,7 +16,7 @@ enum class DataType {
     fun matchesType(value: Any?): Boolean {
         return when (value) {
             is Int -> this == INT
-            is Float -> this == FLOAT
+            is Float, is Double -> this == FLOAT
             is Boolean -> this == BOOLEAN
             is String -> this == STRING
             is UUID -> this == UUID

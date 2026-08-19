@@ -594,7 +594,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 '{"type": "uuid", "value": "$value"}'::jsonb
             """.trimIndent()
 
-            is Int, is Float, is Boolean -> {
+            is Int, is Float, is Double, is Boolean -> {
                 "'${value}'::jsonb"
             }
 
@@ -612,7 +612,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                 "'$value'"
             }
 
-            is Int, is Float, is Boolean -> {
+            is Int, is Float, is Double, is Boolean -> {
                 value.toString()
             }
 
@@ -662,7 +662,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     when (entry.value) {
                         is String -> "\"${entry.value.toString()}\""
                         is UUID -> "{\"type\": \"uuid\", \"value\": \"${entry.value.toString()}\"}"
-                        is Int, is Float, is Boolean, null -> entry.value.toString()
+                        is Int, is Float, is Double, is Boolean, null -> entry.value.toString()
                         else -> throw IllegalArgumentException("unallowed data type ${entry.value?.javaClass?.name}")
                     }
                 }"

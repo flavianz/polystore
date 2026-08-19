@@ -326,7 +326,7 @@ object DatabaseManager {
         }
         for (entry in data) {
             when (entry.value) {
-                is String, is Int, is Float, is Boolean, is UUID, null -> continue
+                is String, is Int, is Float, is Double, is Boolean, is UUID, null -> continue
                 else -> throw IllegalArgumentException("data type ${entry.value?.javaClass?.name} is not allowed")
             }
         }

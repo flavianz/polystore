@@ -86,7 +86,7 @@ sealed class PolyResultData {
                                     val subKey = key.split(".")[1]
                                     when (value) {
                                         is Int -> put(subKey, value)
-                                        is Float -> put(subKey, value)
+                                        is Float, is Double -> put(subKey, value)
                                         is Boolean -> put(subKey, value)
                                         is String -> put(subKey, value)
                                         is UUID -> put(subKey, value.toString())
