@@ -75,7 +75,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     override fun dropConnection(connectionModel: ConnectionModel) {
         val sql = StringBuilder()
         sql.append("DROP TABLE ")
-        sql.append(quoteIdentifier("ps_con_${connectionModel.collection1Name}__${connectionModel.name}__${connectionModel.collection2Name}"))
+        sql.append(quoteIdentifier("ps_con_${connectionModel.name}"))
         sql.append("; DELETE FROM ps_config_connections WHERE name = ${prepareValue(connectionModel.name)};")
         connection.prepareStatement(sql.toString()).execute()
         return
@@ -98,7 +98,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         // Add the primary key column
         // ps_col = polystore_collection
         sql.append("CREATE TABLE ")
-            .append(quoteIdentifier("ps_con_${collection1Name}__${connection.name}__${collection2Name}"))
+            .append(quoteIdentifier("ps_con_${connection.name}"))
 
         // ps_cfk = polystore_connectionforeignkey
         sql.append(" (").append(quoteIdentifier("ps_cfk_$collection1Name")).append(" UUID CONSTRAINT ")
@@ -196,7 +196,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
     ) {
         val sql = StringBuilder()
         val tableName =
-            "ps_con_${connection.collection1Name}__${connection.name}__${connection.collection2Name}"
+            "ps_con_${connection.name}"
         sql.append("INSERT INTO ").append(quoteIdentifier(tableName)).append(" (")
         sql.append(quoteIdentifier("ps_cfk_${connection.collection1Name}")).append(", ")
         sql.append(quoteIdentifier("ps_cfk_${connection.collection2Name}"))
@@ -372,7 +372,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                     val model = DatabaseManager.getConnectionModel(segmentName)
                     for (f in model.connectionDataSchema.keys) {
                         projections.add(
-                            "${quoteIdentifier("ps_con_${model.collection1Name}__${model.name}__${model.collection2Name}")}.${
+                            "${quoteIdentifier("ps_con_${model.name}")}.${
                                 quoteIdentifier(
                                     f
                                 )
@@ -380,7 +380,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
                         )
                     }
                     projections.add(
-                        "${quoteIdentifier("ps_con_${model.collection1Name}__${model.name}__${model.collection2Name}")}._dynamic_data AS ${
+                        "${quoteIdentifier("ps_con_${model.name}")}._dynamic_data AS ${
                             quoteIdentifier(
                                 "${segmentName}._dynamic_data"
                             )
@@ -403,7 +403,7 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
             } else {
                 val tableName = if (isConnection) {
                     val model = DatabaseManager.getConnectionModel(segmentName)
-                    "ps_con_${model.collection1Name}__${model.name}__${model.collection2Name}"
+                    "ps_con_${model.name}"
                 } else {
                     "ps_col_${segmentName}"
                 }

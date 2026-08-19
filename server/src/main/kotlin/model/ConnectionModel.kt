@@ -10,6 +10,6 @@ data class ConnectionModel(
     val connectionDataSchema: PolySchema
 ) {
     fun toPostgresPath(): String {
-        return "${collection1Name}__${name}__${collection2Name}"
+        return name
     }
 }
