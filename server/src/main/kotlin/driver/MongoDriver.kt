@@ -443,7 +443,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                     ),
                     listOf(
                         buildString {
-                            append("list collection ${collectionSegment.name}")
+                            append("list collection ${collectionSegment.name} with filters ${filters}")
                             collectionSegment.condition?.let {
                                 append("with condition ${collectionSegment.condition}")
                             }
@@ -528,7 +528,17 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
                                     docsBySegment[segment.name] =
                                         previousSegmentDocs.flatMap {
                                             check(it is MongoPolyCompleteDocument)
-                                            it.getSubCollectionDocuments(segment.name)
+                                            val subDocs = it.getSubCollectionDocuments(segment.name)
+                                            if (segment.condition == null) {
+                                                subDocs
+                                            } else {
+                                                subDocs.filter { subDoc ->
+                                                    checkCondition(
+                                                        subDoc.doc,
+                                                        segment.condition
+                                                    )
+                                                }
+                                            }
                                         }
                                     i++
                                 }
@@ -842,7 +852,7 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
             is Condition.Logic.And -> Filters.and(conditionToFilter(condition.left), conditionToFilter(condition.right))
             is Condition.Logic.Or -> Filters.or(conditionToFilter(condition.left), conditionToFilter(condition.right))
             is Condition.Not -> Filters.not(conditionToFilter(condition.condition))
-            is Condition.In -> Filters.`in`(condition.field, condition.list)
+            is Condition.In -> Filters.`in`("${prefix}${condition.field}", condition.list)
             null -> Filters.empty()
         }
     }
