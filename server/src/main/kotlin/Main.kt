@@ -59,7 +59,7 @@ fun main() {
     DatabaseManager.initConnections(
         databaseSchema.connections.toList()
     )
-    BenchEnvironmentRegression().init()
+    BenchEnvironmentRegression().bench()
 
     //Benchmark.startBenchmark()
 
