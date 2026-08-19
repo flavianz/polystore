@@ -21,6 +21,7 @@ import query.GetQuery
 import query.QueryPath
 import query.QuerySegment
 import java.util.UUID
+import kotlin.math.max
 import kotlin.random.asKotlinRandom
 import kotlin.text.get
 
@@ -153,7 +154,7 @@ class BenchEnvironmentRegression {
                 for (petCollection in petCollections) {
                     val userUuids = ids[userCollection] ?: emptyList()
                     val petUuids = ids[petCollection] ?: emptyList()
-                    repeat((collectionSize - currentCollectionSize) / 10) {
+                    repeat(max((collectionSize - currentCollectionSize) / 10, 100)) {
                         DatabaseManager.insertConnection(
                             "${userCollection}_owns_$petCollection",
                             userCollection, userUuids.random(Benchmark.seed.asKotlinRandom()),
