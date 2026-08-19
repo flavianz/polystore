@@ -218,7 +218,7 @@ class PostgresDriverQueryTests {
         id1: UUID, id2: UUID,
         fields: Map<String, Any>
     ) {
-        val tableName = "ps_con_${col1}__${connName}__${col2}"
+        val tableName = "ps_con_${connName}"
         val fk1 = "ps_cfk_$col1"
         val fk2 = "ps_cfk_$col2"
         val fieldCols = fields.keys.joinToString { "\"$it\"" }
@@ -239,8 +239,8 @@ class PostgresDriverQueryTests {
 
     private fun cleanupTables() {
         connection?.createStatement()?.use { stmt ->
-            stmt.execute("DROP TABLE IF EXISTS \"ps_con_students__attends__courses\"")
-            stmt.execute("DROP TABLE IF EXISTS \"ps_con_courses__belongs_to__departments\"")
+            stmt.execute("DROP TABLE IF EXISTS \"ps_con_attends\"")
+            stmt.execute("DROP TABLE IF EXISTS \"ps_con_belongs_to\"")
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_enrollments\"")
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_courses\"")
             stmt.execute("DROP TABLE IF EXISTS \"ps_col_departments\"")
@@ -531,7 +531,7 @@ class PostgresDriverQueryTests {
             connection("attends", "courses")
         })
 
-        val names = result.data.map { it["ps_col_students__name"] }
+        val names = result.data.map { it["ps_col_students.name"] }
         assertFalse(
             names.contains("Lonely"),
             "A student with no connections should not appear in a join result"
