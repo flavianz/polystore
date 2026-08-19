@@ -448,24 +448,27 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
 
                 is QuerySegment.Connection -> {
                     val connectionModel = DatabaseManager.getConnectionModel(currentSegment.connectionName)
-                    val prevCol = path[i - 1].collectionName()
-                    val prevTable = "ps_col_${prevCol}"
-                    val nextTable = "ps_col_${connectionModel.collection2Name}"
+                    val startCol = path[i - 1].collectionName()
+                    val prevCol =
+                        if (connectionModel.collection1Name == startCol) startCol else connectionModel.collection2Name
+                    val nextCol =
+                        if (connectionModel.collection1Name == startCol) connectionModel.collection2Name else connectionModel.collection1Name
+                    val nextTable = "ps_col_${nextCol}"
                     val connTable =
                         "ps_con_${connectionModel.toPostgresPath()}"
 
                     sql.append(" JOIN ").append(quoteIdentifier(connTable))
                         .append(" ON ")
                         .append(quoteIdentifier(connTable)).append(".")
-                        .append(quoteIdentifier("ps_cfk_${connectionModel.collection1Name}"))
+                        .append(quoteIdentifier("ps_cfk_${prevCol}"))
                         .append(" = ")
-                        .append(quoteIdentifier(prevTable)).append(".").append(quoteIdentifier("_id"))
+                        .append(quoteIdentifier("ps_col_${prevCol}")).append(".").append(quoteIdentifier("_id"))
                         .append(" JOIN ").append(quoteIdentifier(nextTable))
                         .append(" ON ")
                         .append(quoteIdentifier(nextTable)).append(".")
                         .append(quoteIdentifier("_id")).append(" = ")
                         .append(quoteIdentifier(connTable)).append(".")
-                        .append("ps_cfk_${connectionModel.collection2Name}")
+                        .append("ps_cfk_${nextCol}")
                 }
             }
         }
