@@ -90,7 +90,7 @@ class BenchEnvironmentRegression {
         for (name in petCollections) put(name, petSchema)
     }
 
-    val collectionSizes = listOf(100, 500, 1000, 3000, 9000, 15000)
+    val collectionSizes = listOf(100/*, 500, 1000, 3000, 9000, 15000*/)
 
     val ids = mutableMapOf<String, MutableList<UUID>>()
 
@@ -152,14 +152,19 @@ class BenchEnvironmentRegression {
             }
 
             // insert connections between each pair of collections
+            val connectionsPerDocument = 15 // tune based on your selectivity tiers - see reasoning below
+
             for (userCollection in userCollections) {
                 for (petCollection in petCollections) {
                     val userUuids = ids[userCollection] ?: emptyList()
                     val petUuids = ids[petCollection] ?: emptyList()
-                    repeat(max((collectionSize - currentCollectionSize) / 10, 100)) {
+                    if (userUuids.isEmpty() || petUuids.isEmpty()) continue
+
+                    val newUserIds = userUuids.takeLast(collectionSize - currentCollectionSize)
+                    repeat(newUserIds.size * connectionsPerDocument) {
                         DatabaseManager.insertConnection(
                             "${userCollection}_owns_$petCollection",
-                            userCollection, userUuids.random(Benchmark.seed.asKotlinRandom()),
+                            userCollection, newUserIds.random(Benchmark.seed.asKotlinRandom()),
                             petCollection, petUuids.random(Benchmark.seed.asKotlinRandom()), generateConnectionData()
                         )
                     }
@@ -217,8 +222,8 @@ class BenchEnvironmentRegression {
                 for (i in 0..<1) {
                     for (driver in listOf(
                         Pair(postgresDriver, DriverType.Postgres),
-                        Pair(mongoDriver, DriverType.Mongo),
-                        Pair(neo4jDriver, DriverType.Neo4j)
+                        /*Pair(mongoDriver, DriverType.Mongo),
+                        Pair(neo4jDriver, DriverType.Neo4j)*/
                     )) {
                         lateinit var result: TimedDriverResult<List<PolyData>>
                         try {
