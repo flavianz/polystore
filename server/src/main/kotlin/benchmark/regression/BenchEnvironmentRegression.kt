@@ -20,6 +20,7 @@ import query.DriverType
 import query.GetQuery
 import query.QueryPath
 import query.QuerySegment
+import java.io.File
 import java.util.UUID
 import kotlin.math.max
 import kotlin.random.asKotlinRandom
@@ -131,6 +132,7 @@ class BenchEnvironmentRegression {
         // insert all documents step for step
         var currentCollectionSize = 0
         for (collectionSize in collectionSizes) {
+            println("collection size $collectionSize")
             // insert documents in collections
             for ((collectionGroup, _, docGenerator) in collections) {
                 for ((i, collectionName) in collectionGroup.withIndex()) {
@@ -207,14 +209,12 @@ class BenchEnvironmentRegression {
             // the structural features (first_filtered_segment_index, requires_multi_query, etc.)
             // computed directly from `query.path` at measurement time.
 
-            var zeroCount = 0
-            var twoHundredCount = 0
-            var fiveHundredCount = 0
+            val resultSizes = mutableListOf<Pair<Int, Int>>()
 
             for ((index, query) in conditionQueries.withIndex()) {
-                if (index % 100 == 0) println("${index} of ${conditionQueries.size} queries complete")
+                if (index % 100 == 0) println("$index of ${conditionQueries.size} queries complete")
                 val results = mutableListOf<Set<PolyData>>()
-                for (i in 0..<2) {
+                for (i in 0..<1) {
                     for (driver in listOf(
                         Pair(postgresDriver, DriverType.Postgres),
                         Pair(mongoDriver, DriverType.Mongo),
@@ -223,39 +223,31 @@ class BenchEnvironmentRegression {
                         lateinit var result: TimedDriverResult<List<PolyData>>
                         try {
                             result = driver.first!!.get(query)
-                            if (i == 0) {
-                                results.add(result.data.toSet())
-                                check(results.distinct().size == 1) {
-                                    "not all drivers returned the same result for query '${query}:\npostgres:(size ${
-                                        results.getOrNull(
-                                            0
-                                        )?.size
-                                    })${results.getOrNull(0)}\nmongo:(size ${results.getOrNull(1)?.size})${
-                                        results.getOrNull(
-                                            1
-                                        )
-                                    }\nneo4j:(size ${results.getOrNull(2)?.size})${results.getOrNull(2)}'"
-                                }
+                            results.add(result.data.toSet())
+                            check(results.distinct().size == 1) {
+                                "not all drivers returned the same result for query '${query}:\npostgres:(size ${
+                                    results.getOrNull(
+                                        0
+                                    )?.size
+                                })${results.getOrNull(0)}\nmongo:(size ${results.getOrNull(1)?.size})${
+                                    results.getOrNull(
+                                        1
+                                    )
+                                }\nneo4j:(size ${results.getOrNull(2)?.size})${results.getOrNull(2)}'"
                             }
-
                         } catch (e: Exception) {
                             println("error: $e")
                         }
                     }
-                    if (i == 0) {
-                        println("driver results equal")
-                    }
                 }
-                if (results.first().isEmpty()) {
-                    zeroCount++
-                }
-                if (results.first().size > 200) {
-                    twoHundredCount++
-                }
-                if (results.first().size > 200) {
-                    fiveHundredCount++
-                }
+                resultSizes.add(collectionSize to results.first().size)
             }
+
+            File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\result-size.csv").appendText(
+                resultSizes.joinToString("\n") {
+                    "${it.first};${it.second}"
+                } + "\n"
+            )
 
             currentCollectionSize = collectionSize
         }
