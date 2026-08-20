@@ -1,0 +1,10 @@
+users;"[{""name"": ""name"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";
+children;"[{""name"": ""name"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";users
+grand_children;"[{""name"": ""name"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";children
+grand2_children;"[{""name"": ""name"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";grand_children
+grand3_children;"[{""name"": ""name"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";grand2_children
+grand4_children;"[{""name"": ""name"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";grand3_children
+grand5_children;"[{""name"": ""name"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";grand4_children
+pets;"[{""name"": ""animal"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";
+pets_child;"[{""name"": ""animal"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";pets
+pets_grand_child;"[{""name"": ""animal"", ""type"": ""STRING""}, {""name"": ""age"", ""type"": ""INT""}, {""name"": ""male"", ""type"": ""BOOLEAN""}]";pets_child

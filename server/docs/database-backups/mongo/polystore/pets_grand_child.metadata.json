@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"}],"uuid":"37a98133d43b4416a5640db6466c283c","collectionName":"pets_grand_child","type":"collection"}
