@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from fontTools.misc.cython import returns
 
 # Load data
-df = pd.read_csv("./regression/data/result-size2.csv", sep=";")
+df = pd.read_csv("regression/data/result-size11.csv", sep=";")
 
 collection_sizes = sorted(df["collection_size"].unique())
 
@@ -22,5 +22,5 @@ for ax in axes[len(collection_sizes):]:
     ax.axis("off")
 
 plt.tight_layout()
-plt.savefig("result_size_distribution2.png", dpi=150)
+plt.savefig("./regression/plots/result_size_distribution11.png", dpi=150)
 plt.show()

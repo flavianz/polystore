@@ -3,6 +3,7 @@ package benchmark.regression
 import benchmark.BenchFilterType
 import benchmark.Benchmark
 import benchmark.Benchmark.faker
+import benchmark.MeasurementPhase
 import ch.flavianz.query.GetQueryBuilder
 import ch.flavianz.query.get
 import core.DatabaseManager
@@ -23,8 +24,10 @@ import query.QuerySegment
 import java.io.File
 import java.util.UUID
 import kotlin.math.max
+import kotlin.random.Random
 import kotlin.random.asKotlinRandom
 import kotlin.text.get
+import kotlin.time.Duration
 
 class BenchEnvironmentRegression {
     val userCollections = listOf(
@@ -90,12 +93,43 @@ class BenchEnvironmentRegression {
         for (name in petCollections) put(name, petSchema)
     }
 
+    // every (userCollection, petCollection) connection name, and its endpoint pair -
+    // used both for insertion and for connection-field sampling
+    val connectionEndpoints: Map<String, Pair<String, String>> = buildMap {
+        for (u in userCollections) for (p in petCollections) put("${u}_owns_$p", u to p)
+    }
+
     val collectionSizes = listOf(100/*, 500, 1000, 3000, 9000, 15000*/)
 
     val ids = mutableMapOf<String, MutableList<UUID>>()
 
+    // collectionName -> (childId -> parentId). Populated during insertion, used to sample
+    // structurally VALID leaf-to-root ID chains for GetDocByID/IdInList filters - without
+    // this, independently sampling an id per collection level produces combinations where
+    // the "child" isn't actually a descendant of the "parent" id chosen at another level,
+    // which is why those queries were returning empty results despite both ids existing.
+    val parentOf = mutableMapOf<String, MutableMap<UUID, UUID?>>()
+
+    // parentId -> list of its children's ids (across whichever collection they belong to -
+    // within one stack there's only ever one child collection per level, so no ambiguity).
+    // Needed to walk a Kinder chain DOWNWARD from an already-bound anchor id; parentOf only
+    // supports walking upward.
+    val childrenOf = mutableMapOf<UUID, MutableList<UUID>>()
+
+    // connectionName -> list of (nearOrderId=userSideId, farOrderId=petSideId, edgeData) for
+    // every actually inserted edge. Same problem as parentOf, one level removed: independently
+    // sampling a users._id and a pets._id (or an edge property value) produces combinations
+    // that are real-but-unrelated almost every time. Storing the actual edge DATA too (not
+    // just the endpoint ids) lets edge-property filters (e.g. "since") also be derived from a
+    // real edge instead of sampled from the marginal distribution of ALL edges' values.
+    val connectionEdges = mutableMapOf<String, MutableList<Triple<UUID, UUID, PolyData>>>()
+
     // populated once per collectionSize step in bench(); used by materializeQuery
     var fieldSamples: FieldSamples = emptyMap()
+
+    // same idea as fieldSamples, but for connections' OWN properties (since/likes/nickname),
+    // sampled from real inserted connection data - not from a collection's documents
+    var connectionFieldSamples: FieldSamples = emptyMap()
 
     // structural query-path skeletons, built once (they don't depend on collectionSize) -
     // conditions get attached later, per collectionSize step, via materializeQuery
@@ -116,65 +150,75 @@ class BenchEnvironmentRegression {
             }
         }
         // create a connection between each pair of collections
-        for (userCollection in userCollections) {
-            for (petCollection in petCollections) {
-                DatabaseManager.createConnection(
-                    ConnectionModel(
-                        "${userCollection}_owns_$petCollection",
-                        userCollection,
-                        petCollection,
-                        connectionSchema
-                    )
-                )
-            }
+        for ((connectionName, endpoints) in connectionEndpoints) {
+            DatabaseManager.createConnection(
+                ConnectionModel(connectionName, endpoints.first, endpoints.second, connectionSchema)
+            )
         }
 
         // insert all documents step for step
         var currentCollectionSize = 0
         for (collectionSize in collectionSizes) {
             println("collection size $collectionSize")
-            // insert documents in collections
+
+            // insert documents in collections, using EVEN (round-robin over a shuffled pool)
+            // parent assignment rather than independent random picks. Independent random
+            // picks from a small pool reliably create "hot" hub documents (pigeonhole/
+            // birthday-paradox effect) that then compound multiplicatively with connection
+            // fan-out on multi-hop queries - this bounds max fan-out per parent instead.
             for ((collectionGroup, _, docGenerator) in collections) {
                 for ((i, collectionName) in collectionGroup.withIndex()) {
                     val currentIdList = ids[collectionName] ?: mutableListOf()
                     val parentIds = if (i == 0) emptyList() else ids[collectionGroup[i - 1]] ?: emptyList()
-                    repeat(collectionSize - currentCollectionSize) {
-                        currentIdList.add(
-                            DatabaseManager.insertDocument(
-                                collectionName,
-                                docGenerator(),
-                                if (i == 0) null else parentIds.random(Benchmark.seed.asKotlinRandom())
-                            )
-                        )
+                    val newDocCount = collectionSize - currentCollectionSize
+                    val parentAssignments = evenAssignment(parentIds, newDocCount, Benchmark.seed.asKotlinRandom())
+                    repeat(newDocCount) { docIndex ->
+                        val parentId = if (i == 0) null else parentAssignments[docIndex]
+                        val newId = DatabaseManager.insertDocument(collectionName, docGenerator(), parentId)
+                        currentIdList.add(newId)
+                        parentOf.getOrPut(collectionName) { mutableMapOf() }[newId] = parentId
+                        if (parentId != null) childrenOf.getOrPut(parentId) { mutableListOf() }.add(newId)
                     }
                     ids[collectionName] = currentIdList
                 }
             }
 
-            // insert connections between each pair of collections
-            val connectionsPerDocument = 15 // tune based on your selectivity tiers - see reasoning below
+            // insert connections, using EVEN assignment on BOTH sides, capped so total
+            // connections per pair never exceeds collectionSize - "as many connections as
+            // there are documents," not more. Combined with calibrated connection-segment
+            // filtering below, this keeps result sizes controlled from two directions instead
+            // of relying on raw graph density alone (which either starves narrow/deep queries
+            // or floods wide/shallow ones, and independently-random assignment creates hot
+            // hubs regardless of density).
+            for ((connectionName, endpoints) in connectionEndpoints) {
+                val (userCollection, petCollection) = endpoints
+                val userUuids = ids[userCollection] ?: emptyList()
+                val petUuids = ids[petCollection] ?: emptyList()
+                if (userUuids.isEmpty() || petUuids.isEmpty()) continue
 
-            for (userCollection in userCollections) {
-                for (petCollection in petCollections) {
-                    val userUuids = ids[userCollection] ?: emptyList()
-                    val petUuids = ids[petCollection] ?: emptyList()
-                    if (userUuids.isEmpty() || petUuids.isEmpty()) continue
+                val connectionCount = collectionSize.coerceAtMost(max(userUuids.size, petUuids.size))
+                val userSide = evenAssignment(userUuids, connectionCount, Benchmark.seed.asKotlinRandom())
+                val petSide = evenAssignment(petUuids, connectionCount, Benchmark.seed.asKotlinRandom())
 
-                    val newUserIds = userUuids.takeLast(collectionSize - currentCollectionSize)
-                    repeat(newUserIds.size * connectionsPerDocument) {
-                        DatabaseManager.insertConnection(
-                            "${userCollection}_owns_$petCollection",
-                            userCollection, newUserIds.random(Benchmark.seed.asKotlinRandom()),
-                            petCollection, petUuids.random(Benchmark.seed.asKotlinRandom()), generateConnectionData()
-                        )
-                    }
+                repeat(connectionCount) { i ->
+                    val edgeData = generateConnectionData()
+                    DatabaseManager.insertConnection(
+                        connectionName,
+                        userCollection, userSide[i],
+                        petCollection, petSide[i], edgeData
+                    )
+                    connectionEdges.getOrPut(connectionName) { mutableListOf() }
+                        .add(Triple(userSide[i], petSide[i], edgeData))
                 }
             }
 
-            // refresh field samples now that this collectionSize's documents are inserted -
-            // MUST happen after insertion, since sampleDocuments reads real data back out
+            // refresh field samples now that this collectionSize's documents/connections are
+            // inserted - MUST happen after insertion, since sampling reads real data back out
             fieldSamples = (userCollections + petCollections).associateWith { name ->
                 sampleFieldValues(name, schemaByCollection.getValue(name))
+            }
+            connectionFieldSamples = connectionEndpoints.mapValues { (connectionName, endpoints) ->
+                sampleConnectionFieldValues(connectionName, endpoints.first, endpoints.second)
             }
 
             // -------------------------------------------------------------------------
@@ -184,9 +228,9 @@ class BenchEnvironmentRegression {
                 for (tier in SelectivityTier.entries) {
                     for (filterType in BenchFilterType.entries.filter { it != BenchFilterType.None }) {
                         for (descriptor in queryPathMetadata) {
-                            val depth = descriptor.size
-                            val tiers = assignFiltersForPath(depth, tier)
-                            val query = materializeQuery(descriptor, tiers, filterType, fieldSamples)
+                            val tiers = assignFiltersForPath(descriptor, tier)
+                            val query =
+                                materializeQuery(descriptor, tiers, filterType, fieldSamples, connectionFieldSamples)
                             if (query != null) add(query)
                             // null means no compatible field/id existed for this
                             // (descriptor, filterType) combination at the chosen positions -
@@ -202,7 +246,8 @@ class BenchEnvironmentRegression {
                             descriptor,
                             List(descriptor.size) { null },
                             BenchFilterType.None,
-                            fieldSamples
+                            fieldSamples,
+                            connectionFieldSamples
                         )!! // no filter needed -> always succeeds, safe to assert non-null
                     )
                 }
@@ -214,45 +259,43 @@ class BenchEnvironmentRegression {
             // the structural features (first_filtered_segment_index, requires_multi_query, etc.)
             // computed directly from `query.path` at measurement time.
 
-            val resultSizes = mutableListOf<Pair<Int, Int>>()
-
-            for ((index, query) in conditionQueries.withIndex()) {
-                if (index % 100 == 0) println("$index of ${conditionQueries.size} queries complete")
-                val results = mutableListOf<Set<PolyData>>()
-                for (i in 0..<1) {
-                    for (driver in listOf(
-                        Pair(postgresDriver, DriverType.Postgres),
-                        /*Pair(mongoDriver, DriverType.Mongo),
-                        Pair(neo4jDriver, DriverType.Neo4j)*/
-                    )) {
-                        lateinit var result: TimedDriverResult<List<PolyData>>
-                        try {
-                            result = driver.first!!.get(query)
-                            results.add(result.data.toSet())
-                            check(results.distinct().size == 1) {
-                                "not all drivers returned the same result for query '${query}:\npostgres:(size ${
-                                    results.getOrNull(
-                                        0
-                                    )?.size
-                                })${results.getOrNull(0)}\nmongo:(size ${results.getOrNull(1)?.size})${
-                                    results.getOrNull(
-                                        1
-                                    )
-                                }\nneo4j:(size ${results.getOrNull(2)?.size})${results.getOrNull(2)}'"
-                            }
-                        } catch (e: Exception) {
-                            println("error: $e")
-                        }
-                    }
-                }
-                resultSizes.add(collectionSize to results.first().size)
+            for (query in conditionQueries) {
+                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\result-size.csv").appendText(
+                    "${query};${
+                        parseRegressionBenchMeasurement(
+                            DriverType.Postgres, 100, MeasurementPhase.Build, 1,
+                            Duration.ZERO, query
+                        )
+                    };\n"
+                )
             }
 
-            File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\result-size.csv").appendText(
-                resultSizes.joinToString("\n") {
-                    "${it.first};${it.second}"
-                } + "\n"
-            )
+            /*for ((index, query) in conditionQueries.withIndex()) {
+                if (index % 100 == 0) println("$index of ${conditionQueries.size} queries complete")
+                val results = mutableListOf<Set<PolyData>>()
+                for (driver in listOf(
+                    Pair(postgresDriver, DriverType.Postgres),
+                    *//*Pair(mongoDriver, DriverType.Mongo),
+                    Pair(neo4jDriver, DriverType.Neo4j)*//*
+                )) {
+                    try {
+                        val result: TimedDriverResult<List<PolyData>> = driver.first!!.get(query)
+                        results.add(result.data.toSet())
+                        check(results.distinct().size == 1) {
+                            "not all drivers returned the same result for query '${query}:\npostgres:(size ${
+                                results.getOrNull(0)?.size
+                            })${results.getOrNull(0)}\nmongo:(size ${results.getOrNull(1)?.size})${
+                                results.getOrNull(1)
+                            }\nneo4j:(size ${results.getOrNull(2)?.size})${results.getOrNull(2)}'"
+                        }
+                    } catch (e: Exception) {
+                        println("error: $e")
+                    }
+                }
+                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\result-size.csv").appendText(
+                    "${collectionSize};${results.first().size};$query\n"
+                )
+            }*/
 
             currentCollectionSize = collectionSize
         }
@@ -381,8 +424,391 @@ class BenchEnvironmentRegression {
     }
 
     // -------------------------------------------------------------------------
-    // field/id sampling
+    // even/bounded assignment - prevents hot-hub documents from independent random picks
     // -------------------------------------------------------------------------
+
+    /**
+     * Assigns `count` items drawn from `pool`, cycling through a single shuffled copy of the
+     * pool round-robin rather than drawing independently at random each time. Independent
+     * random draws from a small pool reliably produce a few massively over-represented items
+     * (pigeonhole/birthday-paradox effect); round-robin bounds every pool item's usage count to
+     * at most ceil(count / pool.size), eliminating hot hubs entirely rather than just reducing
+     * their average likelihood.
+     */
+    private fun <T> evenAssignment(pool: List<T>, count: Int, rng: Random): List<T> {
+        if (pool.isEmpty() || count == 0) return emptyList()
+        val shuffledPool = pool.shuffled(rng)
+        return List(count) { i -> shuffledPool[i % shuffledPool.size] }
+    }
+
+    // -------------------------------------------------------------------------
+    // real-path sampling: the general fix
+    // -------------------------------------------------------------------------
+    //
+    // Every filter value used anywhere in a query - whether an id or a field value, whether on
+    // a Collection segment or a Connection's edge/far-node - must come from data that actually
+    // lies on ONE real, mutually consistent path through the database. Sampling each segment's
+    // filter independently from its own marginal distribution (e.g. "any age that exists in
+    // children" + separately "any name that exists in grand_children") produces combinations
+    // that are individually real but essentially never jointly satisfiable once branching
+    // factor is low, since nothing guarantees the age-79 child you picked has a grandchild
+    // named Ethelyn. sampleRealPath walks the descriptor once, picking one real id at every
+    // position (via parentOf/childrenOf for Kinder hops, via connectionEdges for Connection
+    // hops), so every filter derived from it is guaranteed jointly satisfiable by construction.
+
+    data class RealizedNode(val id: UUID, val edgeData: PolyData? = null)
+
+    private fun sampleRealPath(descriptor: QueryPathDescriptor): List<RealizedNode>? {
+        val path = mutableListOf<RealizedNode>()
+        var currentId: UUID? = null
+
+        for (segment in descriptor) {
+            when (segment.type) {
+                SegmentType.COLLECTION -> {
+                    // consecutive Collection segments are parent/child by construction
+                    // (see buildQueryPathMetadata) - move to a real child of currentId, or
+                    // pick a fresh random root if this is the first segment of the whole path
+                    val nextId = if (currentId == null) {
+                        ids[segment.collectionName]?.randomOrNull(Benchmark.seed.asKotlinRandom())
+                    } else {
+                        childrenOf[currentId]?.randomOrNull(Benchmark.seed.asKotlinRandom())
+                    }
+                    nextId ?: return null
+                    path.add(RealizedNode(nextId))
+                    currentId = nextId
+                }
+
+                SegmentType.CONNECTION -> {
+                    val connectionName = segment.connectionName!!
+                    val edges = connectionEdges[connectionName]
+                    if (edges.isNullOrEmpty()) return null
+
+                    val (userCollectionName, _) = connectionEndpoints.getValue(connectionName)
+                    val farIsUserSide = segment.collectionName == userCollectionName
+                    // normalize every stored (userId, petId, data) edge to (nearId, farId, data)
+                    // given this query's actual traversal direction
+                    val normalized = edges.map { (userId, petId, data) ->
+                        if (farIsUserSide) Triple(petId, userId, data) else Triple(userId, petId, data)
+                    }
+                    val candidates = if (currentId != null) normalized.filter { it.first == currentId } else normalized
+                    val chosen = candidates.randomOrNull(Benchmark.seed.asKotlinRandom()) ?: return null
+
+                    path.add(RealizedNode(chosen.second, chosen.third))
+                    currentId = chosen.second
+                }
+            }
+        }
+
+        return path
+    }
+
+    /** Fetches real field values for a batch of ids in one collection, keyed by id. */
+    private fun fetchFieldsByIds(collectionName: String, targetIds: Set<UUID>): Map<UUID, Map<String, Any?>> {
+        if (targetIds.isEmpty()) return emptyMap()
+        val query = get {
+            collection(collectionName, Condition.In("_id", targetIds))
+        }
+        val result = try {
+            DriverManager.postgresDriver!!.get(query)
+        } catch (e: Exception) {
+            return emptyMap()
+        }
+        return result.data.mapNotNull { doc ->
+            val stripped = doc.mapKeys { it.key.substringAfter(".") }
+            (stripped["_id"] as? UUID)?.let { it to stripped }
+        }.toMap()
+    }
+
+    // -------------------------------------------------------------------------
+    // filter assignment
+    // -------------------------------------------------------------------------
+
+    /**
+     * Decides which segments in a path receive a filter, and at what selectivity tier, so the
+     * COMBINED result size across the whole path stays reasonable.
+     *
+     * IMPORTANT: unfiltered COLLECTION segments compound MULTIPLICATIVELY, same as unfiltered
+     * connection segments - each unfiltered Kinder hop multiplies the candidate set by that
+     * level's real branching factor. The original design here assumed collection segments'
+     * unfiltered cost was merely additive (bounded by collection_size), which is true for
+     * driver TIME cost but false for RESULT SIZE: real generated queries with 3-5 unfiltered
+     * collection segments at depth 7-9 produced results in the hundreds of thousands, since
+     * each unfiltered hop's branching factor multiplies against all the others. So: any path
+     * deeper than 2 segments filters EVERY segment (collection or connection alike). Only
+     * shallow paths (depth <= 2) keep some genuinely unfiltered coverage in the dataset.
+     */
+    fun assignFiltersForPath(
+        descriptor: QueryPathDescriptor,
+        targetCombinedSelectivity: SelectivityTier
+    ): List<SelectivityTier?> {
+        val depth = descriptor.size
+        val tiers = MutableList<SelectivityTier?>(depth) { null }
+
+        if (depth <= 2) {
+            // shallow: preserve some genuinely unfiltered coverage in the dataset, since a
+            // 1-2 hop unfiltered path can't compound into a runaway result size
+            for (i in descriptor.indices) {
+                if (Benchmark.seed.asKotlinRandom().nextBoolean()) tiers[i] = targetCombinedSelectivity
+            }
+        } else {
+            // deep: filter every segment, collection or connection - unfiltered hops compound
+            // multiplicatively regardless of segment type once depth is more than trivial
+            for (i in descriptor.indices) tiers[i] = targetCombinedSelectivity
+        }
+
+        return tiers
+    }
+
+    // -------------------------------------------------------------------------
+    // condition construction - all derived from real sampled path(s), never independently
+    // -------------------------------------------------------------------------
+
+    private data class ChosenField(val name: String, val isEdgeField: Boolean, val dataType: DataType)
+
+    /**
+     * Materializes a full GetQuery from a structural descriptor + chosen tiers/filterType.
+     *
+     * Every filter is derived from one or more REAL sampled paths (sampleRealPath), not from
+     * independent per-segment sampling - this is what guarantees the whole query is jointly
+     * satisfiable: whatever value ends up in a filter at any position genuinely co-occurs,
+     * along a real chain of parent/child/connection relationships, with whatever values are
+     * used at every other filtered position in the same query.
+     *
+     * Returns null if no real path could be sampled, or if a required field/id wasn't
+     * available - callers should skip these rather than benchmark a query that doesn't
+     * reflect the intended filter configuration (or worse, is guaranteed empty).
+     */
+    fun materializeQuery(
+        descriptor: QueryPathDescriptor,
+        tiers: List<SelectivityTier?>,
+        filterType: BenchFilterType,
+        fieldSamples: FieldSamples,
+        connectionFieldSamples: FieldSamples
+    ): GetQuery? {
+        if (filterType == BenchFilterType.None || tiers.all { it == null }) {
+            return get {
+                descriptor.forEach { segment ->
+                    when (segment.type) {
+                        SegmentType.COLLECTION -> collection(segment.collectionName, null, segment.only)
+                        SegmentType.CONNECTION -> connection(
+                            segment.connectionName!!,
+                            segment.collectionName,
+                            null,
+                            null
+                        )
+                    }
+                }
+            }
+        }
+
+        val needsMultiplePaths = filterType == BenchFilterType.IdInList || filterType == BenchFilterType.ValueInList
+        val pathSampleCount = if (needsMultiplePaths) 30 else 1
+        val realPaths = (1..pathSampleCount).mapNotNull { sampleRealPath(descriptor) }
+        if (realPaths.isEmpty()) return null
+        val primaryPath = realPaths.first()
+
+        // pick one compatible field per filtered segment up front, reused consistently across
+        // all sampled paths - not needed for id-based filter types
+        val chosenFieldByIndex: Map<Int, ChosenField> =
+            if (filterType == BenchFilterType.GetDocByID || filterType == BenchFilterType.IdInList) {
+                emptyMap()
+            } else {
+                buildMap {
+                    descriptor.forEachIndexed { idx, segment ->
+                        if (tiers[idx] == null) return@forEachIndexed
+                        val useEdge =
+                            segment.type == SegmentType.CONNECTION && Benchmark.seed.asKotlinRandom().nextBoolean()
+                        val samples =
+                            if (useEdge) connectionFieldSamples[segment.connectionName] else fieldSamples[segment.collectionName]
+                        val compatible = samples?.filter { compatibleWith(it.type, filterType) }.orEmpty()
+                        val field = compatible.randomOrNull(Benchmark.seed.asKotlinRandom())
+                        if (field != null) {
+                            put(idx, ChosenField(field.field, useEdge, field.type))
+                        } else if (useEdge) {
+                            // no compatible edge field - fall back to far-node field instead
+                            val fallback = fieldSamples[segment.collectionName]
+                                ?.filter { compatibleWith(it.type, filterType) }
+                                ?.randomOrNull(Benchmark.seed.asKotlinRandom())
+                            if (fallback != null) put(idx, ChosenField(fallback.field, false, fallback.type))
+                        }
+                    }
+                }
+            }
+
+        // batch-fetch real field values for every (collection, id) touched by any sampled
+        // path, for whichever segments need a far-node/collection field (not needed for pure
+        // edge-property filters, which already have their value in RealizedNode.edgeData)
+        val idsNeedingFields = mutableMapOf<String, MutableSet<UUID>>()
+        chosenFieldByIndex.forEach { (idx, field) ->
+            if (!field.isEdgeField) {
+                val collectionName = descriptor[idx].collectionName
+                for (path in realPaths) {
+                    idsNeedingFields.getOrPut(collectionName) { mutableSetOf() }.add(path[idx].id)
+                }
+            }
+        }
+        val fetchedFields: Map<String, Map<UUID, Map<String, Any?>>> =
+            idsNeedingFields.mapValues { (collectionName, idSet) -> fetchFieldsByIds(collectionName, idSet) }
+
+        fun realValueAt(pathIndex: Int, path: List<RealizedNode>, field: ChosenField): Any? {
+            return if (field.isEdgeField) {
+                path[pathIndex].edgeData?.get(field.name)
+            } else {
+                val collectionName = descriptor[pathIndex].collectionName
+                fetchedFields[collectionName]?.get(path[pathIndex].id)?.get(field.name)
+            }
+        }
+
+        data class ResolvedCondition(val collectionCondition: Condition?, val connectionCondition: Condition?)
+
+        val resolved = descriptor.mapIndexed { idx, segment ->
+            val tier = tiers[idx] ?: return@mapIndexed ResolvedCondition(null, null)
+
+            val condition: Condition = when (filterType) {
+                BenchFilterType.GetDocByID -> Condition.Comparison.Equals("_id", primaryPath[idx].id)
+
+                BenchFilterType.IdInList -> {
+                    val idSet = realPaths.map { it[idx].id }.distinct()
+                    val n = (tier.targetFraction * idSet.size).toInt().coerceIn(1, idSet.size)
+                    val shuffled = idSet.shuffled(Benchmark.seed.asKotlinRandom())
+                    // guarantee the primary path's own id is always included, so at least
+                    // that one fully-consistent combination is always a real match
+                    val forced = setOf(primaryPath[idx].id)
+                    Condition.In("_id", (forced + shuffled.take(n)).toSet())
+                }
+
+                BenchFilterType.Equality -> {
+                    val field = chosenFieldByIndex[idx] ?: return@mapIndexed ResolvedCondition(null, null)
+                    val value = realValueAt(idx, primaryPath, field) ?: return@mapIndexed ResolvedCondition(null, null)
+                    Condition.Comparison.Equals(field.name, value)
+                }
+
+                BenchFilterType.NumberRange -> {
+                    val field = chosenFieldByIndex[idx] ?: return@mapIndexed ResolvedCondition(null, null)
+                    val rawValue = realValueAt(idx, primaryPath, field) as? Number
+                        ?: return@mapIndexed ResolvedCondition(null, null)
+                    val value = rawValue.toDouble()
+                    // Percentile-based threshold (bounded within the field's real observed
+                    // range, unlike a raw value-minus-fraction*range subtraction which can
+                    // overshoot past the field's actual minimum and become a no-op filter -
+                    // e.g. WIDE (0.6) on a small real value previously produced thresholds
+                    // like -12.7 on an age field, matching the ENTIRE collection instead of
+                    // the intended ~60%). If the real sampled value doesn't naturally clear
+                    // the percentile threshold, lower the threshold just enough to admit it -
+                    // this guarantees a match without ever leaving the field's real range.
+                    val marginalSamples = (if (field.isEdgeField) connectionFieldSamples[descriptor[idx].connectionName]
+                    else fieldSamples[descriptor[idx].collectionName])
+                        ?.find { it.field == field.name }?.values?.map { (it as Number).toDouble() }?.sorted()
+                    val percentileThreshold = marginalSamples?.let { sorted ->
+                        val percentileIndex =
+                            ((1.0 - tier.targetFraction) * sorted.size).toInt().coerceIn(0, sorted.size - 1)
+                        sorted[percentileIndex]
+                    } ?: (value - 1.0)
+                    val threshold = minOf(percentileThreshold, value - 0.0001)
+                    Condition.Comparison.GreaterThan(field.name, threshold)
+                }
+
+                BenchFilterType.ValueInList -> {
+                    val field = chosenFieldByIndex[idx] ?: return@mapIndexed ResolvedCondition(null, null)
+                    val valuesPerPath = realPaths.mapNotNull { path -> realValueAt(idx, path, field) }
+                    val distinctValues = valuesPerPath.distinct()
+                    if (distinctValues.isEmpty()) return@mapIndexed ResolvedCondition(null, null)
+                    val n = (tier.targetFraction * distinctValues.size).toInt().coerceIn(1, distinctValues.size)
+                    val primaryValue = realValueAt(idx, primaryPath, field)
+                    val forced = if (primaryValue != null) setOf(primaryValue) else emptySet()
+                    Condition.In(
+                        field.name,
+                        (forced + distinctValues.shuffled(Benchmark.seed.asKotlinRandom()).take(n)).toSet()
+                    )
+                }
+
+                BenchFilterType.None -> return@mapIndexed ResolvedCondition(null, null)
+            }
+
+            val isEdgeCondition = chosenFieldByIndex[idx]?.isEdgeField == true
+            if (isEdgeCondition) ResolvedCondition(null, condition) else ResolvedCondition(condition, null)
+        }
+
+        return get {
+            descriptor.zip(resolved).forEach { (segment, condition) ->
+                when (segment.type) {
+                    SegmentType.COLLECTION -> collection(
+                        segment.collectionName,
+                        condition.collectionCondition,
+                        segment.only
+                    )
+
+                    SegmentType.CONNECTION -> connection(
+                        segment.connectionName!!, segment.collectionName,
+                        connectionCondition = condition.connectionCondition,
+                        collectionCondition = condition.collectionCondition
+                    )
+                }
+            }
+        }
+    }
+
+
+    fun compatibleWith(dataType: DataType, filterType: BenchFilterType): Boolean {
+        return when (filterType) {
+            BenchFilterType.ValueInList -> dataType != DataType.UUID
+            BenchFilterType.Equality -> dataType != DataType.UUID
+            BenchFilterType.IdInList -> dataType == DataType.UUID
+            BenchFilterType.NumberRange -> dataType == DataType.INT || dataType == DataType.FLOAT
+            BenchFilterType.GetDocByID -> dataType == DataType.UUID
+            BenchFilterType.None -> true
+        }
+    }
+
+    fun sampleFieldValues(collectionName: String, schema: PolySchema, sampleSize: Int = 500): List<FieldSample> {
+        val docs = sampleDocuments(collectionName, sampleSize)
+        return schema.entries
+            .filter { it.value != DataType.BOOLEAN }
+            .map { (field, type) -> FieldSample(field, type, docs.mapNotNull { it[field] }) }
+            .filter { it.values.isNotEmpty() } // drop fields we couldn't sample any values for
+    }
+
+    /**
+     * Samples real values for a CONNECTION's own properties (e.g. "since", "likes"), analogous
+     * to sampleFieldValues but reading the connection's edge data rather than a collection's
+     * documents. Enables calibrated filtering directly on the connection's own fields
+     * (connectionCondition), not just on the far node's fields (collectionCondition).
+     */
+    fun sampleConnectionFieldValues(
+        connectionName: String,
+        ownerCollection: String,
+        farCollection: String,
+        sampleSize: Int = 300
+    ): List<FieldSample> {
+        val ownerIds = ids[ownerCollection]
+        if (ownerIds.isNullOrEmpty()) return emptyList()
+        val sampledOwnerIds = ownerIds.shuffled(Benchmark.seed.asKotlinRandom()).take(sampleSize)
+
+        val schema = connectionSchema
+        val fieldNames = schema.keys.toList()
+
+        val query = get {
+            collection(ownerCollection, Condition.In("_id", sampledOwnerIds.toSet()))
+            connection(connectionName, farCollection, connectionOnly = fieldNames)
+        }
+
+        val result = try {
+            DriverManager.postgresDriver!!.get(query)
+        } catch (e: Exception) {
+            return emptyList()
+        }
+
+        val prefix = "$connectionName."
+        val docs = result.data.map { doc ->
+            doc.entries.filter { it.key.startsWith(prefix) }
+                .associate { it.key.removePrefix(prefix) to it.value }
+        }
+
+        return schema.entries
+            .filter { it.value != DataType.BOOLEAN }
+            .map { (field, type) -> FieldSample(field, type, docs.mapNotNull { it[field] }) }
+            .filter { it.values.isNotEmpty() }
+    }
 
     fun sampleDocuments(collectionName: String, sampleSize: Int = 500): List<Map<String, Any?>> {
         val candidateIds = ids[collectionName] ?: return emptyList()
@@ -396,144 +822,6 @@ class BenchEnvironmentRegression {
         // so it doesn't matter which one answers this (not a benchmarked measurement)
         val result = DriverManager.postgresDriver!!.get(query)
         return result.data.map { doc -> doc.mapKeys { it.key.substringAfter(".") } }
-    }
-
-    fun sampleFieldValues(collectionName: String, schema: PolySchema, sampleSize: Int = 500): List<FieldSample> {
-        val docs = sampleDocuments(collectionName, sampleSize)
-        return schema.entries
-            .filter { it.value != DataType.BOOLEAN }
-            .map { (field, type) -> FieldSample(field, type, docs.mapNotNull { it[field] }) }
-            .filter { it.values.isNotEmpty() } // drop fields we couldn't sample any values for
-    }
-
-    // -------------------------------------------------------------------------
-    // condition construction
-    // -------------------------------------------------------------------------
-
-    /**
-     * Builds a condition for one segment, dispatching to id-based sampling (GetDocByID/IdInList,
-     * drawn from `ids` - the real UUID population) vs. value-based sampling (everything else,
-     * drawn from `fieldSamples` - real sampled field values). Returns null if no compatible
-     * field/id data is available for this (collection, filterType) combination, so the caller
-     * can skip emitting a broken query rather than crash.
-     */
-    private fun buildConditionForSegment(
-        collectionName: String,
-        tier: SelectivityTier,
-        filterType: BenchFilterType,
-        fieldSamples: FieldSamples
-    ): Condition? {
-        return when (filterType) {
-            BenchFilterType.GetDocByID -> {
-                val idList = ids[collectionName]
-                if (idList.isNullOrEmpty()) return null
-                Condition.Comparison.Equals("_id", idList.random(Benchmark.seed.asKotlinRandom()))
-            }
-
-            BenchFilterType.IdInList -> {
-                val idList = ids[collectionName]
-                if (idList.isNullOrEmpty()) return null
-                val n = (tier.targetFraction * idList.size).toInt().coerceIn(1, idList.size)
-                Condition.In("_id", idList.shuffled(Benchmark.seed.asKotlinRandom()).take(n).toSet())
-            }
-
-            BenchFilterType.None -> null
-
-            else -> {
-                val samples = fieldSamples[collectionName] ?: return null
-                val sample = samples.filter { compatibleWith(it.type, filterType) }
-                    .randomOrNull(Benchmark.seed.asKotlinRandom()) ?: return null
-                buildCondition(sample, tier, filterType)
-            }
-        }
-    }
-
-    fun buildCondition(sample: FieldSample, tier: SelectivityTier, filterType: BenchFilterType): Condition {
-        return when (filterType) {
-            BenchFilterType.NumberRange -> {
-                val sorted = sample.values.map { (it as Number).toDouble() }.sorted()
-                // WIDE -> low threshold (matches most), NARROW -> high threshold (matches few)
-                val percentileIndex = ((1.0 - tier.targetFraction) * sorted.size).toInt().coerceIn(0, sorted.size - 1)
-                Condition.Comparison.GreaterThan(sample.field, sorted[percentileIndex])
-            }
-
-            BenchFilterType.Equality -> {
-                Condition.Comparison.Equals(sample.field, sample.values.random(Benchmark.seed.asKotlinRandom()))
-            }
-
-            BenchFilterType.ValueInList -> {
-                val n = (tier.targetFraction * sample.values.size).toInt().coerceIn(1, sample.values.size)
-                Condition.In(sample.field, sample.values.shuffled(Benchmark.seed.asKotlinRandom()).take(n).toSet())
-            }
-
-            BenchFilterType.GetDocByID, BenchFilterType.IdInList ->
-                error("$filterType must be handled via buildConditionForSegment, not buildCondition")
-
-            BenchFilterType.None -> error("None should never reach buildCondition")
-        }
-    }
-
-    /**
-     * Decides which segments in a path receive a filter, and at what selectivity tier, so the
-     * COMBINED selectivity across the whole path stays reasonable. Filtering every segment of a
-     * deep path independently would compound multiplicatively toward near-empty results (e.g.
-     * 0.25^4 =~ 0.4%), so deeper paths get fewer, deliberately-placed filters instead of one per
-     * segment. Positions are randomized so first_filtered_segment_index varies across the
-     * generated dataset rather than always landing at a fixed position.
-     */
-    fun assignFiltersForPath(depth: Int, targetCombinedSelectivity: SelectivityTier): List<SelectivityTier?> {
-        val filterCount = when {
-            depth <= 2 -> depth
-            depth <= 4 -> 2
-            else -> 1
-        }.coerceAtMost(depth)
-        val filterPositions = (0..<depth).shuffled(Benchmark.seed.asKotlinRandom()).take(filterCount).toSet()
-        return (0..<depth).map { if (it in filterPositions) targetCombinedSelectivity else null }
-    }
-
-    /**
-     * Materializes a full GetQuery from a structural descriptor + chosen tiers/filterType.
-     * Returns null (rather than a query with silently-missing filters) if any segment that was
-     * assigned a tier couldn't get a compatible condition built - callers should skip these
-     * rather than benchmark a query that doesn't reflect the intended filter configuration.
-     */
-    fun materializeQuery(
-        descriptor: QueryPathDescriptor,
-        tiers: List<SelectivityTier?>,
-        filterType: BenchFilterType,
-        fieldSamples: FieldSamples
-    ): GetQuery? {
-        val conditions = descriptor.zip(tiers).map { (segment, tier) ->
-            if (tier == null) {
-                null
-            } else {
-                buildConditionForSegment(segment.collectionName, tier, filterType, fieldSamples)
-                    ?: return null // this segment was supposed to be filtered but couldn't be - abort
-            }
-        }
-
-        return get {
-            descriptor.zip(conditions).forEach { (segment, condition) ->
-                when (segment.type) {
-                    SegmentType.COLLECTION -> collection(segment.collectionName, condition, segment.only)
-                    SegmentType.CONNECTION -> connection(
-                        segment.connectionName!!, segment.collectionName,
-                        connectionCondition = null, collectionCondition = condition
-                    )
-                }
-            }
-        }
-    }
-
-    fun compatibleWith(dataType: DataType, filterType: BenchFilterType): Boolean {
-        return when (filterType) {
-            BenchFilterType.ValueInList -> dataType != DataType.UUID
-            BenchFilterType.Equality -> dataType != DataType.UUID
-            BenchFilterType.IdInList -> dataType == DataType.UUID
-            BenchFilterType.NumberRange -> dataType == DataType.INT || dataType == DataType.FLOAT
-            BenchFilterType.GetDocByID -> dataType == DataType.UUID
-            BenchFilterType.None -> true
-        }
     }
 }
 
@@ -554,5 +842,5 @@ typealias QueryPathDescriptor = List<SegmentDescriptor>
 
 data class FieldSample(val field: String, val type: DataType, val values: List<Any>)
 
-// collectionName -> sampled field values for that collection, refreshed at each collectionSize step
+// name -> sampled field values for that collection/connection, refreshed at each collectionSize step
 typealias FieldSamples = Map<String, List<FieldSample>>
