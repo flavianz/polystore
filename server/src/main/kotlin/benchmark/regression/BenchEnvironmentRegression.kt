@@ -259,18 +259,50 @@ class BenchEnvironmentRegression {
             // the structural features (first_filtered_segment_index, requires_multi_query, etc.)
             // computed directly from `query.path` at measurement time.
 
-            for (query in conditionQueries) {
-                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\result-size.csv").appendText(
+            val queries = buildList {
+                for (query in conditionQueries) {
+                    val path = buildList {
+                        for (segment in query.path) {
+                            if (Benchmark.seed.asKotlinRandom().nextInt(0, 4) == 1) {
+                                add(
+                                    when (segment) {
+                                        is QuerySegment.Collection -> QuerySegment.Collection(
+                                            segment.name,
+                                            segment.condition,
+                                            listOf("name", "age", "_id")
+                                        )
+
+                                        is QuerySegment.Connection -> QuerySegment.Connection(
+                                            segment.connectionName,
+                                            segment.collectionName,
+                                            segment.connectionCondition,
+                                            segment.collectionCondition,
+                                            listOf("since", "nickname"),
+                                            listOf("name", "age", "_id")
+                                        )
+                                    }
+                                )
+                            } else {
+                                add(segment)
+                            }
+                        }
+                    }
+                    add(GetQuery(QueryPath(path)))
+                }
+            }
+
+            for (query in queries) {
+                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\query-params.csv").appendText(
                     "${query};${
                         parseRegressionBenchMeasurement(
-                            DriverType.Postgres, 100, MeasurementPhase.Build, 1,
+                            DriverType.Postgres, collectionSize, MeasurementPhase.Build, 1,
                             Duration.ZERO, query
                         )
-                    };\n"
+                    }\n"
                 )
             }
 
-            /*for ((index, query) in conditionQueries.withIndex()) {
+            /*for ((index, query) in queries.withIndex()) {
                 if (index % 100 == 0) println("$index of ${conditionQueries.size} queries complete")
                 val results = mutableListOf<Set<PolyData>>()
                 for (driver in listOf(

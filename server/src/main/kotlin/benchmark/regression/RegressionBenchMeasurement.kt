@@ -7,6 +7,7 @@ import query.DriverType
 import query.GetQuery
 import query.QuerySegment
 import java.util.UUID
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.time.Duration
 
@@ -29,8 +30,8 @@ data class RegressionBenchMeasurement(
 ) {
     override fun toString(): String {
         return "$driver;$collectionSize;$singleCollectionSegmentCount;$pairCollectionSegmentCount;" +
-                "$connectionSegmentCount;$multiQueryCount;$rootFilterCounts;$nestedFilterCounts;" +
-                "$dynamicFilterFraction;$dynamicResultFraction;$phase;$iteration;$duration"
+                "$connectionSegmentCount;$multiQueryCount;$rootFilterCounts;$nestedFilterCounts;$firstFilterDepth;" +
+                "$onlyResultFraction;$dynamicFilterFraction;$dynamicResultFraction;$phase;$iteration;$duration"
     }
 }
 
@@ -121,17 +122,26 @@ fun parseRegressionBenchMeasurement(
 
     while (i < path.size) {
         val segment = path[i]
-        if (segment is QuerySegment.Collection) {
-            val nextSegment = path.getOrNull(i + 1)
-            if (nextSegment is QuerySegment.Collection) {
-                pairCollectionSegmentCount++
-            } else {
-                singleCollectionSegmentCount++
+        when (segment) {
+            is QuerySegment.Collection -> {
+                val nextSegment = path.getOrNull(i + 1)
+                if (nextSegment is QuerySegment.Collection) {
+                    pairCollectionSegmentCount++
+                    i += 2
+                } else {
+                    singleCollectionSegmentCount++
+                    i++
+                }
             }
-        } else if (segment is QuerySegment.Connection) {
-            connectionSegmentCount++
+
+            is QuerySegment.Connection -> {
+                connectionSegmentCount++
+                if (i == 1 && singleCollectionSegmentCount == 1) {
+                    singleCollectionSegmentCount--
+                }
+                i++
+            }
         }
-        i++
     }
     i = 0
     while (i < path.size) {
@@ -232,9 +242,9 @@ fun parseRegressionBenchMeasurement(
         rootFilterCounts,
         nestedFilterCounts,
         firstFilterDepth,
-        (onlyResultCount + columnResultCount).toDouble() / onlyResultCount,
-        (dynamicFilterCount + columnFilterCount).toDouble() / dynamicFilterCount,
-        (dynamicResultCount + columnResultCount).toDouble() / dynamicResultCount,
+        onlyResultCount.toDouble() / max(onlyResultCount + docResultCount, 1),
+        dynamicFilterCount.toDouble() / max(dynamicFilterCount + columnFilterCount, 1),
+        dynamicResultCount.toDouble() / max(dynamicResultCount + columnResultCount, 1),
         phase,
         iteration,
         duration
@@ -248,6 +258,6 @@ data class FilterCounts(
     var numberRangeFilterCount: Int,
 ) {
     override fun toString(): String {
-        return "$idFilterCount;$valueInListFilterCount;$equalityFilterCount;$numberRangeFilterCount;"
+        return "$idFilterCount;$valueInListFilterCount;$equalityFilterCount;$numberRangeFilterCount"
     }
 }
