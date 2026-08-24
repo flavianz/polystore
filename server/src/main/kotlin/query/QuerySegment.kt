@@ -7,7 +7,7 @@ sealed class QuerySegment {
         val only: List<String>? = null
     ) : QuerySegment() {
         override fun toString(): String {
-            return "$name ${condition ?: ""} ${only ?: ""}"
+            return "($name ${condition ?: ""} ${only ?: ""})"
         }
     }
 
@@ -20,7 +20,7 @@ sealed class QuerySegment {
         val collectionOnly: List<String>? = null,
     ) : QuerySegment() {
         override fun toString(): String {
-            return "$connectionName $collectionName ${connectionCondition ?: ""} ${collectionCondition ?: ""} ${connectionOnly ?: ""} ${collectionOnly ?: ""}"
+            return "($connectionName ${connectionCondition ?: ""} ${connectionOnly ?: ""})($collectionName ${collectionCondition ?: ""} ${collectionOnly ?: ""})"
         }
     }
 
