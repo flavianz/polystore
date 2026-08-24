@@ -21,7 +21,7 @@ fun main() {
             password = "password"
         )
     )
-    /*manager.register(
+    manager.register(
         MongoConnection(
             host = "127.0.0.1",
             port = 27017,
@@ -33,7 +33,7 @@ fun main() {
             username = "neo4j",
             password = "password"
         )
-    )*/
+    )
 
     manager.connectAll()
 
@@ -43,12 +43,12 @@ fun main() {
     }
 
     val pg = manager.get<PostgresConnection>("PostgreSQL[polystore]")
-    /*val mongo = manager.get<MongoConnection>("MongoDB[polystore]")
-    val neo4j = manager.get<Neo4jConnection>("Neo4j[neo4j]")*/
+    val mongo = manager.get<MongoConnection>("MongoDB[polystore]")
+    val neo4j = manager.get<Neo4jConnection>("Neo4j[neo4j]")
 
     DriverManager.initPostgres(pg.jdbcConnection)
-    /*DriverManager.initMongo(mongo)
-    DriverManager.initNeo4j(neo4j)*/
+    DriverManager.initMongo(mongo)
+    DriverManager.initNeo4j(neo4j)
 
     val databaseSchema = DriverManager.parseDatabaseSchema()
 

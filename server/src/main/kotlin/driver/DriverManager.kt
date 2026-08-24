@@ -23,8 +23,8 @@ object DriverManager {
 
     fun execute(a: DatabaseDriver.() -> Unit) {
         postgresDriver?.a()
-        /*mongoDriver?.a()
-        neo4jDriver?.a()*/
+        mongoDriver?.a()
+        neo4jDriver?.a()
     }
 
     fun initPostgres(jdbcConnection: Connection): DriverManager {

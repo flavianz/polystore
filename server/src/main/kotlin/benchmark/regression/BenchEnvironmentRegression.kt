@@ -4,7 +4,6 @@ import benchmark.BenchFilterType
 import benchmark.Benchmark
 import benchmark.Benchmark.faker
 import benchmark.MeasurementPhase
-import ch.flavianz.query.GetQueryBuilder
 import ch.flavianz.query.get
 import core.DatabaseManager
 import driver.DriverManager
@@ -26,8 +25,6 @@ import java.util.UUID
 import kotlin.math.max
 import kotlin.random.Random
 import kotlin.random.asKotlinRandom
-import kotlin.text.get
-import kotlin.time.Duration
 
 class BenchEnvironmentRegression {
     val userCollections = listOf(
@@ -99,7 +96,7 @@ class BenchEnvironmentRegression {
         for (u in userCollections) for (p in petCollections) put("${u}_owns_$p", u to p)
     }
 
-    val collectionSizes = listOf(100/*, 500, 1000, 3000, 9000, 15000*/)
+    val collectionSizes = listOf(100, 500, 1000, 3000, 9000, 15000)
 
     val ids = mutableMapOf<String, MutableList<UUID>>()
 
@@ -291,43 +288,55 @@ class BenchEnvironmentRegression {
                 }
             }
 
-            for (query in queries) {
-                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\query-params.csv").appendText(
-                    "${query};${
-                        parseRegressionBenchMeasurement(
-                            DriverType.Postgres, collectionSize, MeasurementPhase.Build, 1,
-                            Duration.ZERO, query
-                        )
-                    }\n"
-                )
-            }
+            val measurements = mutableListOf<RegressionBenchMeasurement>()
 
-            /*for ((index, query) in queries.withIndex()) {
-                if (index % 100 == 0) println("$index of ${conditionQueries.size} queries complete")
-                val results = mutableListOf<Set<PolyData>>()
-                for (driver in listOf(
-                    Pair(postgresDriver, DriverType.Postgres),
-                    *//*Pair(mongoDriver, DriverType.Mongo),
-                    Pair(neo4jDriver, DriverType.Neo4j)*//*
-                )) {
-                    try {
-                        val result: TimedDriverResult<List<PolyData>> = driver.first!!.get(query)
-                        results.add(result.data.toSet())
-                        check(results.distinct().size == 1) {
-                            "not all drivers returned the same result for query '${query}:\npostgres:(size ${
-                                results.getOrNull(0)?.size
-                            })${results.getOrNull(0)}\nmongo:(size ${results.getOrNull(1)?.size})${
-                                results.getOrNull(1)
-                            }\nneo4j:(size ${results.getOrNull(2)?.size})${results.getOrNull(2)}'"
-                        }
-                    } catch (e: Exception) {
-                        println("error: $e")
+            for ((queryIndex, query) in queries.withIndex()) {
+                for (iteration in 0..<500) {
+                    if (queryIndex % 10 == 0) println("$queryIndex of ${conditionQueries.size} queries complete")
+                    for ((driver, driverType) in listOf(
+                        Pair(postgresDriver, DriverType.Postgres),
+                        Pair(mongoDriver, DriverType.Mongo),
+                        Pair(neo4jDriver, DriverType.Neo4j)
+                    )) {
+                        val result: TimedDriverResult<List<PolyData>> = driver!!.get(query)
+                        val queryProperties = parseQueryProperties(query)
+                        measurements.add(
+                            RegressionBenchMeasurement(
+                                driverType,
+                                collectionSize,
+                                queryProperties,
+                                MeasurementPhase.Build,
+                                iteration,
+                                result.duration.queryBuildingDuration
+                            )
+                        )
+                        measurements.add(
+                            RegressionBenchMeasurement(
+                                driverType,
+                                collectionSize,
+                                queryProperties,
+                                MeasurementPhase.Exec,
+                                iteration,
+                                result.duration.queryExecutionDuration
+                            )
+                        )
+                        measurements.add(
+                            RegressionBenchMeasurement(
+                                driverType,
+                                collectionSize,
+                                queryProperties,
+                                MeasurementPhase.Total,
+                                iteration,
+                                result.duration.queryExecutionDuration + result.duration.queryBuildingDuration
+                            )
+                        )
                     }
                 }
-                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\result-size.csv").appendText(
-                    "${collectionSize};${results.first().size};$query\n"
-                )
-            }*/
+            }
+
+            File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\regression.csv").appendText(
+                measurements.joinToString("\n")
+            )
 
             currentCollectionSize = collectionSize
         }

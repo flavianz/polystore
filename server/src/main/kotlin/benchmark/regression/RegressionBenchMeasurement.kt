@@ -14,6 +14,17 @@ import kotlin.time.Duration
 data class RegressionBenchMeasurement(
     val driver: DriverType,
     val collectionSize: Int,
+    val queryProperties: QueryProperties,
+    val phase: MeasurementPhase,
+    val iteration: Int,
+    val duration: Duration
+) {
+    override fun toString(): String {
+        return "$driver;$collectionSize;$queryProperties;$phase;$iteration;${duration.inWholeMicroseconds}"
+    }
+}
+
+data class QueryProperties(
     val singleCollectionSegmentCount: Int,
     val pairCollectionSegmentCount: Int,
     val connectionSegmentCount: Int,
@@ -24,25 +35,17 @@ data class RegressionBenchMeasurement(
     val onlyResultFraction: Double,
     val dynamicFilterFraction: Double,
     val dynamicResultFraction: Double,
-    val phase: MeasurementPhase,
-    val iteration: Int,
-    val duration: Duration
 ) {
     override fun toString(): String {
-        return "$driver;$collectionSize;$singleCollectionSegmentCount;$pairCollectionSegmentCount;" +
+        return "$singleCollectionSegmentCount;$pairCollectionSegmentCount;" +
                 "$connectionSegmentCount;$multiQueryCount;$rootFilterCounts;$nestedFilterCounts;$firstFilterDepth;" +
-                "$onlyResultFraction;$dynamicFilterFraction;$dynamicResultFraction;$phase;$iteration;$duration"
+                "$onlyResultFraction;$dynamicFilterFraction;$dynamicResultFraction"
     }
 }
 
-fun parseRegressionBenchMeasurement(
-    driver: DriverType,
-    collectionSize: Int,
-    phase: MeasurementPhase,
-    iteration: Int,
-    duration: Duration,
+fun parseQueryProperties(
     query: GetQuery
-): RegressionBenchMeasurement {
+): QueryProperties {
     val path = query.path
     var i = 0
 
@@ -233,9 +236,7 @@ fun parseRegressionBenchMeasurement(
         }
 
     }
-    return RegressionBenchMeasurement(
-        driver,
-        collectionSize,
+    return QueryProperties(
         singleCollectionSegmentCount,
         pairCollectionSegmentCount, connectionSegmentCount,
         multiQueryCount,
@@ -245,9 +246,6 @@ fun parseRegressionBenchMeasurement(
         onlyResultCount.toDouble() / max(onlyResultCount + docResultCount, 1),
         dynamicFilterCount.toDouble() / max(dynamicFilterCount + columnFilterCount, 1),
         dynamicResultCount.toDouble() / max(dynamicResultCount + columnResultCount, 1),
-        phase,
-        iteration,
-        duration
     )
 }
 
