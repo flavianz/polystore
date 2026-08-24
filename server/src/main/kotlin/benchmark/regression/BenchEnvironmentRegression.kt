@@ -11,6 +11,7 @@ import driver.DriverManager.mongoDriver
 import driver.DriverManager.neo4jDriver
 import driver.DriverManager.postgresDriver
 import driver.TimedDriverResult
+import io.ktor.util.getDigestFunction
 import model.ConnectionModel
 import model.DataType
 import model.PolyData
@@ -288,55 +289,59 @@ class BenchEnvironmentRegression {
                 }
             }
 
-            val measurements = mutableListOf<RegressionBenchMeasurement>()
+
 
             for ((queryIndex, query) in queries.withIndex()) {
+                val measurements = mutableListOf<RegressionBenchMeasurement>()
+                if (queryIndex % 10 == 0) println("$queryIndex of ${conditionQueries.size} queries complete")
                 for (iteration in 0..<500) {
-                    if (queryIndex % 10 == 0) println("$queryIndex of ${conditionQueries.size} queries complete")
                     for ((driver, driverType) in listOf(
                         Pair(postgresDriver, DriverType.Postgres),
                         Pair(mongoDriver, DriverType.Mongo),
                         Pair(neo4jDriver, DriverType.Neo4j)
                     )) {
-                        val result: TimedDriverResult<List<PolyData>> = driver!!.get(query)
-                        val queryProperties = parseQueryProperties(query)
-                        measurements.add(
-                            RegressionBenchMeasurement(
-                                driverType,
-                                collectionSize,
-                                queryProperties,
-                                MeasurementPhase.Build,
-                                iteration,
-                                result.duration.queryBuildingDuration
+                        try {
+                            val result: TimedDriverResult<List<PolyData>> = driver!!.get(query)
+                            val queryProperties = parseQueryProperties(query)
+                            measurements.add(
+                                RegressionBenchMeasurement(
+                                    driverType,
+                                    collectionSize,
+                                    queryProperties,
+                                    MeasurementPhase.Build,
+                                    iteration,
+                                    result.duration.queryBuildingDuration
+                                )
                             )
-                        )
-                        measurements.add(
-                            RegressionBenchMeasurement(
-                                driverType,
-                                collectionSize,
-                                queryProperties,
-                                MeasurementPhase.Exec,
-                                iteration,
-                                result.duration.queryExecutionDuration
+                            measurements.add(
+                                RegressionBenchMeasurement(
+                                    driverType,
+                                    collectionSize,
+                                    queryProperties,
+                                    MeasurementPhase.Exec,
+                                    iteration,
+                                    result.duration.queryExecutionDuration
+                                )
                             )
-                        )
-                        measurements.add(
-                            RegressionBenchMeasurement(
-                                driverType,
-                                collectionSize,
-                                queryProperties,
-                                MeasurementPhase.Total,
-                                iteration,
-                                result.duration.queryExecutionDuration + result.duration.queryBuildingDuration
+                            measurements.add(
+                                RegressionBenchMeasurement(
+                                    driverType,
+                                    collectionSize,
+                                    queryProperties,
+                                    MeasurementPhase.Total,
+                                    iteration,
+                                    result.duration.queryExecutionDuration + result.duration.queryBuildingDuration
+                                )
                             )
-                        )
+                        } catch (e: Exception) {
+                            throw Error("failed bench of query $query (index $queryIndex) in driver $driverType", e)
+                        }
                     }
                 }
+                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\regression.csv").appendText(
+                    measurements.joinToString("\n")
+                )
             }
-
-            File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\regression.csv").appendText(
-                measurements.joinToString("\n")
-            )
 
             currentCollectionSize = collectionSize
         }
