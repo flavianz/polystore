@@ -1,0 +1,20 @@
+{
+  "ml_model": {
+    "n_comparisons": 6743,
+    "accuracy": 0.8144742696129319,
+    "by_n_drivers_compared": {
+      "1": {
+        "n_comparisons": 372,
+        "accuracy": 0.11290322580645161
+      },
+      "2": {
+        "n_comparisons": 444,
+        "accuracy": 0.7477477477477478
+      },
+      "3": {
+        "n_comparisons": 5927,
+        "accuracy": 0.863505989539396
+      }
+    }
+  }
+}

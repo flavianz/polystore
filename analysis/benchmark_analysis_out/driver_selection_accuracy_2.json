@@ -1,0 +1,38 @@
+{
+  "ml_model": {
+    "n_comparisons": 33136,
+    "accuracy": 0.809753742153549,
+    "by_n_drivers_compared": {
+      "1": {
+        "n_comparisons": 1640,
+        "accuracy": 0.09573170731707317
+      },
+      "2": {
+        "n_comparisons": 1721,
+        "accuracy": 0.7071470075537478
+      },
+      "3": {
+        "n_comparisons": 29775,
+        "accuracy": 0.8550125944584382
+      }
+    }
+  },
+  "simple_heuristic": {
+    "n_comparisons": 33136,
+    "accuracy": 0.30048889425398356,
+    "by_n_drivers_compared": {
+      "1": {
+        "n_comparisons": 1640,
+        "accuracy": 0.8969512195121951
+      },
+      "2": {
+        "n_comparisons": 1721,
+        "accuracy": 0.42300987797791983
+      },
+      "3": {
+        "n_comparisons": 29775,
+        "accuracy": 0.26055415617128463
+      }
+    }
+  }
+}

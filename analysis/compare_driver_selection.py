@@ -252,7 +252,7 @@ def main(csv_path: str = CSV_PATH, coeff_path: str = COEFFICIENTS_PATH,
         results["simple_heuristic"] = score_accuracy(comparison, "simple_fastest")
 
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "driver_selection_accuracy.json")
+    out_path = os.path.join(out_dir, "driver_selection_accuracy_2.json")
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
 
