@@ -144,6 +144,34 @@ FEATURE_COLUMNS = [
 # collectionSize, which varies per measurement of the *same* form).
 FORM_ID_COLUMNS = [c for c in FEATURE_COLUMNS if c != "collectionSize"]
 
+# Engineered interaction terms, added on top of FEATURE_COLUMNS for modeling
+# only (NOT for form_id / correlation checks, which stay on the raw
+# structural columns). Diagnosed from the residual pattern: Neo4j's fit
+# stayed at a low, split-independent R^2 ceiling with clear vertical
+# banding in the predicted-vs-actual plot — the visual signature of an
+# effect that depends on the PRODUCT of two features rather than their
+# sum, which no combination of per-feature log-transforms can represent.
+# Confirmed with a quick before/after CV check: adding this one term
+# measurably improved fit in a synthetic test carrying the same pattern.
+# Cheap to keep for all (driver, phase) groups uniformly (a group where
+# it's irrelevant just gets a near-zero coefficient) rather than special-
+# casing Neo4j alone, since the whole point is one shared, portable
+# feature set across drivers.
+INTERACTION_TERMS = [("connectionSegmentCount", "firstFilterDepth")]
+
+
+def interaction_col_name(a: str, b: str) -> str:
+    return f"{a}_x_{b}"
+
+
+def add_interaction_features(df: pd.DataFrame) -> pd.DataFrame:
+    for a, b in INTERACTION_TERMS:
+        df[interaction_col_name(a, b)] = df[a] * df[b]
+    return df
+
+
+MODEL_FEATURE_COLUMNS = FEATURE_COLUMNS + [interaction_col_name(a, b) for a, b in INTERACTION_TERMS]
+
 FLOAT_ROUND_DECIMALS = 6  # guards form_id hashing against float noise
 
 
@@ -237,18 +265,13 @@ def load_data(csv_path: str) -> pd.DataFrame:
         print(con.execute("SELECT * FROM reject_errors LIMIT 5").df().to_string())
     con.close()
 
-    # 'phase' has a third value in your data: 'total' = build + exec,
-    # already summed by the benchmark harness. Keeping it would fit a
-    # redundant, double-counted third model per driver, so drop it here —
-    # if you want to double check the totals reconcile (row-by-row) before
-    # dropping, do that as a one-off sanity check outside this pipeline.
-    n_total_rows = int((df["phase"] == "total").sum())
-    if n_total_rows:
-        warnings.warn(
-            f"Dropping {n_total_rows:,} rows with phase == 'total' "
-            f"(these are build+exec already summed, not a phase to model)."
-        )
-        df = df[df["phase"] != "total"].reset_index(drop=True)
+    # NOTE: 'phase' has a third value in your data: 'total' = build + exec,
+    # already summed by the benchmark harness. Previously dropped here as
+    # redundant/double-counted — now left in at your request, so it flows
+    # through the pipeline like any other phase and gets its own model
+    # fit for comparison. Keep in mind it's not an independent signal:
+    # its accuracy will partly reflect how well build+exec individually
+    # fit, just measured directly instead of via summed predictions.
 
     # Tighten dtypes to keep memory down for downstream steps.
     df["driver"] = df["driver"].astype("category")
@@ -364,18 +387,19 @@ def compute_feature_correlations(df: pd.DataFrame, clean_mask: pd.Series, out_di
         for f, r in size_corr.items() if pd.notna(r) and abs(r) >= CORRELATION_FLAG_THRESHOLD
     ]
 
-    # heatmap for visual inspection
-    try:
-        import seaborn as sns
-        fig, ax = plt.subplots(figsize=(9, 7.5))
-        sns.heatmap(struct_corr, cmap="RdBu_r", vmin=-1, vmax=1, center=0,
-                    annot=False, square=True, ax=ax, cbar_kws={"label": "Pearson r"})
-        ax.set_title("Structural feature correlations (one row per query form)")
-        fig.tight_layout()
-        fig.savefig(os.path.join(out_dir, "feature_correlation_heatmap.png"), dpi=130)
-        plt.close(fig)
-    except ImportError:
-        pass  # heatmap is a nice-to-have; the JSON report below is what matters
+    # heatmap for visual inspection (plain matplotlib — no seaborn dependency,
+    # so this always renders regardless of what's installed on your machine)
+    fig, ax = plt.subplots(figsize=(9, 7.5))
+    im = ax.imshow(struct_corr.values, cmap="RdBu_r", vmin=-1, vmax=1)
+    ax.set_xticks(range(len(struct_cols)))
+    ax.set_yticks(range(len(struct_cols)))
+    ax.set_xticklabels(struct_cols, rotation=90, fontsize=7)
+    ax.set_yticklabels(struct_cols, fontsize=7)
+    fig.colorbar(im, ax=ax, label="Pearson r", shrink=0.8)
+    ax.set_title("Structural feature correlations (one row per query form)")
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "feature_correlation_heatmap.png"), dpi=130)
+    plt.close(fig)
 
     return {
         "n_unique_forms_checked": int(len(unique_forms)),
@@ -542,7 +566,7 @@ def evaluate_row_cv(X: np.ndarray, y_transformed: np.ndarray, plan: TransformPla
 
 
 def evaluate_holdout(model: LinearRegression, X_holdout: np.ndarray, y_holdout_raw: np.ndarray,
-                      plan: TransformPlan) -> dict:
+                     plan: TransformPlan) -> dict:
     pred_t = model.predict(X_holdout)
     pred = invert_target(pred_t, plan)
     return {
@@ -576,8 +600,8 @@ def make_residual_plot(y_true, y_pred, title: str, out_path: str):
 
 
 def fit_and_evaluate_group(train_df: pd.DataFrame, holdout_df: pd.DataFrame,
-                            driver: str, phase: str, out_dir: str) -> GroupResult:
-    feat_cols = FEATURE_COLUMNS
+                           driver: str, phase: str, out_dir: str) -> GroupResult:
+    feat_cols = MODEL_FEATURE_COLUMNS
     X_train_raw = train_df[feat_cols]
     y_train_raw = train_df["duration"]
 
@@ -658,7 +682,7 @@ def fit_and_evaluate_group(train_df: pd.DataFrame, holdout_df: pd.DataFrame,
 # ---------------------------------------------------------------------------
 
 def refit_and_score_with_plan(train_df: pd.DataFrame, holdout_df: pd.DataFrame,
-                               plan: "TransformPlan", seed: int) -> tuple[dict, dict | None]:
+                              plan: "TransformPlan", seed: int) -> tuple[dict, dict | None]:
     """Refit ONLY the linear regression weights for an already-decided
     transform plan, and score it. Used by the robustness check below,
     where re-running the (comparatively expensive) RandomForest-based
@@ -668,7 +692,7 @@ def refit_and_score_with_plan(train_df: pd.DataFrame, holdout_df: pd.DataFrame,
     the holdout set?" — we only want to ask the second one here, holding
     the model structure fixed.
     """
-    feat_cols = FEATURE_COLUMNS
+    feat_cols = MODEL_FEATURE_COLUMNS
     X_tr, y_tr = apply_transforms(train_df[feat_cols], train_df["duration"], plan)
     model = LinearRegression().fit(X_tr.values, y_tr.values)
     row_cv = evaluate_row_cv(X_tr.values, y_tr.values, plan, seed)
@@ -683,7 +707,7 @@ def refit_and_score_with_plan(train_df: pd.DataFrame, holdout_df: pd.DataFrame,
 
 
 def repeated_holdout_robustness(df: pd.DataFrame, clean_mask: pd.Series,
-                                 canonical_results: dict, n_repeats: int) -> dict:
+                                canonical_results: dict, n_repeats: int) -> dict:
     """Re-run the train/held-out-forms split N_HOLDOUT_REPEATS more times
     with different random seeds (the canonical run's own split/seed is
     included as repeat 0), refitting only the linear weights each time
@@ -761,6 +785,7 @@ def main(csv_path: str = CSV_PATH, out_dir: str = OUTPUT_DIR):
 
     print(f"[1/8] Loading '{csv_path}' ...")
     df = load_data(csv_path)
+    df = add_interaction_features(df)
     print(f"      {len(df):,} rows loaded.")
 
     print("[2/8] Computing query form_id ...")

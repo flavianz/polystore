@@ -1,0 +1,318 @@
+{
+  "mongo__build": {
+    "n_train_rows": 4274061,
+    "n_train_forms": 3191,
+    "n_holdout_rows": 144388,
+    "n_holdout_forms": 103,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.5237594498597499,
+        "r2_std": 0.001142125391047449,
+        "rmse_mean": 67.15259957674219
+      },
+      "holdout": {
+        "r2": 0.625233949945565,
+        "rmse": 64.27915685770115,
+        "n_rows": 144388
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.5237408156922931,
+        "r2_std": 0.0011425537359826374,
+        "rmse_mean": 67.15391330162454
+      },
+      "holdout": {
+        "r2": 0.6252987280795097,
+        "rmse": 64.27360130673932,
+        "n_rows": 144388
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": false,
+      "log_features": [
+        "dynamicFilterFraction"
+      ]
+    }
+  },
+  "mongo__exec": {
+    "n_train_rows": 4110647,
+    "n_train_forms": 3177,
+    "n_holdout_rows": 126862,
+    "n_holdout_forms": 100,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.29123296762225903,
+        "r2_std": 0.0002592321666515003,
+        "rmse_mean": 4311.531399033578
+      },
+      "holdout": {
+        "r2": 0.3377953728595663,
+        "rmse": 4319.517879581331,
+        "n_rows": 126862
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.36636688935360145,
+        "r2_std": 0.0009956118529612216,
+        "rmse_mean": 4076.6090709065406
+      },
+      "holdout": {
+        "r2": 0.43805015068354947,
+        "rmse": 3979.128369531448,
+        "n_rows": 126862
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": true,
+      "log_features": [
+        "collectionSize"
+      ]
+    }
+  },
+  "mongo__total": {
+    "n_train_rows": 4100842,
+    "n_train_forms": 3171,
+    "n_holdout_rows": 126519,
+    "n_holdout_forms": 99,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.29388488514440725,
+        "r2_std": 0.00041190077485569744,
+        "rmse_mean": 4415.955501294553
+      },
+      "holdout": {
+        "r2": 0.33681168822620755,
+        "rmse": 4347.9272500454235,
+        "n_rows": 126519
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.36647495403935404,
+        "r2_std": 0.0008628791062551893,
+        "rmse_mean": 4182.81765888733
+      },
+      "holdout": {
+        "r2": 0.4449673275792657,
+        "rmse": 3977.6183596245223,
+        "n_rows": 126519
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": true,
+      "log_features": [
+        "collectionSize"
+      ]
+    }
+  },
+  "neo4j__build": {
+    "n_train_rows": 4721825,
+    "n_train_forms": 3625,
+    "n_holdout_rows": 150364,
+    "n_holdout_forms": 113,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.3050197990602804,
+        "r2_std": 0.0004737257907647743,
+        "rmse_mean": 4.763463385937294
+      },
+      "holdout": {
+        "r2": 0.3172904078756188,
+        "rmse": 5.011767131757809,
+        "n_rows": 150364
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.3050197990602804,
+        "r2_std": 0.0004737257907647743,
+        "rmse_mean": 4.763463385937294
+      },
+      "holdout": {
+        "r2": 0.3172904078756188,
+        "rmse": 5.011767131757809,
+        "n_rows": 150364
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": false,
+      "log_features": []
+    }
+  },
+  "neo4j__exec": {
+    "n_train_rows": 4072673,
+    "n_train_forms": 3262,
+    "n_holdout_rows": 125659,
+    "n_holdout_forms": 101,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.24186487952252245,
+        "r2_std": 0.0004546964307459069,
+        "rmse_mean": 645.3632296557607
+      },
+      "holdout": {
+        "r2": 0.2313356006678441,
+        "rmse": 584.3752635917829,
+        "n_rows": 125659
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.3087740161338238,
+        "r2_std": 0.0004335661092470915,
+        "rmse_mean": 616.2274611253013
+      },
+      "holdout": {
+        "r2": 0.33922739777798394,
+        "rmse": 541.8130413577853,
+        "n_rows": 125659
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": true,
+      "log_features": [
+        "collectionSize"
+      ]
+    }
+  },
+  "neo4j__total": {
+    "n_train_rows": 4066318,
+    "n_train_forms": 3262,
+    "n_holdout_rows": 125454,
+    "n_holdout_forms": 101,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.24090666520088383,
+        "r2_std": 0.0003204876662631967,
+        "rmse_mean": 649.8346779909842
+      },
+      "holdout": {
+        "r2": 0.2318567351833012,
+        "rmse": 589.4371012539923,
+        "n_rows": 125454
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.30824808614546406,
+        "r2_std": 0.0006775681331342065,
+        "rmse_mean": 620.3412008460289
+      },
+      "holdout": {
+        "r2": 0.339612241882172,
+        "rmse": 546.5323353736477,
+        "n_rows": 125454
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": true,
+      "log_features": [
+        "collectionSize"
+      ]
+    }
+  },
+  "postgres__build": {
+    "n_train_rows": 4583161,
+    "n_train_forms": 3657,
+    "n_holdout_rows": 144149,
+    "n_holdout_forms": 113,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.490826945582008,
+        "r2_std": 0.0009106170397125117,
+        "rmse_mean": 31.310675227036292
+      },
+      "holdout": {
+        "r2": 0.519920890659616,
+        "rmse": 31.00253711239907,
+        "n_rows": 144149
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.490826945582008,
+        "r2_std": 0.0009106170397125117,
+        "rmse_mean": 31.310675227036292
+      },
+      "holdout": {
+        "r2": 0.519920890659616,
+        "rmse": 31.00253711239907,
+        "n_rows": 144149
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": false,
+      "log_features": []
+    }
+  },
+  "postgres__exec": {
+    "n_train_rows": 4401818,
+    "n_train_forms": 3339,
+    "n_holdout_rows": 135933,
+    "n_holdout_forms": 101,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.6967960472336873,
+        "r2_std": 0.0006036881149217887,
+        "rmse_mean": 1011.1271526837845
+      },
+      "holdout": {
+        "r2": 0.7278264558604138,
+        "rmse": 948.0795273224448,
+        "n_rows": 135933
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.6967960472336873,
+        "r2_std": 0.0006036881149217887,
+        "rmse_mean": 1011.1271526837845
+      },
+      "holdout": {
+        "r2": 0.7278264558604138,
+        "rmse": 948.0795273224448,
+        "n_rows": 135933
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": false,
+      "log_features": []
+    }
+  },
+  "postgres__total": {
+    "n_train_rows": 4402773,
+    "n_train_forms": 3342,
+    "n_holdout_rows": 135998,
+    "n_holdout_forms": 102,
+    "model_a": {
+      "row_cv": {
+        "r2_mean": 0.6969941616554498,
+        "r2_std": 0.0005116265474500934,
+        "rmse_mean": 1023.8040920666363
+      },
+      "holdout": {
+        "r2": 0.7303303783678176,
+        "rmse": 960.9653982202732,
+        "n_rows": 135998
+      }
+    },
+    "model_b": {
+      "row_cv": {
+        "r2_mean": 0.6969941616554498,
+        "r2_std": 0.0005116265474500934,
+        "rmse_mean": 1023.8040920666363
+      },
+      "holdout": {
+        "r2": 0.7303303783678176,
+        "rmse": 960.9653982202732,
+        "n_rows": 135998
+      }
+    },
+    "model_b_transform_plan": {
+      "log_target": false,
+      "log_features": []
+    }
+  }
+}
