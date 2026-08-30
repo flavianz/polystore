@@ -111,6 +111,9 @@ HOLDOUT_FORM_FRACTION = 0.03         # 3% of distinct query forms held out
 CV_FOLDS = 5
 RANDOM_SEED = 42
 
+N_HOLDOUT_REPEATS = 5                # extra random re-splits, for a robustness range
+CORRELATION_FLAG_THRESHOLD = 0.5     # |r| above this gets called out explicitly
+
 # Columns that describe a *measurement*, not the query shape itself.
 NON_STRUCTURAL_COLUMNS = {"driver", "collectionSize", "iteration", "phase", "duration"}
 
@@ -312,6 +315,77 @@ def compute_form_id(df: pd.DataFrame) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
+# 2b. Feature correlation check
+# ---------------------------------------------------------------------------
+
+def compute_feature_correlations(df: pd.DataFrame, clean_mask: pd.Series, out_dir: str) -> dict:
+    """Two separate correlation checks, for two separate reasons:
+
+    1. Structural-feature-vs-structural-feature correlations, computed on
+       ONE ROW PER QUERY FORM (deduplicated by form_id). If this were
+       computed on the full row-level data instead, a form measured
+       thousands of times would just be re-confirming its own single
+       correlation value over and over, drowning out the actual
+       cross-form signal. This check answers: "does the query generator
+       tend to produce certain structural features together?" — which
+       matters because strongly correlated predictors make individual
+       linear-regression coefficients unreliable (their effect can trade
+       off against each other) even when the model's overall R^2 is fine.
+       This is exactly the kind of thing that can produce a
+       counter-intuitive coefficient sign, so it's worth checking before
+       reading meaning into any single coefficient.
+
+    2. collectionSize vs. every structural feature, computed on the full
+       (clean) row-level data. Unlike the structural features,
+       collectionSize is supposed to vary independently of query shape
+       (the same shape gets measured at several sizes) — this is a
+       sanity check that the benchmark generator actually achieved that
+       orthogonality, not a search for a "real" relationship.
+    """
+    struct_cols = FORM_ID_COLUMNS
+
+    # (1) one row per form
+    unique_forms = df.loc[clean_mask, ["form_id"] + struct_cols].drop_duplicates(subset="form_id")
+    struct_corr = unique_forms[struct_cols].corr()
+
+    high_pairs = []
+    for i, a in enumerate(struct_cols):
+        for b in struct_cols[i + 1:]:
+            r = struct_corr.loc[a, b]
+            if pd.notna(r) and abs(r) >= CORRELATION_FLAG_THRESHOLD:
+                high_pairs.append({"feature_a": a, "feature_b": b, "r": float(r)})
+    high_pairs.sort(key=lambda p: -abs(p["r"]))
+
+    # (2) collectionSize vs structural features, full clean rows
+    clean_rows = df.loc[clean_mask, ["collectionSize"] + struct_cols]
+    size_corr = clean_rows.corr()["collectionSize"].drop("collectionSize")
+    size_flags = [
+        {"feature": f, "r": float(r)}
+        for f, r in size_corr.items() if pd.notna(r) and abs(r) >= CORRELATION_FLAG_THRESHOLD
+    ]
+
+    # heatmap for visual inspection
+    try:
+        import seaborn as sns
+        fig, ax = plt.subplots(figsize=(9, 7.5))
+        sns.heatmap(struct_corr, cmap="RdBu_r", vmin=-1, vmax=1, center=0,
+                    annot=False, square=True, ax=ax, cbar_kws={"label": "Pearson r"})
+        ax.set_title("Structural feature correlations (one row per query form)")
+        fig.tight_layout()
+        fig.savefig(os.path.join(out_dir, "feature_correlation_heatmap.png"), dpi=130)
+        plt.close(fig)
+    except ImportError:
+        pass  # heatmap is a nice-to-have; the JSON report below is what matters
+
+    return {
+        "n_unique_forms_checked": int(len(unique_forms)),
+        "structural_feature_high_correlation_pairs": high_pairs,
+        "collection_size_correlation_flags": size_flags,
+        "full_structural_correlation_matrix": struct_corr.round(4).to_dict(),
+    }
+
+
+# ---------------------------------------------------------------------------
 # 3. Warmup flag
 # ---------------------------------------------------------------------------
 
@@ -446,6 +520,7 @@ class GroupResult:
     model_a_json: dict
     model_b_json: dict
     metrics: dict
+    plan_b: "TransformPlan"
 
 
 def evaluate_row_cv(X: np.ndarray, y_transformed: np.ndarray, plan: TransformPlan, rng_seed: int) -> dict:
@@ -575,7 +650,105 @@ def fit_and_evaluate_group(train_df: pd.DataFrame, holdout_df: pd.DataFrame,
         },
     }
 
-    return GroupResult(driver, phase, model_a_json, model_b_json, metrics)
+    return GroupResult(driver, phase, model_a_json, model_b_json, metrics, plan_b)
+
+
+# ---------------------------------------------------------------------------
+# 7b. Repeated-holdout-seed robustness check
+# ---------------------------------------------------------------------------
+
+def refit_and_score_with_plan(train_df: pd.DataFrame, holdout_df: pd.DataFrame,
+                               plan: "TransformPlan", seed: int) -> tuple[dict, dict | None]:
+    """Refit ONLY the linear regression weights for an already-decided
+    transform plan, and score it. Used by the robustness check below,
+    where re-running the (comparatively expensive) RandomForest-based
+    transform diagnosis for every random re-split would conflate two
+    different questions — "is this model structure right?" vs "how much
+    does the R^2 estimate wobble due to which forms happened to land in
+    the holdout set?" — we only want to ask the second one here, holding
+    the model structure fixed.
+    """
+    feat_cols = FEATURE_COLUMNS
+    X_tr, y_tr = apply_transforms(train_df[feat_cols], train_df["duration"], plan)
+    model = LinearRegression().fit(X_tr.values, y_tr.values)
+    row_cv = evaluate_row_cv(X_tr.values, y_tr.values, plan, seed)
+
+    holdout_metrics = None
+    if len(holdout_df):
+        X_h, _ = apply_transforms(holdout_df[feat_cols], holdout_df["duration"], plan)
+        y_h_raw = holdout_df["duration"].values
+        holdout_metrics = evaluate_holdout(model, X_h.values, y_h_raw, plan)
+
+    return row_cv, holdout_metrics
+
+
+def repeated_holdout_robustness(df: pd.DataFrame, clean_mask: pd.Series,
+                                 canonical_results: dict, n_repeats: int) -> dict:
+    """Re-run the train/held-out-forms split N_HOLDOUT_REPEATS more times
+    with different random seeds (the canonical run's own split/seed is
+    included as repeat 0), refitting only the linear weights each time
+    (see refit_and_score_with_plan), and report the spread of R^2 across
+    repeats.
+
+    Why this matters: a single random split of ~100 held-out forms is a
+    small sample, and R^2 estimated from it can land above OR below the
+    row-CV number just by chance — which is exactly what happened in the
+    first run (several groups showed HIGHER held-out R^2 than row-CV
+    R^2, which is the opposite of what overfitting would predict). This
+    doesn't tell you the model is good or bad on its own; it tells you
+    that one number isn't enough evidence either way. Reporting a
+    mean/std/range across repeats is what actually lets you claim (or
+    rule out) "the model generalizes to unseen query shapes" with any
+    confidence in the thesis.
+    """
+    report = {}
+
+    for key, canonical in canonical_results.items():
+        driver, phase = canonical.driver, canonical.phase
+        plan = canonical.plan_b
+
+        row_cv_r2s = [canonical.metrics["model_b"]["row_cv"]["r2_mean"]]
+        holdout_r2s = []
+        if canonical.metrics["model_b"]["holdout"]:
+            holdout_r2s.append(canonical.metrics["model_b"]["holdout"]["r2"])
+
+        for rep in range(n_repeats):
+            seed = RANDOM_SEED + 1000 + rep  # distinct from the canonical seed
+            rng_rep = np.random.default_rng(seed)
+            holdout_forms_rep = split_holdout_forms(df, rng_rep)
+            is_holdout_rep = df["form_id"].isin(holdout_forms_rep)
+
+            group_mask = (df["driver"] == driver) & (df["phase"] == phase)
+            train_df_rep = df[clean_mask & ~is_holdout_rep & group_mask]
+            holdout_df_rep = df[clean_mask & is_holdout_rep & group_mask]
+
+            if len(train_df_rep) < 20:
+                continue
+
+            row_cv, holdout_metrics = refit_and_score_with_plan(
+                train_df_rep, holdout_df_rep, plan, seed
+            )
+            row_cv_r2s.append(row_cv["r2_mean"])
+            if holdout_metrics:
+                holdout_r2s.append(holdout_metrics["r2"])
+
+        def summarize(values: list[float]) -> dict:
+            arr = np.array(values)
+            return {
+                "n_splits": len(values),
+                "mean": float(arr.mean()),
+                "std": float(arr.std()),
+                "min": float(arr.min()),
+                "max": float(arr.max()),
+                "all_values": [float(v) for v in values],
+            }
+
+        report[key] = {
+            "row_cv_r2": summarize(row_cv_r2s),
+            "holdout_r2": summarize(holdout_r2s) if holdout_r2s else None,
+        }
+
+    return report
 
 
 # ---------------------------------------------------------------------------
@@ -586,15 +759,15 @@ def main(csv_path: str = CSV_PATH, out_dir: str = OUTPUT_DIR):
     os.makedirs(out_dir, exist_ok=True)
     rng = np.random.default_rng(RANDOM_SEED)
 
-    print(f"[1/6] Loading '{csv_path}' ...")
+    print(f"[1/8] Loading '{csv_path}' ...")
     df = load_data(csv_path)
     print(f"      {len(df):,} rows loaded.")
 
-    print("[2/6] Computing query form_id ...")
+    print("[2/8] Computing query form_id ...")
     df["form_id"] = compute_form_id(df)
     print(f"      {df['form_id'].nunique():,} distinct query forms found.")
 
-    print("[3/6] Flagging warmup + outlier rows ...")
+    print("[3/8] Flagging warmup + outlier rows ...")
     df["is_warmup"] = flag_warmup(df)
     df["is_outlier"] = flag_outliers(df)
     print(f"      warmup: {df['is_warmup'].sum():,} rows "
@@ -602,19 +775,36 @@ def main(csv_path: str = CSV_PATH, out_dir: str = OUTPUT_DIR):
           f"outlier: {df['is_outlier'].sum():,} rows "
           f"({df['is_outlier'].mean():.1%})")
 
-    print("[4/6] Splitting held-out query forms ...")
+    clean_mask = ~df["is_warmup"] & ~df["is_outlier"]
+
+    print("[4/8] Checking structural feature correlations ...")
+    corr_report = compute_feature_correlations(df, clean_mask, out_dir)
+    if corr_report["structural_feature_high_correlation_pairs"]:
+        print(f"      {len(corr_report['structural_feature_high_correlation_pairs'])} "
+              f"structural feature pair(s) with |r| >= {CORRELATION_FLAG_THRESHOLD}:")
+        for p in corr_report["structural_feature_high_correlation_pairs"]:
+            print(f"        {p['feature_a']} <-> {p['feature_b']}: r={p['r']:.3f}")
+    else:
+        print(f"      no structural feature pairs above |r| >= {CORRELATION_FLAG_THRESHOLD}")
+    if corr_report["collection_size_correlation_flags"]:
+        print("      WARNING: collectionSize correlates with structural features "
+              "(expected to be ~independent by design):")
+        for f in corr_report["collection_size_correlation_flags"]:
+            print(f"        collectionSize <-> {f['feature']}: r={f['r']:.3f}")
+
+    print("[5/8] Splitting held-out query forms ...")
     holdout_forms = split_holdout_forms(df, rng)
     df["is_holdout_form"] = df["form_id"].isin(holdout_forms)
     print(f"      {len(holdout_forms):,} forms held out "
           f"({df['is_holdout_form'].mean():.1%} of rows)")
 
-    clean_mask = ~df["is_warmup"] & ~df["is_outlier"]
     train_mask = clean_mask & ~df["is_holdout_form"]
     holdout_mask = clean_mask & df["is_holdout_form"]
 
-    print("[5/6] Fitting Model A / Model B per (driver, phase) ...")
+    print("[6/8] Fitting Model A / Model B per (driver, phase) ...")
     all_json_models = {}
     all_metrics = {}
+    canonical_results: dict[str, GroupResult] = {}
     for driver in df["driver"].cat.categories:
         for phase in df["phase"].cat.categories:
             train_df = df[train_mask & (df["driver"] == driver) & (df["phase"] == phase)]
@@ -628,13 +818,26 @@ def main(csv_path: str = CSV_PATH, out_dir: str = OUTPUT_DIR):
             key = f"{driver}__{phase}"
             all_json_models[key] = {"model_a": result.model_a_json, "model_b": result.model_b_json}
             all_metrics[key] = result.metrics
+            canonical_results[key] = result
 
             mb = result.metrics["model_b"]
             print(f"      {driver:>8}/{phase:<5}  "
                   f"rowCV R2={mb['row_cv']['r2_mean']:.3f}  "
                   f"holdoutForms R2={(mb['holdout']['r2'] if mb['holdout'] else float('nan')):.3f}")
 
-    print("[6/6] Writing outputs ...")
+    print(f"[7/8] Robustness check: re-splitting holdout forms "
+          f"{N_HOLDOUT_REPEATS} more time(s) per group ...")
+    robustness_report = repeated_holdout_robustness(df, clean_mask, canonical_results, N_HOLDOUT_REPEATS)
+    for key, rep in robustness_report.items():
+        rc = rep["row_cv_r2"]
+        ho = rep["holdout_r2"]
+        ho_str = (f"{ho['mean']:.3f} ± {ho['std']:.3f} (range {ho['min']:.3f}-{ho['max']:.3f}, "
+                  f"n={ho['n_splits']})") if ho else "n/a"
+        print(f"      {key:<20} rowCV R2: {rc['mean']:.3f} ± {rc['std']:.3f} "
+              f"(range {rc['min']:.3f}-{rc['max']:.3f}, n={rc['n_splits']})   "
+              f"holdout R2: {ho_str}")
+
+    print("[8/8] Writing outputs ...")
     coeff_path = os.path.join(out_dir, "model_coefficients_linear.json")
     with open(coeff_path, "w") as f:
         json.dump(all_json_models, f, indent=2)
@@ -643,8 +846,21 @@ def main(csv_path: str = CSV_PATH, out_dir: str = OUTPUT_DIR):
     with open(metrics_path, "w") as f:
         json.dump(all_metrics, f, indent=2)
 
-    print(f"\nDone.\n  coefficients -> {coeff_path}\n  metrics      -> {metrics_path}\n"
-          f"  residual plots -> {out_dir}/residuals_<driver>_<phase>.png")
+    corr_path = os.path.join(out_dir, "feature_correlations.json")
+    with open(corr_path, "w") as f:
+        json.dump(corr_report, f, indent=2)
+
+    robustness_path = os.path.join(out_dir, "robustness_report.json")
+    with open(robustness_path, "w") as f:
+        json.dump(robustness_report, f, indent=2)
+
+    print(f"\nDone.\n"
+          f"  coefficients     -> {coeff_path}\n"
+          f"  metrics          -> {metrics_path}\n"
+          f"  correlations     -> {corr_path}\n"
+          f"  robustness       -> {robustness_path}\n"
+          f"  residual plots   -> {out_dir}/residuals_<driver>_<phase>.png\n"
+          f"  correlation plot -> {out_dir}/feature_correlation_heatmap.png")
 
 
 if __name__ == "__main__":

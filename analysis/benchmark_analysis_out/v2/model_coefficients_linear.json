@@ -1,0 +1,344 @@
+{
+  "mongo__build": {
+    "model_a": {
+      "driver": "mongo",
+      "phase": "build",
+      "intercept": 76.10227927590898,
+      "numeric_coefficients": {
+        "collectionSize": 0.002706155166946484,
+        "singleCollectionSegmentCount": -64.17523478306146,
+        "pairCollectionSegmentCount": -83.20948276401823,
+        "connectionSegmentCount": -41.26777894685067,
+        "multiQueryCount": -8.60385948102908,
+        "rootIdFilterCount": 81.76152652326104,
+        "rootValueInListFilterCount": 90.08294682809085,
+        "rootEqualityFilterCount": 86.18719509250494,
+        "rootNumberRangeFilterCount": 108.68968957386342,
+        "nestedIdFilterCount": 47.01072137916783,
+        "nestedValueInListFilterCount": 56.55494717951241,
+        "nestedEqualityFilterCount": 47.33584183548414,
+        "nestedNumberRangeFilterCount": 64.4584893626059,
+        "firstFilterDepth": 160.73890150366424,
+        "onlyResultFraction": -2.754858997114494,
+        "dynamicFilterFraction": 44.40863174998094,
+        "dynamicResultFraction": 14.160136983465197
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    },
+    "model_b": {
+      "driver": "mongo",
+      "phase": "build",
+      "intercept": 76.17855841192642,
+      "numeric_coefficients": {
+        "collectionSize": 0.0027061372445309666,
+        "singleCollectionSegmentCount": -64.20946391343077,
+        "pairCollectionSegmentCount": -83.29127089491622,
+        "connectionSegmentCount": -41.34956594899742,
+        "multiQueryCount": -8.592123283608423,
+        "rootIdFilterCount": 81.78298056938822,
+        "rootValueInListFilterCount": 90.08533821497574,
+        "rootEqualityFilterCount": 86.16511411750876,
+        "rootNumberRangeFilterCount": 108.69176765977399,
+        "nestedIdFilterCount": 47.04172059708406,
+        "nestedValueInListFilterCount": 56.59865990014122,
+        "nestedEqualityFilterCount": 47.40041479473915,
+        "nestedNumberRangeFilterCount": 64.50115725776361,
+        "firstFilterDepth": 160.72213585335115,
+        "onlyResultFraction": -2.7749606785268734,
+        "dynamicFilterFraction": 47.819608603283875,
+        "dynamicResultFraction": 14.15012779547288
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {
+        "dynamicFilterFraction": "log1p"
+      }
+    }
+  },
+  "mongo__exec": {
+    "model_a": {
+      "driver": "mongo",
+      "phase": "exec",
+      "intercept": 2364.2083603741435,
+      "numeric_coefficients": {
+        "collectionSize": 0.2670069894933836,
+        "singleCollectionSegmentCount": -763.9602242332271,
+        "pairCollectionSegmentCount": -1484.1502580312622,
+        "connectionSegmentCount": -893.4184698285895,
+        "multiQueryCount": -124.45462803790429,
+        "rootIdFilterCount": 619.3301332575275,
+        "rootValueInListFilterCount": 1845.865309912722,
+        "rootEqualityFilterCount": 1189.754049384922,
+        "rootNumberRangeFilterCount": 1804.7410528124315,
+        "nestedIdFilterCount": 585.239078261665,
+        "nestedValueInListFilterCount": 1109.8402393074803,
+        "nestedEqualityFilterCount": 1113.5872963965157,
+        "nestedNumberRangeFilterCount": 1234.3092052021661,
+        "firstFilterDepth": 4316.891768853064,
+        "onlyResultFraction": -84.05113530443322,
+        "dynamicFilterFraction": 3316.301582877783,
+        "dynamicResultFraction": 170.84033370407872
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    },
+    "model_b": {
+      "driver": "mongo",
+      "phase": "exec",
+      "intercept": 6.3359798630942965,
+      "numeric_coefficients": {
+        "collectionSize": 0.16826170153217293,
+        "singleCollectionSegmentCount": -0.49664205139578677,
+        "pairCollectionSegmentCount": -0.8501057974465935,
+        "connectionSegmentCount": -0.7054615864889925,
+        "multiQueryCount": -0.05855096790501059,
+        "rootIdFilterCount": 0.5028253956007055,
+        "rootValueInListFilterCount": 0.700324175562484,
+        "rootEqualityFilterCount": 0.6301051568381517,
+        "rootNumberRangeFilterCount": 0.7412163805178171,
+        "nestedIdFilterCount": 0.4460600715201901,
+        "nestedValueInListFilterCount": 0.5120377931144403,
+        "nestedEqualityFilterCount": 0.5184992587754892,
+        "nestedNumberRangeFilterCount": 0.5337156295495745,
+        "firstFilterDepth": 1.1456879558636175,
+        "onlyResultFraction": 0.012701491347286998,
+        "dynamicFilterFraction": 0.801865384148014,
+        "dynamicResultFraction": 0.08601342233685105
+      },
+      "categorical_coefficients": {},
+      "target_transform": "log1p",
+      "feature_transforms": {
+        "collectionSize": "log1p"
+      }
+    }
+  },
+  "neo4j__build": {
+    "model_a": {
+      "driver": "neo4j",
+      "phase": "build",
+      "intercept": 10.099135383356977,
+      "numeric_coefficients": {
+        "collectionSize": 0.00018324297140302748,
+        "singleCollectionSegmentCount": 1.388862069107257,
+        "pairCollectionSegmentCount": 2.2899232715988522,
+        "connectionSegmentCount": 2.8464905022204126,
+        "multiQueryCount": -0.23010634054687823,
+        "rootIdFilterCount": -0.3980180928964217,
+        "rootValueInListFilterCount": -0.8674388921207085,
+        "rootEqualityFilterCount": -1.0824107873866973,
+        "rootNumberRangeFilterCount": -0.7183634335949924,
+        "nestedIdFilterCount": -0.4332982999078645,
+        "nestedValueInListFilterCount": 0.6511639978268942,
+        "nestedEqualityFilterCount": -0.5607890027501672,
+        "nestedNumberRangeFilterCount": -0.7512487312329956,
+        "firstFilterDepth": -0.5369510794872802,
+        "onlyResultFraction": 1.6714501713267729,
+        "dynamicFilterFraction": -1.1682408166467757,
+        "dynamicResultFraction": 0.5901767036159125
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    },
+    "model_b": {
+      "driver": "neo4j",
+      "phase": "build",
+      "intercept": 10.099135383356977,
+      "numeric_coefficients": {
+        "collectionSize": 0.00018324297140302748,
+        "singleCollectionSegmentCount": 1.388862069107257,
+        "pairCollectionSegmentCount": 2.2899232715988522,
+        "connectionSegmentCount": 2.8464905022204126,
+        "multiQueryCount": -0.23010634054687823,
+        "rootIdFilterCount": -0.3980180928964217,
+        "rootValueInListFilterCount": -0.8674388921207085,
+        "rootEqualityFilterCount": -1.0824107873866973,
+        "rootNumberRangeFilterCount": -0.7183634335949924,
+        "nestedIdFilterCount": -0.4332982999078645,
+        "nestedValueInListFilterCount": 0.6511639978268942,
+        "nestedEqualityFilterCount": -0.5607890027501672,
+        "nestedNumberRangeFilterCount": -0.7512487312329956,
+        "firstFilterDepth": -0.5369510794872802,
+        "onlyResultFraction": 1.6714501713267729,
+        "dynamicFilterFraction": -1.1682408166467757,
+        "dynamicResultFraction": 0.5901767036159125
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    }
+  },
+  "neo4j__exec": {
+    "model_a": {
+      "driver": "neo4j",
+      "phase": "exec",
+      "intercept": 1671.492734227493,
+      "numeric_coefficients": {
+        "collectionSize": 0.03263114419599294,
+        "singleCollectionSegmentCount": -99.75334130032638,
+        "pairCollectionSegmentCount": -261.89136460036116,
+        "connectionSegmentCount": -232.52951680344873,
+        "multiQueryCount": -8.988764344574687,
+        "rootIdFilterCount": 59.58980676341491,
+        "rootValueInListFilterCount": 210.9038793381318,
+        "rootEqualityFilterCount": 126.00556084482042,
+        "rootNumberRangeFilterCount": 195.38707778970706,
+        "nestedIdFilterCount": 98.80030639820399,
+        "nestedValueInListFilterCount": 165.55028518198117,
+        "nestedEqualityFilterCount": 189.8665834184881,
+        "nestedNumberRangeFilterCount": 212.844277971141,
+        "firstFilterDepth": 566.6578046680156,
+        "onlyResultFraction": -117.41850808849976,
+        "dynamicFilterFraction": 658.2875456374795,
+        "dynamicResultFraction": -33.164217554972616
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    },
+    "model_b": {
+      "driver": "neo4j",
+      "phase": "exec",
+      "intercept": 6.946630056112442,
+      "numeric_coefficients": {
+        "collectionSize": 0.05822451282056427,
+        "singleCollectionSegmentCount": -0.03202225248413914,
+        "pairCollectionSegmentCount": -0.08537047448366002,
+        "connectionSegmentCount": -0.06904951261528744,
+        "multiQueryCount": -0.005568071647527814,
+        "rootIdFilterCount": 0.015400539367750411,
+        "rootValueInListFilterCount": 0.08563810065327761,
+        "rootEqualityFilterCount": 0.052974019778646825,
+        "rootNumberRangeFilterCount": 0.09194762424030611,
+        "nestedIdFilterCount": 0.029735841990604264,
+        "nestedValueInListFilterCount": 0.06596456959303658,
+        "nestedEqualityFilterCount": 0.07258902669464619,
+        "nestedNumberRangeFilterCount": 0.09024775432277267,
+        "firstFilterDepth": 0.30551668873575044,
+        "onlyResultFraction": -0.026851557062595698,
+        "dynamicFilterFraction": 0.31738434998549475,
+        "dynamicResultFraction": 0.014887861332086269
+      },
+      "categorical_coefficients": {},
+      "target_transform": "log1p",
+      "feature_transforms": {
+        "collectionSize": "log1p"
+      }
+    }
+  },
+  "postgres__build": {
+    "model_a": {
+      "driver": "postgres",
+      "phase": "build",
+      "intercept": 38.16910341262715,
+      "numeric_coefficients": {
+        "collectionSize": 0.001041145959040075,
+        "singleCollectionSegmentCount": -15.383625349976313,
+        "pairCollectionSegmentCount": -19.36600560041707,
+        "connectionSegmentCount": -7.381113036031531,
+        "multiQueryCount": -2.1248594006178245,
+        "rootIdFilterCount": 26.657713698731342,
+        "rootValueInListFilterCount": 28.535899637875943,
+        "rootEqualityFilterCount": 27.50208269719397,
+        "rootNumberRangeFilterCount": 28.449775089256228,
+        "nestedIdFilterCount": 15.717699448376989,
+        "nestedValueInListFilterCount": 16.707999088880435,
+        "nestedEqualityFilterCount": 15.628763603527846,
+        "nestedNumberRangeFilterCount": 18.10102678600039,
+        "firstFilterDepth": 20.141318658368018,
+        "onlyResultFraction": -19.45645894827513,
+        "dynamicFilterFraction": 20.123321773964637,
+        "dynamicResultFraction": 3.510909150758609
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    },
+    "model_b": {
+      "driver": "postgres",
+      "phase": "build",
+      "intercept": 38.16910341262715,
+      "numeric_coefficients": {
+        "collectionSize": 0.001041145959040075,
+        "singleCollectionSegmentCount": -15.383625349976313,
+        "pairCollectionSegmentCount": -19.36600560041707,
+        "connectionSegmentCount": -7.381113036031531,
+        "multiQueryCount": -2.1248594006178245,
+        "rootIdFilterCount": 26.657713698731342,
+        "rootValueInListFilterCount": 28.535899637875943,
+        "rootEqualityFilterCount": 27.50208269719397,
+        "rootNumberRangeFilterCount": 28.449775089256228,
+        "nestedIdFilterCount": 15.717699448376989,
+        "nestedValueInListFilterCount": 16.707999088880435,
+        "nestedEqualityFilterCount": 15.628763603527846,
+        "nestedNumberRangeFilterCount": 18.10102678600039,
+        "firstFilterDepth": 20.141318658368018,
+        "onlyResultFraction": -19.45645894827513,
+        "dynamicFilterFraction": 20.123321773964637,
+        "dynamicResultFraction": 3.510909150758609
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    }
+  },
+  "postgres__exec": {
+    "model_a": {
+      "driver": "postgres",
+      "phase": "exec",
+      "intercept": -592.8396391858882,
+      "numeric_coefficients": {
+        "collectionSize": 0.31595866236018944,
+        "singleCollectionSegmentCount": -111.66520287551262,
+        "pairCollectionSegmentCount": -88.56165610055686,
+        "connectionSegmentCount": 673.9342257348326,
+        "multiQueryCount": 95.19617765653446,
+        "rootIdFilterCount": 157.0626494627041,
+        "rootValueInListFilterCount": 415.87790400510966,
+        "rootEqualityFilterCount": 350.7581575255924,
+        "rootNumberRangeFilterCount": 503.93001688798694,
+        "nestedIdFilterCount": -4.167549160162576,
+        "nestedValueInListFilterCount": 50.10295145815553,
+        "nestedEqualityFilterCount": -43.55275080496999,
+        "nestedNumberRangeFilterCount": 53.55719378620151,
+        "firstFilterDepth": 1358.9590460203146,
+        "onlyResultFraction": -0.10861273490146263,
+        "dynamicFilterFraction": 819.6424575763568,
+        "dynamicResultFraction": 182.71339965253452
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    },
+    "model_b": {
+      "driver": "postgres",
+      "phase": "exec",
+      "intercept": -592.8396391858882,
+      "numeric_coefficients": {
+        "collectionSize": 0.31595866236018944,
+        "singleCollectionSegmentCount": -111.66520287551262,
+        "pairCollectionSegmentCount": -88.56165610055686,
+        "connectionSegmentCount": 673.9342257348326,
+        "multiQueryCount": 95.19617765653446,
+        "rootIdFilterCount": 157.0626494627041,
+        "rootValueInListFilterCount": 415.87790400510966,
+        "rootEqualityFilterCount": 350.7581575255924,
+        "rootNumberRangeFilterCount": 503.93001688798694,
+        "nestedIdFilterCount": -4.167549160162576,
+        "nestedValueInListFilterCount": 50.10295145815553,
+        "nestedEqualityFilterCount": -43.55275080496999,
+        "nestedNumberRangeFilterCount": 53.55719378620151,
+        "firstFilterDepth": 1358.9590460203146,
+        "onlyResultFraction": -0.10861273490146263,
+        "dynamicFilterFraction": 819.6424575763568,
+        "dynamicResultFraction": 182.71339965253452
+      },
+      "categorical_coefficients": {},
+      "target_transform": null,
+      "feature_transforms": {}
+    }
+  }
+}
