@@ -216,11 +216,30 @@ def score_accuracy(comparison: pd.DataFrame, predicted_col: str, actual_col: str
     return overall
 
 
+def compute_majority_baseline(comparison: pd.DataFrame) -> dict:
+    """The 'did we learn anything at all' sanity check: a rule that always
+    guesses whichever driver wins most often in the ground truth, with no
+    per-query reasoning whatsoever. If this scores close to the ML model
+    or the simple heuristic, that model isn't actually distinguishing
+    query shapes — it's just riding the class imbalance. Computed on the
+    SAME held-out set as everything else for a fair comparison.
+    """
+    if not len(comparison):
+        return {"majority_driver": None, "accuracy": None, "n_comparisons": 0}
+    majority_driver = comparison["actual_fastest"].value_counts().idxmax()
+    accuracy = float((comparison["actual_fastest"] == majority_driver).mean())
+    return {
+        "majority_driver": majority_driver,
+        "accuracy": accuracy,
+        "n_comparisons": int(len(comparison)),
+    }
+
+
 def main(csv_path: str = CSV_PATH, coeff_path: str = COEFFICIENTS_PATH,
          simple_choice_path: str = SIMPLE_CHOICE_PATH, out_dir: str = OUT_DIR):
-    from regression_2 import FORM_ID_COLUMNS
+    from regression_2 import FORM_ID_COLUMNS, RANDOM_SEED, split_holdout_forms
 
-    print("[1/5] Loading benchmark data + recomputing form_id/flags "
+    print("[1/6] Loading benchmark data + recomputing form_id/flags "
           "(same as the main pipeline, needed for ground truth) ...")
     df = load_data(csv_path)
     df = add_interaction_features(df)
@@ -229,41 +248,85 @@ def main(csv_path: str = CSV_PATH, coeff_path: str = COEFFICIENTS_PATH,
     df["is_outlier"] = flag_outliers(df)
     clean_mask = ~df["is_warmup"] & ~df["is_outlier"]
 
-    print("[2/5] Computing ground-truth fastest driver per (form, size) ...")
-    ground_truth = compute_ground_truth(df, clean_mask)
-    print(f"      {len(ground_truth):,} (form, collectionSize) combinations")
+    print("[2/6] Recovering the held-out query forms used during model fitting ...")
+    # split_holdout_forms() is a deterministic function of the set of
+    # distinct form_ids and RANDOM_SEED, both of which are identical here
+    # to the run that produced model_coefficients_linear.json (same input
+    # CSV, same seed) — so this reconstructs the EXACT same held-out set
+    # without needing to have saved it anywhere. This matters a lot: the
+    # ML model has seen every OTHER form during fitting, so scoring it on
+    # those too would silently mix "recognized a shape it was trained on"
+    # into what should be an "unseen shape" generalization number. The
+    # simple heuristic has no such issue (it's not fit to data at all),
+    # but restricting both to the same held-out set keeps the comparison
+    # apples-to-apples on the harder, more meaningful test set.
+    rng = np.random.default_rng(RANDOM_SEED)
+    holdout_forms = split_holdout_forms(df, rng)
+    print(f"      {len(holdout_forms):,} held-out forms "
+          f"(of {df['form_id'].nunique():,} total) — restricting comparison to these")
 
-    print("[3/5] Computing ML-predicted fastest driver ...")
+    print("[3/6] Computing ground-truth fastest driver per (form, size) ...")
+    ground_truth = compute_ground_truth(df, clean_mask)
+    ground_truth = ground_truth[ground_truth["form_id"].isin(holdout_forms)]
+    print(f"      {len(ground_truth):,} held-out (form, collectionSize) combinations")
+
+    print("[4/6] Computing ML-predicted fastest driver ...")
     with open(coeff_path) as f:
         coefficients = json.load(f)
     drivers = sorted({k.split("__")[0] for k in coefficients.keys()})
     ml_preds = compute_ml_predictions(df, coefficients, drivers)
 
-    print("[4/5] Loading simple-heuristic picks (if available) ...")
+    print(f"[5/6] Loading simple-heuristic picks from '{simple_choice_path}' ...")
     simple_choices = load_simple_choices(simple_choice_path, FORM_ID_COLUMNS)
+    if simple_choices is None:
+        print(f"      *** '{simple_choice_path}' was not found — the simple heuristic will "
+              f"NOT be scored. Pass its actual path as the 2nd command-line argument, e.g.\n"
+              f"      python3 compare_driver_selection.py benchmarks.csv your_simple_choices_file.csv")
 
     comparison = ground_truth.merge(ml_preds, on=["form_id", "collectionSize"], how="left")
     if simple_choices is not None:
         comparison = comparison.merge(simple_choices, on="form_id", how="left")
+        n_matched = comparison["simple_fastest"].notna().sum()
+        if n_matched == 0:
+            print(f"      *** WARNING: '{simple_choice_path}' loaded ({len(simple_choices):,} rows) "
+                  f"but matched ZERO forms in the benchmark data. This means form_id hashing "
+                  f"didn't line up — check that the structural columns in that file have "
+                  f"IDENTICAL values (not just similar) to the benchmark CSV's, including "
+                  f"for the same query shapes.")
+        elif n_matched < len(comparison):
+            print(f"      note: simple-heuristic picks matched {n_matched:,} of "
+                  f"{len(comparison):,} (form, size) combinations "
+                  f"({n_matched / len(comparison):.1%}) — the rest have no simpleDriverChoice "
+                  f"on record and will be excluded from that side's accuracy score.")
 
-    print("[5/5] Scoring ...")
-    results = {"ml_model": score_accuracy(comparison, "ml_predicted_fastest")}
+    print("[6/6] Scoring ...")
+    results = {
+        "n_holdout_forms": len(holdout_forms),
+        "majority_baseline": compute_majority_baseline(comparison),
+        "ml_model": score_accuracy(comparison, "ml_predicted_fastest"),
+    }
     if "simple_fastest" in comparison.columns:
         results["simple_heuristic"] = score_accuracy(comparison, "simple_fastest")
 
     os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "driver_selection_accuracy_2.json")
+    out_path = os.path.join(out_dir, "driver_selection_accuracy.json")
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
 
     comparison_path = os.path.join(out_dir, "driver_selection_comparison_rows.csv")
     comparison.to_csv(comparison_path, sep=";", index=False)
 
-    print(f"\nML model accuracy:       {results['ml_model']['accuracy']:.3f} "
+    mb = results["majority_baseline"]
+    print(f"\nMajority baseline ('always guess {mb['majority_driver']}'): "
+          f"{mb['accuracy']:.3f} ({mb['n_comparisons']} comparisons)")
+    print(f"ML model accuracy:       {results['ml_model']['accuracy']:.3f} "
           f"({results['ml_model']['n_comparisons']} comparisons)")
     if "simple_heuristic" in results:
         sh = results["simple_heuristic"]
-        print(f"Simple heuristic accuracy: {sh['accuracy']:.3f} ({sh['n_comparisons']} comparisons)")
+        if sh["accuracy"] is not None:
+            print(f"Simple heuristic accuracy: {sh['accuracy']:.3f} ({sh['n_comparisons']} comparisons)")
+        else:
+            print("Simple heuristic accuracy: no valid comparisons (see warning above)")
     else:
         print(f"(simple heuristic not scored — provide '{simple_choice_path}' to include it)")
 
@@ -272,4 +335,6 @@ def main(csv_path: str = CSV_PATH, coeff_path: str = COEFFICIENTS_PATH,
 
 if __name__ == "__main__":
     import sys
-    main(csv_path=sys.argv[1] if len(sys.argv) > 1 else CSV_PATH)
+    csv_arg = sys.argv[1] if len(sys.argv) > 1 else CSV_PATH
+    simple_arg = sys.argv[2] if len(sys.argv) > 2 else SIMPLE_CHOICE_PATH
+    main(csv_path=csv_arg, simple_choice_path=simple_arg)
