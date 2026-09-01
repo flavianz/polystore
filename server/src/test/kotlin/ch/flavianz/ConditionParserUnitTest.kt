@@ -5,7 +5,7 @@ import server.ConditionParser
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
-class ConditionParserTest {
+class ConditionParserUnitTest {
 
     @Test
     fun `parses equals comparison`() {

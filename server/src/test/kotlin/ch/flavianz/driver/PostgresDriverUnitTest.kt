@@ -33,7 +33,7 @@ import kotlin.test.*
  *     students --[attends]--> courses    (score: INT)
  *     courses  --[belongs_to]--> departments  (since: INT)
  */
-class PostgresDriverQueryTests {
+class PostgresDriverUnitTest {
 
     private val host = System.getenv("TEST_DB_HOST") ?: "localhost"
     private val port = (System.getenv("TEST_DB_PORT") ?: "5432").toInt()
