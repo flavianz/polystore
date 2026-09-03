@@ -186,6 +186,8 @@ def prepare(csv_path: str) -> pd.DataFrame:
     df["is_clean"] = ~df["is_warmup"] & ~df["is_outlier"]
     holdout_forms = split_holdout_forms(df)
     df["is_holdout_form"] = df["form_id"].isin(holdout_forms)
+    weights = compute_form_weights(df)
+    df["form_weight"] = df["form_id"].map(weights)
     return df
 
 
@@ -215,6 +217,50 @@ def save_json(obj: dict, path: str):
         json.dump(obj, f, indent=2, default=str)
 
 
+def compute_form_weights(df: pd.DataFrame) -> pd.Series:
+    """Gewicht pro form_id, das die Ueberrepraesentation tiefer Abfragen
+    im Datensatz ausgleicht: jede Tiefen-Kategorie (flach/mittel/tief)
+    erhaelt in Summe dasselbe Gewicht, unabhaengig davon, wie viele
+    Formen tatsaechlich in diese Kategorie fallen. Innerhalb einer
+    Kategorie sind alle Formen gleich gewichtet. Die Gewichte sind so
+    normiert, dass ihr Durchschnitt 1 ist (Summe = Anzahl Formen),
+    damit gewichtete und ungewichtete Kennzahlen direkt vergleichbar
+    bleiben.
+    """
+    props = df.drop_duplicates("form_id").set_index("form_id")
+    depth = props.apply(query_depth_bucket, axis=1)
+    bucket_counts = depth.value_counts()
+    n_buckets = len(bucket_counts)
+    total_forms = len(depth)
+    weight_per_bucket = {b: (total_forms / n_buckets) / c for b, c in bucket_counts.items()}
+    return depth.map(weight_per_bucket).rename("form_weight")
+
+
+def weighted_quantile(values: np.ndarray, weights: np.ndarray, q: float) -> float:
+    """Gewichtetes Quantil (q in [0, 1]), z.B. q=0.5 fuer den gewichteten
+    Median. Formen mit hoeherem Gewicht zaehlen entsprechend staerker."""
+    values = np.asarray(values, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    mask = ~np.isnan(values) & ~np.isnan(weights)
+    values, weights = values[mask], weights[mask]
+    if len(values) == 0:
+        return float("nan")
+    order = np.argsort(values)
+    values, weights = values[order], weights[order]
+    cum = np.cumsum(weights) - 0.5 * weights
+    cum /= np.sum(weights)
+    return float(np.interp(q, cum, values))
+
+
+def weighted_mean(values: np.ndarray, weights: np.ndarray) -> float:
+    values = np.asarray(values, dtype=float)
+    weights = np.asarray(weights, dtype=float)
+    mask = ~np.isnan(values) & ~np.isnan(weights)
+    if not mask.any():
+        return float("nan")
+    return float(np.average(values[mask], weights=weights[mask]))
+
+
 # ---------------------------------------------------------------------------
 # 1. Haeufigkeit "schnellste DB"
 # ---------------------------------------------------------------------------
@@ -234,14 +280,28 @@ def analysis_fastest_db(df: pd.DataFrame, out_dir: str) -> pd.DataFrame:
         .rename(columns={"driver": "fastest_driver"})
     )
 
-    # globale Haeufigkeit
+    # globale Haeufigkeit (ungewichtet)
     global_counts = winners["fastest_driver"].value_counts(normalize=True)
     fig, ax = plt.subplots(figsize=(6, 4.5))
     global_counts.reindex(DRIVERS).plot.bar(ax=ax, color=["#4C72B0", "#55A868", "#C44E52"])
     ax.set_ylabel("Anteil, an dem Driver am schnellsten war")
-    ax.set_title("Haeufigkeit der schnellsten Datenbank (gesamt)")
+    ax.set_title("Haeufigkeit der schnellsten Datenbank (gesamt, ungewichtet)")
     fig.tight_layout()
     fig.savefig(os.path.join(out_dir, "01_fastest_db_global.png"), dpi=130)
+    plt.close(fig)
+
+    # globale Haeufigkeit, tiefen-gewichtet: gleicht die Ueberrepraesentation
+    # tiefer Abfrageformen im Datensatz aus (siehe compute_form_weights)
+    form_weights = df.drop_duplicates("form_id").set_index("form_id")["form_weight"]
+    winners["form_weight"] = winners["form_id"].map(form_weights)
+    weighted_counts = winners.groupby("fastest_driver")["form_weight"].sum()
+    weighted_counts = weighted_counts / weighted_counts.sum()
+    fig, ax = plt.subplots(figsize=(6, 4.5))
+    weighted_counts.reindex(DRIVERS).plot.bar(ax=ax, color=["#4C72B0", "#55A868", "#C44E52"])
+    ax.set_ylabel("Anteil, an dem Driver am schnellsten war")
+    ax.set_title("Haeufigkeit der schnellsten Datenbank (gesamt, tiefen-gewichtet)")
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "01_fastest_db_global_weighted.png"), dpi=130)
     plt.close(fig)
 
     # nach Tiefe aufgeschluesselt
@@ -289,6 +349,7 @@ def analysis_fastest_db(df: pd.DataFrame, out_dir: str) -> pd.DataFrame:
     save_json(
         {
             "global": global_counts.to_dict(),
+            "global_depth_weighted": weighted_counts.to_dict(),
             "by_depth": pivot_depth.to_dict(orient="index"),
             "by_connections": {str(k): v for k, v in pivot_conn.to_dict(orient="index").items()},
         },
@@ -356,6 +417,17 @@ def analysis_variance(df: pd.DataFrame, out_dir: str):
     cv_summary = cv.groupby("driver", observed=True)["cv"].describe()
     cv_summary.to_csv(os.path.join(out_dir, "03_coefficient_of_variation.csv"), sep=";")
 
+    # dieselbe Kennzahl tiefen-gewichtet, damit die insgesamt vielen tiefen
+    # Formen den globalen Durchschnitt pro Driver nicht dominieren
+    form_weights = df.drop_duplicates("form_id").set_index("form_id")["form_weight"]
+    cv["form_weight"] = cv["form_id"].map(form_weights)
+    cv_weighted = (
+        cv.groupby("driver", observed=True)
+        .apply(lambda g: weighted_mean(g["cv"].values, g["form_weight"].values))
+        .rename("weighted_mean_cv")
+    )
+    cv_weighted.to_csv(os.path.join(out_dir, "03_coefficient_of_variation_weighted.csv"), sep=";")
+
 
 # ---------------------------------------------------------------------------
 # 4. Build- vs. Exec-Zeit-Anteil & 5. Wrapper vs. reines Exec
@@ -375,9 +447,32 @@ def analysis_build_vs_exec(df: pd.DataFrame, out_dir: str):
     med[["build", "exec"]].reindex(DRIVERS).plot.bar(stacked=True, ax=ax,
                                                      color=["#8172B2", "#CCB974"])
     ax.set_ylabel("Median-Dauer (µs)")
-    ax.set_title("Anteil Build- vs. Exec-Zeit pro Driver")
+    ax.set_title("Anteil Build- vs. Exec-Zeit pro Driver (ungewichtet)")
     fig.tight_layout()
     fig.savefig(os.path.join(out_dir, "04_build_vs_exec.png"), dpi=130)
+    plt.close(fig)
+
+    # tiefen-gewichtete Variante: gewichteter Median statt einfachem Median,
+    # damit die Uebergewichtung tiefer Formen im Datensatz nicht in die
+    # Build/Exec-Aufteilung durchschlaegt
+    form_weights = df.drop_duplicates("form_id").set_index("form_id")["form_weight"]
+    d = d.copy()
+    d["form_weight"] = d["form_id"].map(form_weights)
+    med_weighted = (
+        d.groupby(["driver", "phase"], observed=True)
+        .apply(lambda g: weighted_quantile(g["duration"].values, g["form_weight"].values, 0.5))
+        .unstack()
+    )
+    med_weighted["build_share_of_total"] = med_weighted["build"] / med_weighted["total"]
+    med_weighted.to_csv(os.path.join(out_dir, "04_build_vs_exec_weighted.csv"), sep=";")
+
+    fig, ax = plt.subplots(figsize=(6, 4.5))
+    med_weighted[["build", "exec"]].reindex(DRIVERS).plot.bar(stacked=True, ax=ax,
+                                                              color=["#8172B2", "#CCB974"])
+    ax.set_ylabel("Gewichteter Median (µs)")
+    ax.set_title("Anteil Build- vs. Exec-Zeit pro Driver (tiefen-gewichtet)")
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "04_build_vs_exec_weighted.png"), dpi=130)
     plt.close(fig)
 
     # 5. "Lohnt sich der Wrapper": Anteil an Faellen, in denen
@@ -410,13 +505,24 @@ def analysis_build_vs_exec(df: pd.DataFrame, out_dir: str):
                 "beats_fastest_other_exec": beats_fastest_other_exec,
             })
     wrapper_df = pd.DataFrame(rows)
+    # Hinweis: "beats_all_other_exec" und "beats_fastest_other_exec" sind bei
+    # genau drei Drivern (also zwei "anderen") mathematisch aequivalent
+    # (schlaegt beide <=> schlaegt den schnelleren der beiden) und daher
+    # bewusst nur einmal berichtet.
     summary = {
         "share_where_own_total_beats_fastest_other_pure_exec":
             float(wrapper_df["beats_fastest_other_exec"].mean()) if len(wrapper_df) else None,
-        "share_where_own_total_beats_all_other_pure_exec":
-            float(wrapper_df["beats_all_other_exec"].mean()) if len(wrapper_df) else None,
         "n_comparisons": int(len(wrapper_df)),
     }
+
+    if len(wrapper_df):
+        form_weights = df.drop_duplicates("form_id").set_index("form_id")["form_weight"]
+        wrapper_df["form_weight"] = wrapper_df["form_id"].map(form_weights)
+        summary["share_where_own_total_beats_fastest_other_pure_exec_depth_weighted"] = weighted_mean(
+            wrapper_df["beats_fastest_other_exec"].astype(float).values,
+            wrapper_df["form_weight"].values,
+        )
+
     save_json(summary, os.path.join(out_dir, "05_wrapper_vs_pure_exec.json"))
     wrapper_df.to_csv(os.path.join(out_dir, "05_wrapper_vs_pure_exec_rows.csv"), sep=";", index=False)
 
@@ -443,21 +549,46 @@ def analysis_margins(winners: pd.DataFrame, df: pd.DataFrame, out_dir: str):
             "relative_margin": (second - fastest) / fastest if fastest > 0 else np.nan,
         })
     margin_df = pd.DataFrame(margins)
+    form_weights = df.drop_duplicates("form_id").set_index("form_id")["form_weight"]
+    margin_df["form_weight"] = margin_df["form_id"].map(form_weights)
 
     fig, ax = plt.subplots(figsize=(7, 4.5))
     ax.hist(margin_df["relative_margin"].clip(upper=5), bins=50)
     ax.set_xlabel("relativer Abstand schnellste zu zweitschnellster DB")
     ax.set_ylabel("Anzahl (Form, CollectionSize)-Kombinationen")
-    ax.set_title("Wie knapp/deutlich die schnellste DB gewinnt")
+    ax.set_title("Wie knapp/deutlich die schnellste DB gewinnt (ungewichtet)")
     fig.tight_layout()
     fig.savefig(os.path.join(out_dir, "06_decision_margins.png"), dpi=130)
     plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    ax.hist(margin_df["relative_margin"].clip(upper=5), bins=50,
+            weights=margin_df["form_weight"])
+    ax.set_xlabel("relativer Abstand schnellste zu zweitschnellster DB")
+    ax.set_ylabel("gewichtete Anzahl (Form, CollectionSize)-Kombinationen")
+    ax.set_title("Wie knapp/deutlich die schnellste DB gewinnt (tiefen-gewichtet)")
+    fig.tight_layout()
+    fig.savefig(os.path.join(out_dir, "06_decision_margins_weighted.png"), dpi=130)
+    plt.close(fig)
+
+    weighted_median_margin = weighted_quantile(
+        margin_df["relative_margin"].values, margin_df["form_weight"].values, 0.5
+    )
+    weighted_share_below_10pct = weighted_mean(
+        (margin_df["relative_margin"] < 0.10).astype(float).values, margin_df["form_weight"].values
+    )
+    weighted_share_above_100pct = weighted_mean(
+        (margin_df["relative_margin"] > 1.0).astype(float).values, margin_df["form_weight"].values
+    )
 
     save_json(
         {
             "median_relative_margin": float(margin_df["relative_margin"].median()),
             "share_margin_below_10pct": float((margin_df["relative_margin"] < 0.10).mean()),
             "share_margin_above_100pct": float((margin_df["relative_margin"] > 1.0).mean()),
+            "median_relative_margin_depth_weighted": weighted_median_margin,
+            "share_margin_below_10pct_depth_weighted": weighted_share_below_10pct,
+            "share_margin_above_100pct_depth_weighted": weighted_share_above_100pct,
         },
         os.path.join(out_dir, "06_decision_margins.json"),
     )
@@ -642,8 +773,14 @@ def analysis_ml_quality_and_routing(df: pd.DataFrame, out_dir: str):
     comparison.to_csv(os.path.join(out_dir, "08_comparison_rows.csv"), sep=";", index=False)
 
     # --- 8. Klassifikations-Accuracy ---
+    # Faelle mit nur einer gemessenen Datenbank (n_drivers_compared == 1)
+    # werden ausgeschlossen: dort ist die Ground Truth trivial (die einzige
+    # gemessene DB), waehrend Modell/Baseline weiterhin zwischen allen drei
+    # Drivern waehlen -- ein "Fehler" hier ist kein echter Routing-Fehler,
+    # sondern nur ein Artefakt fehlender Vergleichsdaten fuer diese Form.
     def accuracy(col):
         valid = comparison.dropna(subset=[col, "actual_fastest"])
+        valid = valid[valid["n_drivers_compared"] > 1]
         if not len(valid):
             return None
         overall = float((valid[col] == valid["actual_fastest"]).mean())
@@ -676,6 +813,8 @@ def analysis_ml_quality_and_routing(df: pd.DataFrame, out_dir: str):
     plt.close(fig)
 
     # --- 9. Zeitgewinn/-verlust & 10. Fehlerkosten ---
+    # dieselbe Einschraenkung wie bei 8.: nur echte Mehrweg-Entscheidungen
+    comparison = comparison[comparison["n_drivers_compared"] > 1].copy()
     duration_lookup = means.set_index(["form_id", "collectionSize", "driver"])["duration"]
 
     def resolve_duration(form_id, size, drv):
