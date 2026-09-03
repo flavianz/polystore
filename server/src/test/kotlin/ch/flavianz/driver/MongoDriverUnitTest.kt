@@ -35,7 +35,7 @@ import kotlin.test.*
  *     students --[attends]--> courses       (score: INT)
  *     courses  --[belongs_to]--> departments (since: INT)
  */
-class MongoDriverQueryTests {
+class MongoDriverUnitTest {
 
     private val host = System.getenv("TEST_MONGO_HOST") ?: "localhost"
     private val port = (System.getenv("TEST_MONGO_PORT") ?: "27017").toInt()
