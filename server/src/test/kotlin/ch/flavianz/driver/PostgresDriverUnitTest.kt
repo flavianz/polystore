@@ -271,7 +271,9 @@ class PostgresDriverUnitTest {
 
     @Test
     fun `take students with gpa greater than 2 returns Alice and Bob`() {
-        val result = driver!!.get(get { collection("students", "gpa" gt 2) })
+        val result = driver!!.get(
+            get { collection("students", "gpa" gt 2) }
+        )
         assertEquals(2, result.data.size)
         val names = result.data.map { it["students.name"] }.toSet()
         assertEquals(setOf("Alice", "Bob"), names)

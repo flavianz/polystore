@@ -66,11 +66,11 @@ OUT_DIR = "results_analysis_out"
 # Modell-B-Koeffizienten (aus regression_2.py) statt einer im Skript neu
 # gefitteten einfachen linearen Regression verwendet. Auf None lassen, um
 # immer die eigenstaendige, in diesem Skript trainierte Variante zu nutzen.
-COEFFICIENTS_PATH: str | None = "benchmark_analysis_out/model_coefficients_linear.json"  # z.B. "benchmark_analysis_out/model_coefficients_linear.json"
+COEFFICIENTS_PATH: str | None = None  # z.B. "benchmark_analysis_out/model_coefficients_linear.json"
 
 # Optional: CSV mit den Entscheidungen der simplen Heuristik
 # (';'-getrennt, Spalten: die FORM_ID_COLUMNS + 'simpleDriverChoice').
-SIMPLE_CHOICE_PATH: str | None = "simple_choices.csv"
+SIMPLE_CHOICE_PATH: str | None = None  # z.B. "simple_choices.csv"
 
 WARMUP_ITERATIONS = 50
 IQR_MULTIPLIER = 1.5
@@ -108,7 +108,38 @@ FLOAT_ROUND_DECIMALS = 6
 # ---------------------------------------------------------------------------
 
 def load_data(csv_path: str) -> pd.DataFrame:
-    df = pd.read_csv(csv_path, sep=";")
+    """Laedt die (moeglicherweise mehrere GB grosse) Benchmark-CSV ueber
+    DuckDB statt direkt mit pandas.read_csv. Das ist sowohl deutlich
+    speicherschonender bei dieser Groessenordnung, als auch robuster
+    gegenueber einzelnen unsauberen Zeilen (z.B. falls ein Feld ein
+    unerwartetes Semikolon enthaelt) -- DuckDB meldet klarer, wo genau
+    das Problem liegt, statt den ganzen Ladevorgang abzubrechen.
+    """
+    import duckdb
+
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"'{csv_path}' nicht gefunden.")
+
+    needed_columns = ["driver", "collectionSize", "iteration", "phase", "duration"] + FEATURE_COLUMNS
+    # doppelte Eintraege (collectionSize kommt in FEATURE_COLUMNS und oben vor) entfernen,
+    # Reihenfolge dabei beibehalten
+    needed_columns = list(dict.fromkeys(needed_columns))
+
+    con = duckdb.connect()
+    query = f"""
+        SELECT {', '.join(f'"{c}"' for c in needed_columns)}
+        FROM read_csv(
+            '{csv_path}',
+            delim=';',
+            header=True,
+            sample_size=200000,
+            ignore_errors=True,
+            null_padding=True
+        )
+    """
+    df = con.execute(query).fetchdf()
+    con.close()
+
     df["driver"] = df["driver"].astype("category")
     df["phase"] = df["phase"].astype("category")
     return df

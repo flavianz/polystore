@@ -84,44 +84,23 @@ Content-Type: application/json
 }
 
 ### Query
-POST http://localhost:8080/query/take
+POST http://localhost:8080/query/get
 Content-Type: application/json
 
 {
   "path": [
     {
       "type": "collection",
-      "name": "hospitals",
-      "condition": null
+      "name": "users",
+      "condition": null,
+      "only": null
     },
     {
       "type": "collection",
-      "name": "departments",
-      "condition": null
-    },
-    {
-      "type": "collection",
-      "name": "doctors",
-      "condition": null
-    },
-    {
-      "type": "connection",
-      "name": "treatments",
-      "condition": null
-    },
-    {
-      "type": "collection",
-      "name": "patients",
-      "condition": null
+      "name": "children",
+      "condition": null,
+      "only": null
     }
-  ],
-  "take": {
-    "patients": [
-      "first"
-    ]
-  },
-  "collect": [
-    "hospitals"
   ]
 }
 
