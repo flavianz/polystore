@@ -1,0 +1,74 @@
+{
+  "postgres__build": {
+    "row_cv_r2_mean": 0.4903885440830143,
+    "row_cv_rmse_mean": 31.32367348360147,
+    "holdout_r2": 0.5200825676321281,
+    "holdout_rmse": 30.993561807853474,
+    "n_train_rows": 4583202,
+    "n_holdout_rows": 144149
+  },
+  "postgres__exec": {
+    "row_cv_r2_mean": 0.6960849662110806,
+    "row_cv_rmse_mean": 1012.0957552791206,
+    "holdout_r2": 0.7276318820288736,
+    "holdout_rmse": 948.1495198604771,
+    "n_train_rows": 4401951,
+    "n_holdout_rows": 135935
+  },
+  "postgres__total": {
+    "row_cv_r2_mean": 0.6963745142101396,
+    "row_cv_rmse_mean": 1024.6274326504724,
+    "holdout_r2": 0.7301703842647749,
+    "holdout_rmse": 961.0648130519997,
+    "n_train_rows": 4402901,
+    "n_holdout_rows": 136002
+  },
+  "mongo__build": {
+    "row_cv_r2_mean": 0.5199636336220531,
+    "row_cv_rmse_mean": 67.41947624069073,
+    "holdout_r2": 0.624494770117463,
+    "holdout_rmse": 64.34246585720489,
+    "n_train_rows": 4274144,
+    "n_holdout_rows": 144392
+  },
+  "mongo__exec": {
+    "row_cv_r2_mean": 0.29018749661357696,
+    "row_cv_rmse_mean": 4312.179393541431,
+    "holdout_r2": 0.3419548340302724,
+    "holdout_rmse": 4305.000487078831,
+    "n_train_rows": 4110768,
+    "n_holdout_rows": 126870
+  },
+  "mongo__total": {
+    "row_cv_r2_mean": 0.29180464149959057,
+    "row_cv_rmse_mean": 4419.927988798722,
+    "holdout_r2": 0.3353917383675955,
+    "holdout_rmse": 4351.564188219487,
+    "n_train_rows": 4100970,
+    "n_holdout_rows": 126527
+  },
+  "neo4j__build": {
+    "row_cv_r2_mean": 0.30483967119828986,
+    "row_cv_rmse_mean": 4.763991151208803,
+    "holdout_r2": 0.3177661277746544,
+    "holdout_rmse": 5.010220586122113,
+    "n_train_rows": 4721869,
+    "n_holdout_rows": 150363
+  },
+  "neo4j__exec": {
+    "row_cv_r2_mean": 0.2408616253241161,
+    "row_cv_rmse_mean": 645.0716346691206,
+    "holdout_r2": 0.2306648859993835,
+    "holdout_rmse": 583.9972582692161,
+    "n_train_rows": 4072532,
+    "n_holdout_rows": 125657
+  },
+  "neo4j__total": {
+    "row_cv_r2_mean": 0.23983499167991534,
+    "row_cv_rmse_mean": 649.317009626774,
+    "holdout_r2": 0.23114065816878915,
+    "holdout_rmse": 588.7063309458523,
+    "n_train_rows": 4065997,
+    "n_holdout_rows": 125445
+  }
+}
