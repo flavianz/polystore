@@ -1,0 +1,29 @@
+{
+  "ml_model": {
+    "overall": 0.893595041322314,
+    "overall_depth_weighted": 0.8642207705418453,
+    "by_n_drivers_compared": {
+      "2": 0.828125,
+      "3": 0.8982300884955752
+    },
+    "n": 968
+  },
+  "majority_baseline": {
+    "overall": 0.6601239669421488,
+    "overall_depth_weighted": 0.4709601288818962,
+    "by_n_drivers_compared": {
+      "2": 0.828125,
+      "3": 0.6482300884955752
+    },
+    "n": 968
+  },
+  "simple_heuristic": {
+    "overall": 0.15082644628099173,
+    "overall_depth_weighted": 0.1765372709405053,
+    "by_n_drivers_compared": {
+      "2": 0.234375,
+      "3": 0.14491150442477876
+    },
+    "n": 968
+  }
+}

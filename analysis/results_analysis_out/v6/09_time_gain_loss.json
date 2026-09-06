@@ -1,0 +1,32 @@
+{
+  "ml_chosen_duration": {
+    "mean_absolute_overhead_us": 21.412991919278305,
+    "median_absolute_overhead_us": 0.0,
+    "mean_relative_overhead": 0.012176719357608608,
+    "share_correct_zero_overhead": 0.9010416666666666,
+    "mean_absolute_overhead_us_depth_weighted": 29.043329443336727,
+    "median_absolute_overhead_us_depth_weighted": 0.0,
+    "mean_relative_overhead_depth_weighted": 0.015851891325879868,
+    "share_correct_zero_overhead_depth_weighted": 0.8664127751448732
+  },
+  "majority_chosen_duration": {
+    "mean_absolute_overhead_us": 96.6758175677161,
+    "median_absolute_overhead_us": 0.0,
+    "mean_relative_overhead": 0.0899396406076676,
+    "share_correct_zero_overhead": 0.665625,
+    "mean_absolute_overhead_us_depth_weighted": 157.77379087317684,
+    "median_absolute_overhead_us_depth_weighted": 25.827569961961217,
+    "mean_relative_overhead_depth_weighted": 0.15032468194691542,
+    "share_correct_zero_overhead_depth_weighted": 0.4721546694501639
+  },
+  "simple_chosen_duration": {
+    "mean_absolute_overhead_us": 832.2470623397304,
+    "median_absolute_overhead_us": 601.9220735785954,
+    "mean_relative_overhead": 0.5412044889764569,
+    "share_correct_zero_overhead": 0.15145228215767634,
+    "mean_absolute_overhead_us_depth_weighted": 603.3406990186425,
+    "median_absolute_overhead_us_depth_weighted": 577.4445053142367,
+    "mean_relative_overhead_depth_weighted": 0.45391028882140977,
+    "share_correct_zero_overhead_depth_weighted": 0.1777274890759813
+  }
+}

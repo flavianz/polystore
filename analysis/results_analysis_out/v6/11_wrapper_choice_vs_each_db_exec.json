@@ -1,0 +1,71 @@
+{
+  "ml_model": {
+    "postgres": {
+      "mean_relative_diff": -0.15175047582517334,
+      "median_relative_diff": -0.07479264838568887,
+      "mean_relative_diff_depth_weighted": -0.07583246565759373,
+      "median_relative_diff_depth_weighted": 0.06701629884613071,
+      "n": 951
+    },
+    "mongo": {
+      "mean_relative_diff": -0.45387717871846905,
+      "median_relative_diff": -0.4318582527129689,
+      "mean_relative_diff_depth_weighted": -0.3668939697838305,
+      "median_relative_diff_depth_weighted": -0.3589536089103579,
+      "n": 913
+    },
+    "neo4j": {
+      "mean_relative_diff": -0.04229405868723019,
+      "median_relative_diff": 0.010222640204447098,
+      "mean_relative_diff_depth_weighted": -0.0819288367876679,
+      "median_relative_diff_depth_weighted": 0.007284632698997415,
+      "n": 960
+    }
+  },
+  "majority_baseline": {
+    "postgres": {
+      "mean_relative_diff": -0.06464749643063179,
+      "median_relative_diff": -0.09349855902048511,
+      "mean_relative_diff_depth_weighted": 0.07367337253344355,
+      "median_relative_diff_depth_weighted": 0.08090287826249931,
+      "n": 951
+    },
+    "mongo": {
+      "mean_relative_diff": -0.40133303561866085,
+      "median_relative_diff": -0.4197387422208639,
+      "mean_relative_diff_depth_weighted": -0.2770521545409505,
+      "median_relative_diff_depth_weighted": -0.23197838257724798,
+      "n": 913
+    },
+    "neo4j": {
+      "mean_relative_diff": 0.011408934198958767,
+      "median_relative_diff": 0.01117670540789717,
+      "mean_relative_diff_depth_weighted": 0.011026833313438632,
+      "median_relative_diff_depth_weighted": 0.011050971037535754,
+      "n": 960
+    }
+  },
+  "simple_heuristic": {
+    "postgres": {
+      "mean_relative_diff": 0.2448962336649552,
+      "median_relative_diff": 0.07957971997996557,
+      "mean_relative_diff_depth_weighted": 0.3080535141803595,
+      "median_relative_diff_depth_weighted": 0.21829005542891786,
+      "n": 959
+    },
+    "mongo": {
+      "mean_relative_diff": -0.17721203593348842,
+      "median_relative_diff": -0.041489304327671374,
+      "mean_relative_diff_depth_weighted": -0.0945878156198127,
+      "median_relative_diff_depth_weighted": 0.0914238122982668,
+      "n": 917
+    },
+    "neo4j": {
+      "mean_relative_diff": 0.4644999463004864,
+      "median_relative_diff": 0.33128460746995136,
+      "mean_relative_diff_depth_weighted": 0.3049162495254361,
+      "median_relative_diff_depth_weighted": 0.17251204719982827,
+      "n": 956
+    }
+  }
+}
