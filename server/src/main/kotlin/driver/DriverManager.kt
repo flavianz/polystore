@@ -160,8 +160,30 @@ object DriverManager {
         return measurements
     }
 
+    fun chooseDriverModel(query: GetQuery): DatabaseDriver {
+        val drivers = mutableSetOf<DriverType>()
+        if (postgresDriver != null) {
+            drivers.add(DriverType.Postgres)
+        }
+        if (mongoDriver != null) {
+            drivers.add(DriverType.Mongo)
+        }
+        if (neo4jDriver != null) {
+            drivers.add(DriverType.Neo4j)
+        }
+        if (drivers.isEmpty()) {
+            throw IllegalStateException("no driver active")
+        }
+        val bestDriver = RegressionModel.calculateFastestDriverRegression(query, drivers)
+        return when (bestDriver) {
+            DriverType.Postgres -> postgresDriver!!
+            DriverType.Mongo -> mongoDriver!!
+            DriverType.Neo4j -> neo4jDriver!!
+        }
+    }
+
     fun get(query: GetQuery): GetQueryResult {
-        val activeDriver = chooseDriverSimple(query)
+        val activeDriver = chooseDriverModel(query)
         val result = activeDriver.get(query)
         return GetQueryResult(
             result.data, result.duration, PolyExecutionEnvironment(

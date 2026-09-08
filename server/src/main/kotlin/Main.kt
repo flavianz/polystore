@@ -59,10 +59,7 @@ fun main() {
     DatabaseManager.initConnections(
         databaseSchema.connections.toList()
     )
-    BenchEnvironmentRegression().bench()
-
-    //Benchmark.startBenchmark()
-
+    
     // Don't disconnect - keep connections alive for the server
     Runtime.getRuntime().addShutdownHook(Thread {
         manager.disconnectAll()
