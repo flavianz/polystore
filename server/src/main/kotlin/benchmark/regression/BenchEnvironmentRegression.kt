@@ -10,6 +10,9 @@ import driver.DriverManager
 import driver.DriverManager.mongoDriver
 import driver.DriverManager.neo4jDriver
 import driver.DriverManager.postgresDriver
+import driver.MongoDriver
+import driver.Neo4jDriver
+import driver.PostgresDriver
 import driver.TimedDriverResult
 import io.ktor.util.getDigestFunction
 import model.ConnectionModel
@@ -22,10 +25,14 @@ import query.GetQuery
 import query.QueryPath
 import query.QuerySegment
 import java.io.File
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.util.Date
 import java.util.UUID
 import kotlin.math.max
 import kotlin.random.Random
 import kotlin.random.asKotlinRandom
+import kotlin.time.Instant
 
 class BenchEnvironmentRegression {
     val userCollections = listOf(
@@ -97,7 +104,7 @@ class BenchEnvironmentRegression {
         for (u in userCollections) for (p in petCollections) put("${u}_owns_$p", u to p)
     }
 
-    val collectionSizes = listOf(100, 500, 1000, 3000, 9000, 15000)
+    val collectionSizes = listOf(100/*, 500, 1000, 3000, 9000, 15000*/)
 
     val ids = mutableMapOf<String, MutableList<UUID>>()
 
@@ -292,15 +299,18 @@ class BenchEnvironmentRegression {
 
 
             for ((queryIndex, query) in queries.withIndex()) {
-                val measurements = mutableListOf<RegressionBenchMeasurement>()
-                if (queryIndex % 10 == 0) println("$queryIndex of ${conditionQueries.size} queries complete")
-                for (iteration in 0..<500) {
-                    for ((driver, driverType) in listOf(
+                val measurements = mutableListOf<Pair<RegressionBenchMeasurement, DriverType>>()
+                if (queryIndex % 10 == 0) println("$queryIndex of ${conditionQueries.size} queries complete (size $collectionSize) at ${LocalDateTime.now()}")
+                val simpleChoice = DriverManager.chooseDriverSimple(query)
+                val queryProperties = parseQueryProperties(query)
+                for (iteration in 0..<0) {
+                    /*for ((driver, driverType) in listOf(
                         Pair(postgresDriver, DriverType.Postgres),
                         Pair(mongoDriver, DriverType.Mongo),
                         Pair(neo4jDriver, DriverType.Neo4j)
                     )) {
                         try {
+                            val simpleChoice = DriverManager.chooseDriverSimple(query)
                             val result: TimedDriverResult<List<PolyData>> = driver!!.get(query)
                             val queryProperties = parseQueryProperties(query)
                             measurements.add(
@@ -336,10 +346,17 @@ class BenchEnvironmentRegression {
                         } catch (e: Exception) {
                             throw Error("failed bench of query $query (index $queryIndex) in driver $driverType", e)
                         }
-                    }
+                    }*/
                 }
-                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\regression.csv").appendText(
-                    measurements.joinToString("\n")
+                File("C:\\Users\\flavi\\IdeaProjects\\polystore\\server\\docs\\data\\bench\\simple-driver-choice.csv").appendText(
+                    "$queryProperties;${
+                        when (simpleChoice) {
+                            is Neo4jDriver -> DriverType.Neo4j
+                            is MongoDriver -> DriverType.Mongo
+                            is PostgresDriver -> DriverType.Postgres
+                            else -> null
+                        }
+                    }\n"
                 )
             }
 
