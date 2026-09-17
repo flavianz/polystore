@@ -137,7 +137,12 @@ object RegressionModel {
 
     fun calculateFastestDriverRegression(query: GetQuery, availableDrivers: Set<DriverType>): DriverType {
         val properties = parseQueryProperties(query)
-        val features = toFeatureMap(properties, collectionSize = 0)
+        // collectionSize wird bewusst für jede Anfrage auf 0 belassen.
+        // Die bestimmung der Collection Size wäre nicht trivial und benötigte wiederholte Messungen
+        // Zudem wurde aufgrund der ML-Gewichte festgestellt,
+        // dass die collection size keinen wirklichen Einfluss auf die hervorgesagte Dauer hat,
+        // weshalb das ignorieren dieser in Ordnung ist.
+        val features = toFeatureMap(properties, collectionSize = 0) // collectionSize = 0,
 
         val bestDriver = MODELS.filterKeys { availableDrivers.contains(it) }
             .mapValues { (_, model) -> predict(model, features) }
