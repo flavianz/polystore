@@ -151,4 +151,12 @@
   body {
     @apply bg-background text-foreground;}
   html {
-    @apply font-sans;}}
+    @apply font-sans;}
+  /* ThemeProvider puts .light/.dark on <html>. Telling the browser which
+     scheme is active makes UA-rendered chrome — scrollbars on overflowing
+     code blocks, form controls, caret — match the theme instead of staying
+     light. */
+  .light {
+    color-scheme: light;}
+  .dark {
+    color-scheme: dark;}}
