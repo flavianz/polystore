@@ -19,10 +19,13 @@ import {
 } from '@/query/path';
 import { useQueryPath } from '@/query/use-query-path';
 import { SchemaSidebar } from '@/schema/schema-sidebar';
+import { NativeQueries } from '@/lens/native-queries';
+import type { DriverType, PolyRow } from '@/api/types';
 import { Badge } from '@/components/ui/badge';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FilterEditor } from './filter-editor';
+import { Inspector, type SelectedInstance } from './inspector';
 import { PathBar } from './path-bar';
 import { RawQueryPanel } from './raw-query-panel';
 import { ResultTable } from './result-table';
@@ -31,10 +34,18 @@ export function BrowsePage() {
     const { path, setPath, replacePath } = useQueryPath();
     const [selectedStep, setSelectedStep] = useState<number | null>(null);
     const [selectedRow, setSelectedRow] = useState<number | null>(null);
+    const [forceDriver, setForceDriver] = useState<DriverType | null>(null);
 
     const schemaQuery = useSchema();
     const request = useMemo(() => (path ? toRequest(path) : null), [path]);
-    const resultQuery = useQueryResult(request);
+    const resultQuery = useQueryResult(request, forceDriver);
+
+    const rows =
+        resultQuery.data?.data.type === 'documents' ? resultQuery.data.data.data : undefined;
+    const selectedInstance =
+        path && rows && selectedRow !== null
+            ? resolveInstance(path, rows[selectedRow])
+            : null;
 
     const navigate = (next: QueryPath | null) => {
         setPath(next);
@@ -68,7 +79,8 @@ export function BrowsePage() {
                 }
             />
 
-            <SidebarInset>
+            <SidebarInset className="min-w-0 flex-row overflow-hidden">
+                <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
                 <header className="flex min-h-14 items-center gap-2 border-b px-4 py-2">
                     <SidebarTrigger />
                     {path ? (
@@ -143,10 +155,45 @@ export function BrowsePage() {
                     )}
 
                     {path && <RawQueryPanel path={path} onApply={navigate} />}
+
+                    {path && (
+                        <NativeQueries
+                            path={path}
+                            forceDriver={forceDriver}
+                            onForceDriverChange={setForceDriver}
+                            executedBy={resultQuery.data?.env.driver ?? null}
+                        />
+                    )}
                 </main>
+                </div>
+
+                {selectedInstance && (
+                    <Inspector
+                        instance={selectedInstance}
+                        onNavigate={navigate}
+                        onClose={() => setSelectedRow(null)}
+                    />
+                )}
             </SidebarInset>
         </>
     );
+}
+
+/**
+ * The inspected instance is the one the path points at — the last segment's
+ * collection. Returns null when `_id` was projected away by an `only`, since
+ * nothing can be addressed without it.
+ */
+function resolveInstance(path: QueryPath, row: PolyRow | undefined): SelectedInstance | null {
+    if (!row) return null;
+    const collection = currentCollection(path);
+    if (!collection) return null;
+
+    const fields = row[collection];
+    const id = fields?.['_id'];
+    if (!fields || typeof id !== 'string') return null;
+
+    return { collection, id, fields };
 }
 
 function renderResult(

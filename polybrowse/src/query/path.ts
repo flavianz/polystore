@@ -57,6 +57,25 @@ export function rootPath(collectionName: string): QueryPath {
     return [{ kind: 'collection', name: collectionName, filter: EMPTY_FILTER, only: null }];
 }
 
+/**
+ * A path addressing exactly one instance, via `_id == <uuid>`.
+ *
+ * There is no get-by-id route: `_id` is a real column/key/property in every
+ * store and DatabaseManager.validateConditionFields allows filtering a
+ * collection on it, so this is how a single instance is addressed. It works
+ * for subcollections too — a path may start at a child collection.
+ */
+export function instancePath(collectionName: string, id: string): QueryPath {
+    return [
+        {
+            kind: 'collection',
+            name: collectionName,
+            filter: { clauses: [{ op: 'eq', field: '_id', value: { uuid: id } }] },
+            only: null,
+        },
+    ];
+}
+
 /** Navigating into a subcollection appends a collection step. */
 export function appendSubcollection(path: QueryPath, collectionName: string): QueryPath {
     return [
