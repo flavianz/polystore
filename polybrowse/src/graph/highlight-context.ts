@@ -1,21 +1,27 @@
 /**
- * Linked highlighting: the mapping keys currently hovered, shared by every
- * graph pane on the page so that hovering in one lights up the others.
+ * Linked highlighting: the mapping keys currently hovered or selected, shared
+ * by every graph pane on the page so that hovering in one lights up the others.
  */
 import { createContext, useContext } from 'react';
 import { keyId, type MappingKey } from './mapping-key';
 import type { CollectionColors } from './colors';
 
 export interface GraphContextValue {
-    /** keyId()s of the hovered element; null = nothing hovered. */
-    readonly hovered: ReadonlySet<string> | null;
+    /**
+     * keyId()s to light up: the hovered element's, or else the selected one's;
+     * null = nothing highlighted.
+     */
+    readonly highlighted: ReadonlySet<string> | null;
     readonly setHovered: (keys: readonly MappingKey[] | null) => void;
+    /** Pins an element (shows its explanation); null clears. */
+    readonly select: (key: MappingKey | null) => void;
     readonly colors: CollectionColors;
 }
 
 export const GraphContext = createContext<GraphContextValue>({
-    hovered: null,
+    highlighted: null,
     setHovered: () => undefined,
+    select: () => undefined,
     colors: new Map(),
 });
 
@@ -31,9 +37,9 @@ export function useGraphContext(): GraphContextValue {
 export type HighlightState = 'active' | 'dimmed' | 'idle';
 
 export function highlightOf(
-    hovered: ReadonlySet<string> | null,
+    highlighted: ReadonlySet<string> | null,
     keys: readonly MappingKey[],
 ): HighlightState {
-    if (hovered === null) return 'idle';
-    return keys.some((key) => hovered.has(keyId(key))) ? 'active' : 'dimmed';
+    if (highlighted === null) return 'idle';
+    return keys.some((key) => highlighted.has(keyId(key))) ? 'active' : 'dimmed';
 }

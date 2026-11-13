@@ -40,7 +40,7 @@ import { RawQueryPanel } from './raw-query-panel';
 import { ResultTable } from './result-table';
 
 export function BrowsePage() {
-    const { path, view, setPath, replacePath, setView } = useQueryPath();
+    const { path, view, setPath, replacePath, setView, setLocation } = useQueryPath();
     const [graphFocus, setGraphFocus] = useState<FocusRequest | null>(null);
     const [selectedStep, setSelectedStep] = useState<number | null>(null);
     const [selectedRow, setSelectedRow] = useState<number | null>(null);
@@ -125,7 +125,15 @@ export function BrowsePage() {
                         </div>
                     )}
                     {schemaQuery.data && (
-                        <SchemaGraphPage schema={schemaQuery.data} focus={graphFocus} />
+                        <SchemaGraphPage
+                            schema={schemaQuery.data}
+                            focus={graphFocus}
+                            onBrowse={(name) => {
+                                setLocation(rootPath(name), 'browse');
+                                setSelectedStep(null);
+                                setSelectedRow(null);
+                            }}
+                        />
                     )}
                 </SidebarInset>
             </>

@@ -27,11 +27,11 @@ export function SchemaEdge({
     markerEnd,
     data,
 }: EdgeProps<FlowEdge>) {
-    const { hovered, setHovered } = useGraphContext();
+    const { highlighted, setHovered, select } = useGraphContext();
     if (!data) return null;
     const { edge } = data;
-    const state = highlightOf(hovered, edge.keys);
-    const rowActive = edge.rows.some((row) => highlightOf(hovered, row.keys) === 'active');
+    const state = highlightOf(highlighted, edge.keys);
+    const rowActive = edge.rows.some((row) => highlightOf(highlighted, row.keys) === 'active');
     const active = state === 'active' || rowActive;
 
     const [path, labelX, labelY] = getSmoothStepPath({
@@ -79,10 +79,11 @@ export function SchemaEdge({
                             <div
                                 style={{ height: EDGE_LABEL_HEADER_HEIGHT }}
                                 className={cn(
-                                    'flex items-center justify-center px-2 font-semibold',
+                                    'flex cursor-pointer items-center justify-center px-2 font-semibold',
                                     state === 'active' && 'bg-primary/20',
                                 )}
                                 onMouseEnter={() => setHovered(edge.keys)}
+                                onClick={() => select(edge.keys[0] ?? null)}
                                 onMouseLeave={() => setHovered(null)}
                             >
                                 <span className="truncate">{edge.label}</span>
@@ -103,16 +104,17 @@ export function SchemaEdge({
 }
 
 function EdgeRow({ row }: { readonly row: GraphRow }) {
-    const { hovered, setHovered } = useGraphContext();
+    const { highlighted, setHovered, select } = useGraphContext();
     return (
         <div
             style={{ height: EDGE_LABEL_ROW_HEIGHT }}
             title={row.hint}
             className={cn(
-                'flex items-center gap-2 px-2',
-                highlightOf(hovered, row.keys) === 'active' && 'bg-primary/25',
+                'flex cursor-pointer items-center gap-2 px-2',
+                highlightOf(highlighted, row.keys) === 'active' && 'bg-primary/25',
             )}
             onMouseEnter={() => setHovered(row.keys)}
+            onClick={() => select(row.keys[0] ?? null)}
             onMouseLeave={() => setHovered(null)}
         >
             <span className="truncate">{row.label}</span>

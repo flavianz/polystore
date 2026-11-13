@@ -17,6 +17,8 @@ export interface QueryPathState {
     readonly replacePath: (path: QueryPath) => void;
     /** Switches the view, pushing a history entry. Keeps the current path. */
     readonly setView: (view: AppView) => void;
+    /** Sets path and view together, as one history entry. */
+    readonly setLocation: (path: QueryPath | null, view: AppView) => void;
 }
 
 interface LocationState {
@@ -60,5 +62,10 @@ export function useQueryPath(): QueryPathState {
         window.history.pushState(null, '', encodeLocation(path, next));
     }, []);
 
-    return { path: state.path, view: state.view, setPath, replacePath, setView };
+    const setLocation = useCallback((path: QueryPath | null, view: AppView) => {
+        setState({ path, view });
+        window.history.pushState(null, '', encodeLocation(path, view));
+    }, []);
+
+    return { path: state.path, view: state.view, setPath, replacePath, setView, setLocation };
 }

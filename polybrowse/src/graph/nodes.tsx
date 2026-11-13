@@ -44,9 +44,9 @@ export function DocumentNode({ data }: NodeProps<FlowNode>) {
 type CardShape = 'card' | 'label' | 'document';
 
 function CardNode({ node, shape }: { readonly node: GraphNode; readonly shape: CardShape }) {
-    const { hovered, setHovered, colors } = useGraphContext();
+    const { highlighted, setHovered, select, colors } = useGraphContext();
     const color = (node.colorOf && colors.get(node.colorOf)) ?? 'var(--muted-foreground)';
-    const headerActive = highlightOf(hovered, node.keys) === 'active';
+    const headerActive = highlightOf(highlighted, node.keys) === 'active';
 
     return (
         <NodeFrame
@@ -62,13 +62,14 @@ function CardNode({ node, shape }: { readonly node: GraphNode; readonly shape: C
             <div
                 style={{ height: ENTITY_HEADER_HEIGHT }}
                 className={cn(
-                    'flex flex-col justify-center border-b px-3',
+                    'flex cursor-pointer flex-col justify-center border-b px-3',
                     shape === 'label' && 'items-center',
                     headerActive
                         ? 'bg-[color-mix(in_oklch,var(--node-color)_45%,var(--card))]'
                         : 'bg-[color-mix(in_oklch,var(--node-color)_20%,var(--card))]',
                 )}
                 onMouseEnter={() => setHovered(node.keys)}
+                onClick={() => select(node.keys[0] ?? null)}
                 onMouseLeave={() => setHovered(null)}
             >
                 {shape === 'label' ? (
@@ -101,7 +102,7 @@ function CardNode({ node, shape }: { readonly node: GraphNode; readonly shape: C
 /** A poly connection: a dashed chip listing the connection's data fields. */
 export function ConnectionNode({ data }: NodeProps<FlowNode>) {
     const { node } = data;
-    const { hovered, setHovered } = useGraphContext();
+    const { highlighted, setHovered, select } = useGraphContext();
 
     return (
         <NodeFrame
@@ -109,14 +110,15 @@ export function ConnectionNode({ data }: NodeProps<FlowNode>) {
             width={CONNECTION_WIDTH}
             className={cn(
                 'rounded-2xl border-2 border-dashed',
-                highlightOf(hovered, node.keys) === 'active' && 'border-primary',
+                highlightOf(highlighted, node.keys) === 'active' && 'border-primary',
             )}
             color="var(--primary)"
         >
             <div
                 style={{ height: CONNECTION_HEADER_HEIGHT }}
-                className="flex items-center justify-center gap-1.5 px-3"
+                className="flex cursor-pointer items-center justify-center gap-1.5 px-3"
                 onMouseEnter={() => setHovered(node.keys)}
+                onClick={() => select(node.keys[0] ?? null)}
                 onMouseLeave={() => setHovered(null)}
             >
                 <Link2 className="text-muted-foreground size-3.5 shrink-0" />
@@ -143,13 +145,13 @@ interface NodeFrameProps {
 
 /** Shared outer box: size, colour variable, dimming and the node-level handles. */
 function NodeFrame({ node, width, color, className, children }: NodeFrameProps) {
-    const { hovered } = useGraphContext();
+    const { highlighted } = useGraphContext();
     return (
         <div
             style={{ width, '--node-color': color } as CSSProperties}
             className={cn(
                 'bg-card text-card-foreground relative overflow-hidden shadow-sm transition-opacity',
-                containerHighlight(hovered, node) === 'dimmed' && 'opacity-35',
+                containerHighlight(highlighted, node) === 'dimmed' && 'opacity-35',
                 className,
             )}
         >
@@ -173,19 +175,22 @@ function NodeFrame({ node, width, color, className, children }: NodeFrameProps) 
 }
 
 function Row({ row }: { readonly row: GraphRow }) {
-    const { hovered, setHovered } = useGraphContext();
-    const state = highlightOf(hovered, row.keys);
+    const { highlighted, setHovered, select } = useGraphContext();
+    const state = highlightOf(highlighted, row.keys);
 
     return (
         <div
-            style={{ height: ROW_HEIGHT, paddingLeft: 12 + (row.depth ?? 0) * 16 }}
+            style={{
+                height: ROW_HEIGHT,
+                paddingLeft: 12 + (row.depth ?? 0) * 16,
+            }}
             title={row.hint}
             className={cn(
-                'relative flex items-center gap-2 pr-3 font-mono text-xs',
-                state === 'active' &&
-                    'bg-[color-mix(in_oklch,var(--node-color)_30%,transparent)]',
+                'relative flex cursor-pointer items-center gap-2 pr-3 font-mono text-xs',
+                state === 'active' && 'bg-[color-mix(in_oklch,var(--node-color)_30%,transparent)]',
             )}
             onMouseEnter={() => setHovered(row.keys.length > 0 ? row.keys : null)}
+            onClick={() => select(row.keys[0] ?? null)}
             onMouseLeave={() => setHovered(null)}
         >
             <Handle
@@ -241,10 +246,13 @@ function shapeClass(shape: CardShape): string {
 }
 
 /** A node is dimmed only when neither it nor any of its rows matches. */
-function containerHighlight(hovered: ReadonlySet<string> | null, node: GraphNode): HighlightState {
-    const own = highlightOf(hovered, node.keys);
+function containerHighlight(
+    highlighted: ReadonlySet<string> | null,
+    node: GraphNode,
+): HighlightState {
+    const own = highlightOf(highlighted, node.keys);
     if (own !== 'dimmed') return own;
-    return node.rows.some((row) => highlightOf(hovered, row.keys) === 'active')
+    return node.rows.some((row) => highlightOf(highlighted, row.keys) === 'active')
         ? 'active'
         : 'dimmed';
 }

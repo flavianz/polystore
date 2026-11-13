@@ -73,11 +73,14 @@ interface FlowPaneProps {
 
 function FlowPane({ initialNodes, edges, focus }: FlowPaneProps) {
     const [nodes, , onNodesChange] = useNodesState(initialNodes);
-    const { setHovered } = useGraphContext();
+    const { setHovered, select } = useGraphContext();
     const { theme } = useTheme();
 
     const onEdgeMouseEnter: EdgeMouseHandler<FlowEdge> = (_, edge) => {
         if (edge.data) setHovered(edge.data.edge.keys);
+    };
+    const onEdgeClick: EdgeMouseHandler<FlowEdge> = (_, edge) => {
+        select(edge.data?.edge.keys[0] ?? null);
     };
 
     return (
@@ -89,6 +92,8 @@ function FlowPane({ initialNodes, edges, focus }: FlowPaneProps) {
             onNodesChange={onNodesChange}
             onEdgeMouseEnter={onEdgeMouseEnter}
             onEdgeMouseLeave={() => setHovered(null)}
+            onEdgeClick={onEdgeClick}
+            onPaneClick={() => select(null)}
             colorMode={theme}
             nodesConnectable={false}
             edgesFocusable={false}
@@ -107,7 +112,11 @@ function FocusController({ focus }: { readonly focus: FocusRequest | null }) {
     const { fitView } = useReactFlow();
     useEffect(() => {
         if (!focus) return;
-        void fitView({ nodes: [{ id: focus.nodeId }], duration: 500, maxZoom: 1.2 });
+        void fitView({
+            nodes: [{ id: focus.nodeId }],
+            duration: 500,
+            maxZoom: 1.2,
+        });
     }, [focus, fitView]);
     return null;
 }
