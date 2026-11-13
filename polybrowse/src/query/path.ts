@@ -47,6 +47,62 @@ export function stepCollection(step: PathStep): string {
     }
 }
 
+/**
+ * Every name a path occupies, in result order — collection names plus
+ * connection names.
+ *
+ * A name may appear only ONCE in a path. The drivers use the segment name as
+ * the SQL table reference, the Cypher alias and the result key all at once, so
+ * a repeat is not merely unsupported but differently broken per store:
+ * PostgreSQL fails with "table name specified more than once", Neo4j with
+ * "multiple result columns with the same name", and MongoDB *silently* returns
+ * rows whose repeated keys have collapsed into one. Since the router picks the
+ * driver, the same duplicate path can error or quietly lie — so the builder
+ * must never produce one.
+ */
+export function pathNames(path: QueryPath): readonly string[] {
+    return path.flatMap((step) => {
+        switch (step.kind) {
+            case 'collection':
+                return [step.name];
+            case 'connection':
+                return [step.connectionName, step.collectionName];
+            default:
+                return assertNever(step);
+        }
+    });
+}
+
+/** Names used more than once; empty for a valid path. */
+export function duplicateNames(path: QueryPath): readonly string[] {
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+    for (const name of pathNames(path)) {
+        if (seen.has(name)) duplicates.add(name);
+        else seen.add(name);
+    }
+    return [...duplicates];
+}
+
+/** Whether a subcollection step can be appended without repeating a name. */
+export function canAppendCollection(path: QueryPath, collectionName: string): boolean {
+    return !pathNames(path).includes(collectionName);
+}
+
+/**
+ * Whether a connection step can be appended. Both of its names must be free —
+ * a connection step occupies two result keys.
+ */
+export function canAppendConnection(
+    path: QueryPath,
+    connectionName: string,
+    targetCollectionName: string,
+): boolean {
+    if (connectionName === targetCollectionName) return false;
+    const names = pathNames(path);
+    return !names.includes(connectionName) && !names.includes(targetCollectionName);
+}
+
 /** The collection the path currently points at, i.e. what the result table shows. */
 export function currentCollection(path: QueryPath): string | null {
     const last = path.at(-1);

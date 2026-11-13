@@ -10,6 +10,7 @@ import {
     appendConnection,
     appendSubcollection,
     currentCollection,
+    pathNames,
     replaceStep,
     rootPath,
     truncate,
@@ -85,7 +86,7 @@ export function BrowsePage() {
             <SchemaSidebar
                 schema={schemaQuery.data}
                 isLoading={schemaQuery.isLoading}
-                currentCollection={path ? currentCollection(path) : null}
+                path={path}
                 onSelectCollection={(name) => navigate(rootPath(name))}
                 onAppendSubcollection={(name) =>
                     path && navigate(appendSubcollection(path, name))
@@ -246,7 +247,7 @@ function renderResult(
             return (
                 <ResultTable
                     rows={data.data}
-                    segmentOrder={path ? segmentOrder(path) : []}
+                    segmentOrder={path ? pathNames(path) : []}
                     selectedRow={selectedRow}
                     onSelectRow={onSelectRow}
                 />
@@ -256,20 +257,6 @@ function renderResult(
         default:
             return assertNever(data);
     }
-}
-
-/** Segment names in the order the server will key the result rows by. */
-function segmentOrder(path: QueryPath): readonly string[] {
-    return path.flatMap((step: PathStep) => {
-        switch (step.kind) {
-            case 'collection':
-                return [step.name];
-            case 'connection':
-                return [step.connectionName, step.collectionName];
-            default:
-                return assertNever(step);
-        }
-    });
 }
 
 interface ExecutionStripProps {

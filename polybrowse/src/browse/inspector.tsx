@@ -147,6 +147,14 @@ export function Inspector({ instance, onNavigate, onClose }: InspectorProps) {
                             key={connection.name}
                             title={connection.name}
                             subtitle={`connection → ${otherCollection}`}
+                            // A self-referential connection would put the same
+                            // collection in the path twice, which no driver can
+                            // answer; the relation exists but is not traversable.
+                            unavailable={
+                                otherCollection === instance.collection
+                                    ? `both sides are ${instance.collection}, so this cannot be queried: a collection may appear only once in a path`
+                                    : undefined
+                            }
                             resultSegment={otherCollection}
                             searchable
                             buildPath={() =>
@@ -212,6 +220,8 @@ interface RelationSectionProps {
     readonly onNavigate: (path: QueryPath) => void;
     /** A mutation affordance for this relation (insert / connect). */
     readonly action?: React.ReactNode;
+    /** Set when the relation cannot be queried; explains why. */
+    readonly unavailable?: string;
 }
 
 function RelationSection({
@@ -222,13 +232,14 @@ function RelationSection({
     buildPath,
     onNavigate,
     action,
+    unavailable,
 }: RelationSectionProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
 
     const path = buildPath();
     // enabled only once opened — this is the lazy part.
-    const query = useQueryResult(isOpen ? toRequest(path) : null);
+    const query = useQueryResult(isOpen && !unavailable ? toRequest(path) : null);
     const rows = query.data?.data.type === 'documents' ? query.data.data.data : [];
     const matches = searchable && search !== '' ? rows.filter((row) => rowMatches(row, search)) : rows;
 
@@ -237,8 +248,13 @@ function RelationSection({
             <div className="flex items-center gap-1 p-2">
                 <button
                     type="button"
+                    disabled={unavailable !== undefined}
+                    title={unavailable}
                     onClick={() => setIsOpen((open) => !open)}
-                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                    className={cn(
+                        'flex min-w-0 flex-1 items-center gap-1.5 text-left',
+                        unavailable !== undefined && 'opacity-50',
+                    )}
                 >
                     <ChevronRight
                         className={cn('size-3.5 shrink-0 transition-transform', isOpen && 'rotate-90')}
@@ -256,6 +272,7 @@ function RelationSection({
                     variant="ghost"
                     size="icon"
                     className="size-6"
+                    disabled={unavailable !== undefined}
                     title="Open as a query"
                     onClick={() => onNavigate(path)}
                 >
@@ -263,7 +280,11 @@ function RelationSection({
                 </Button>
             </div>
 
-            {isOpen && (
+            {unavailable !== undefined && (
+                <p className="text-muted-foreground border-t p-2 text-xs">{unavailable}</p>
+            )}
+
+            {isOpen && unavailable === undefined && (
                 <div className="space-y-2 border-t p-2">
                     {query.isPending && <Skeleton className="h-8 w-full" />}
                     {query.isError && (

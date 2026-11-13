@@ -10,7 +10,7 @@
  * malformed instead of throwing.
  */
 import type { Clause, ClauseValue, Filter } from './condition';
-import type { PathStep, QueryPath } from './path';
+import { duplicateNames, type PathStep, type QueryPath } from './path';
 
 const PARAM = 'path';
 
@@ -40,6 +40,9 @@ export function decodePath(search: string): QueryPath | null {
     }
     // The server requires a collection first; reject anything else.
     if (steps[0]?.kind !== 'collection') return null;
+    // A shared link could carry a path that repeats a name, which no driver can
+    // answer correctly — treat it as malformed rather than querying it.
+    if (duplicateNames(steps).length > 0) return null;
     return steps;
 }
 

@@ -7,6 +7,13 @@ import { useState } from 'react';
 import { ChevronRight, Database, Hash, Link2, Table2, Type } from 'lucide-react';
 import type { CollectionModel, DatabaseSchema, DataType } from '@/api/types';
 import {
+    canAppendCollection,
+    canAppendConnection,
+    currentCollection as currentCollectionOf,
+    pathNames,
+    type QueryPath,
+} from '@/query/path';
+import {
     Sidebar,
     SidebarContent,
     SidebarGroup,
@@ -26,8 +33,8 @@ import { childCollections, connectionsOf, rootCollections } from './model';
 export interface SchemaSidebarProps {
     readonly schema: DatabaseSchema | undefined;
     readonly isLoading: boolean;
-    /** The collection the current path points at, for highlighting. */
-    readonly currentCollection: string | null;
+    /** The current path: drives highlighting and which steps may be appended. */
+    readonly path: QueryPath | null;
     readonly onSelectCollection: (collectionName: string) => void;
     readonly onAppendSubcollection: (collectionName: string) => void;
     readonly onAppendConnection: (connectionName: string, targetCollection: string) => void;
@@ -36,11 +43,14 @@ export interface SchemaSidebarProps {
 export function SchemaSidebar({
     schema,
     isLoading,
-    currentCollection,
+    path,
     onSelectCollection,
     onAppendSubcollection,
     onAppendConnection,
 }: SchemaSidebarProps) {
+    const currentCollection = path ? currentCollectionOf(path) : null;
+    const usedNames = path ? pathNames(path) : [];
+
     return (
         <Sidebar>
             <SidebarHeader>
@@ -67,7 +77,9 @@ export function SchemaSidebar({
                                     schema={schema}
                                     collection={collection}
                                     depth={0}
+                                    path={path}
                                     currentCollection={currentCollection}
+                                    usedNames={usedNames}
                                     onSelectCollection={onSelectCollection}
                                     onAppendSubcollection={onAppendSubcollection}
                                     onAppendConnection={onAppendConnection}
@@ -89,7 +101,9 @@ interface CollectionNodeProps {
     readonly schema: DatabaseSchema;
     readonly collection: CollectionModel;
     readonly depth: number;
+    readonly path: QueryPath | null;
     readonly currentCollection: string | null;
+    readonly usedNames: readonly string[];
     readonly onSelectCollection: (collectionName: string) => void;
     readonly onAppendSubcollection: (collectionName: string) => void;
     readonly onAppendConnection: (connectionName: string, targetCollection: string) => void;
@@ -99,7 +113,9 @@ function CollectionNode({
     schema,
     collection,
     depth,
+    path,
     currentCollection,
+    usedNames,
     onSelectCollection,
     onAppendSubcollection,
     onAppendConnection,
@@ -146,52 +162,81 @@ function CollectionNode({
                         </SidebarMenuSubItem>
                     ))}
 
-                    {children.map((child) => (
-                        <SidebarMenuSubItem key={child.name}>
-                            <SidebarMenuSubButton
-                                onClick={() =>
-                                    isCurrent
-                                        ? onAppendSubcollection(child.name)
-                                        : onSelectCollection(child.name)
-                                }
-                                title={
-                                    isCurrent
-                                        ? `Append subcollection ${child.name} to the path`
-                                        : `Subcollection of ${collection.name}`
-                                }
-                            >
-                                <Table2 className="size-3.5" />
-                                <span className="truncate">{child.name}</span>
-                            </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                    ))}
+                    {children.map((child) => {
+                        // Appending repeats a name only when standing on the
+                        // parent; starting a fresh path at the child is always fine.
+                        const wouldRepeat =
+                            isCurrent && path !== null && !canAppendCollection(path, child.name);
+                        return (
+                            <SidebarMenuSubItem key={child.name}>
+                                <SidebarMenuSubButton
+                                    aria-disabled={wouldRepeat}
+                                    className={cn(wouldRepeat && 'pointer-events-none opacity-50')}
+                                    onClick={
+                                        wouldRepeat
+                                            ? undefined
+                                            : () =>
+                                                  isCurrent
+                                                      ? onAppendSubcollection(child.name)
+                                                      : onSelectCollection(child.name)
+                                    }
+                                    title={
+                                        wouldRepeat
+                                            ? `${child.name} is already in this query; a collection can appear only once`
+                                            : isCurrent
+                                              ? `Append subcollection ${child.name} to the path`
+                                              : `Subcollection of ${collection.name}`
+                                    }
+                                >
+                                    <Table2 className="size-3.5" />
+                                    <span className="truncate">{child.name}</span>
+                                </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                        );
+                    })}
 
-                    {connections.map(({ connection, otherCollection }) => (
-                        <SidebarMenuSubItem key={connection.name}>
-                            {/* Traversing a connection only makes sense from the
-                                collection the path currently points at. */}
-                            <SidebarMenuSubButton
-                                aria-disabled={!isCurrent}
-                                className={cn(!isCurrent && 'pointer-events-none opacity-50')}
-                                onClick={
-                                    isCurrent
-                                        ? () => onAppendConnection(connection.name, otherCollection)
-                                        : undefined
-                                }
-                                title={
-                                    isCurrent
-                                        ? `Append connection ${connection.name} → ${otherCollection}`
-                                        : `Select ${collection.name} first to traverse this connection`
-                                }
-                            >
-                                <Link2 className="size-3.5" />
-                                <span className="truncate">{connection.name}</span>
-                                <span className="text-muted-foreground ml-auto shrink-0 text-xs">
-                                    → {otherCollection}
-                                </span>
-                            </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                    ))}
+                    {connections.map(({ connection, otherCollection }) => {
+                        // Traversing a connection only makes sense from the
+                        // collection the path currently points at, and neither of
+                        // the two names it occupies may already be in use.
+                        const wouldRepeat =
+                            path !== null &&
+                            !canAppendConnection(path, connection.name, otherCollection);
+                        const repeated = usedNames.includes(connection.name)
+                            ? connection.name
+                            : otherCollection;
+                        const isDisabled = !isCurrent || wouldRepeat;
+                        return (
+                            <SidebarMenuSubItem key={connection.name}>
+                                <SidebarMenuSubButton
+                                    aria-disabled={isDisabled}
+                                    className={cn(isDisabled && 'pointer-events-none opacity-50')}
+                                    onClick={
+                                        isDisabled
+                                            ? undefined
+                                            : () =>
+                                                  onAppendConnection(
+                                                      connection.name,
+                                                      otherCollection,
+                                                  )
+                                    }
+                                    title={
+                                        !isCurrent
+                                            ? `Select ${collection.name} first to traverse this connection`
+                                            : wouldRepeat
+                                              ? `${repeated} is already in this query; a collection or connection can appear only once`
+                                              : `Append connection ${connection.name} → ${otherCollection}`
+                                    }
+                                >
+                                    <Link2 className="size-3.5" />
+                                    <span className="truncate">{connection.name}</span>
+                                    <span className="text-muted-foreground ml-auto shrink-0 text-xs">
+                                        → {otherCollection}
+                                    </span>
+                                </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                        );
+                    })}
 
                     {/* Nested subcollections get their own expandable node. */}
                     {children.some((child) => childCollections(schema, child.name).length > 0) &&
@@ -203,7 +248,9 @@ function CollectionNode({
                                     schema={schema}
                                     collection={child}
                                     depth={depth + 1}
+                                    path={path}
                                     currentCollection={currentCollection}
+                                    usedNames={usedNames}
                                     onSelectCollection={onSelectCollection}
                                     onAppendSubcollection={onAppendSubcollection}
                                     onAppendConnection={onAppendConnection}

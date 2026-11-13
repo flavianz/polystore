@@ -6,7 +6,7 @@
  * reports the problem rather than letting the server 500.
  */
 import type { RequestQuerySegment } from '@/api/types';
-import { fromRequestSegments, type QueryPath } from './path';
+import { duplicateNames, fromRequestSegments, type QueryPath } from './path';
 
 export type WireParseResult = { readonly path: QueryPath } | { readonly error: string };
 
@@ -35,6 +35,14 @@ export function parseWireRequest(text: string): WireParseResult {
             error: 'invalid path: it must start with a collection, and every connection segment must be followed by a collection segment',
         };
     }
+
+    const duplicates = duplicateNames(path);
+    if (duplicates.length > 0) {
+        return {
+            error: `${duplicates.join(', ')} appears more than once; a collection or connection may appear only once in a query`,
+        };
+    }
+
     return { path };
 }
 

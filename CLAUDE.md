@@ -96,6 +96,7 @@ All four keys are required on every segment (`condition`/`only` may be `null`). 
 
 - The first segment must be a `collection`.
 - A `connection` segment must be immediately followed by a `collection` segment (the target side); the pair is merged into one `QuerySegment.Connection` server-side.
+- **A collection or connection name may appear at most once in a path.** Segment names double as the SQL table reference, the Cypher alias and the result key, so a repeat (e.g. `products › ordered › orders › ordered › products`) breaks differently per store and is **not** validated server-side: PostgreSQL fails with "table name specified more than once", Neo4j with "multiple result columns with the same name", and MongoDB *silently* returns rows whose repeated keys have collapsed. Since the router chooses the driver, such a path either errors or quietly returns wrong data. Clients must not build one. This also rules out traversing a self-referential connection (both sides the same collection).
 - A subcollection is traversed by simply appending its collection segment after the parent's.
 - `only` projects the returned fields of that segment.
 

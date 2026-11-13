@@ -24,7 +24,9 @@ The earlier prototype in `src/` (a `Home.tsx` / `query-view.tsx` / `connection-f
 | `lens/` | `storage-lens.tsx` (per-instance physical layout, field mapping, raw data), `native-queries.tsx` (per-path explain + force driver) |
 | `mutate/` | `field-input.tsx` (typed input per DataType), `values.ts`, `insert-instance-dialog.tsx`, `edit-fields-form.tsx`, `connection-picker.tsx` |
 
-Two design points worth keeping:
+Three design points worth keeping:
+
+- **A name may appear only once in a path**, enforced by `pathNames` / `duplicateNames` / `canAppendCollection` / `canAppendConnection` in `query/path.ts`. The server does not validate this and misbehaves differently per store (see the root `CLAUDE.md`), so the builder must not offer it: the sidebar disables entries that would repeat a name, the inspector marks a self-referential connection as untraversable, and both untrusted entry points (`query/wire.ts`, `query/url.ts`) refuse such a path. Any new way to extend a path must go through these helpers.
 
 - **A connection step carries its target collection.** The wire format is a flat list where a `connection` segment must be followed by the `collection` it leads to; `ConnectionStep` in `query/path.ts` holds both sides so an invalid path cannot be constructed, and `toRequest()` flattens. Do not flatten the state itself.
 - **Filters are clauses, not a full boolean AST.** `Filter` is a list of clauses ANDed together plus a `raw` escape hatch for DSL typed by hand. The type-aware editor needs no more; arbitrary nesting goes through `raw`. `raw` always wins over `clauses` so hand-written DSL is never silently dropped.
