@@ -133,7 +133,9 @@ function FilterSection({
         field === ID_FIELD ? 'UUID' : (polySchema[field] ?? null);
 
     const addClause = () => {
-        const field = fields[0];
+        // Prefer a real schema field: a fresh clause on _id would be invalid
+        // until a UUID is typed into it.
+        const field = Object.keys(polySchema)[0] ?? fields[0];
         if (!field) return;
         const type = typeOf(field);
         onFilterChange({

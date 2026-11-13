@@ -151,6 +151,30 @@ export function toRequest(path: QueryPath, forceDriver?: DriverType | null): Que
     return forceDriver ? { path: segments, forceDriver } : { path: segments };
 }
 
+export type RequestResult =
+    | { readonly request: QueryRequest }
+    | { readonly error: string };
+
+/**
+ * `toRequest` that reports a serialization failure instead of throwing.
+ *
+ * A filter under construction is legitimately unserializable — a clause on a
+ * UUID field starts empty, and the DSL cannot express a string containing both
+ * quote characters. Because the request is built during render, an exception
+ * there would unmount the whole view, so callers in the render path must use
+ * this and show the problem.
+ *
+ * It delegates to toRequest rather than re-checking the rules, so there is one
+ * source of truth for what the DSL can express (condition.ts).
+ */
+export function tryToRequest(path: QueryPath, forceDriver?: DriverType | null): RequestResult {
+    try {
+        return { request: toRequest(path, forceDriver) };
+    } catch (error) {
+        return { error: error instanceof Error ? error.message : 'filter cannot be serialized' };
+    }
+}
+
 /**
  * Parses the wire format back into steps, for the raw query panel. Returns null
  * if the segment sequence is not a valid path (so the panel can show an error

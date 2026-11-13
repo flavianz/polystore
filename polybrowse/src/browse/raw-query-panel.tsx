@@ -5,7 +5,7 @@
  */
 import { useState } from 'react';
 import { AlertCircle, Check, Code2 } from 'lucide-react';
-import { toRequest, type QueryPath } from '@/query/path';
+import { tryToRequest, type QueryPath } from '@/query/path';
 import { parseWireRequest } from '@/query/wire';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +16,13 @@ export interface RawQueryPanelProps {
 }
 
 export function RawQueryPanel({ path, onApply }: RawQueryPanelProps) {
-    const serialized = JSON.stringify(toRequest(path), null, 2);
+    const result = tryToRequest(path);
+    // While a filter is incomplete there is no JSON to show; keep the panel
+    // mounted (so the textarea is not remounted mid-edit) and say so.
+    const serialized =
+        'request' in result
+            ? JSON.stringify(result.request, null, 2)
+            : `// filter incomplete: ${result.error}`;
 
     const [draft, setDraft] = useState(serialized);
     const [syncedFrom, setSyncedFrom] = useState(serialized);

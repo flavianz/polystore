@@ -9,7 +9,7 @@
  */
 import { useExplain } from '@/api/hooks';
 import { DRIVER_TYPES, type DriverType } from '@/api/types';
-import { toRequest, type QueryPath } from '@/query/path';
+import { tryToRequest, type QueryPath } from '@/query/path';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,7 +36,9 @@ export function NativeQueries({
     onForceDriverChange,
     executedBy,
 }: NativeQueriesProps) {
-    const explainQuery = useExplain(toRequest(path));
+    // Skipped while a filter is unserializable; the page reports that itself.
+    const result = tryToRequest(path);
+    const explainQuery = useExplain('request' in result ? result.request : null);
 
     return (
         <section className="space-y-2">

@@ -12,8 +12,8 @@ import {
     currentCollection,
     replaceStep,
     rootPath,
-    toRequest,
     truncate,
+    tryToRequest,
     type PathStep,
     type QueryPath,
 } from '@/query/path';
@@ -39,7 +39,13 @@ export function BrowsePage() {
     const [forceDriver, setForceDriver] = useState<DriverType | null>(null);
 
     const schemaQuery = useSchema();
-    const request = useMemo(() => (path ? toRequest(path) : null), [path]);
+
+    // A filter being edited can be temporarily unserializable (an empty UUID,
+    // say), so the request is built defensively — see tryToRequest.
+    const requestResult = useMemo(() => (path ? tryToRequest(path) : null), [path]);
+    const request = requestResult && 'request' in requestResult ? requestResult.request : null;
+    const requestError =
+        requestResult && 'error' in requestResult ? requestResult.error : null;
     const resultQuery = useQueryResult(request, forceDriver);
 
     const rows =
@@ -133,7 +139,20 @@ export function BrowsePage() {
                         />
                     )}
 
-                    {path && resultQuery.isPending && (
+                    {requestError && (
+                        <div className="border-muted bg-muted/40 flex items-start gap-2 rounded-md border p-3 text-sm">
+                            <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                            <div className="min-w-0">
+                                <p className="font-medium">Filter is incomplete</p>
+                                <p className="text-muted-foreground break-words">
+                                    {requestError}. The query is not run until it can be
+                                    expressed in the condition DSL.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
+                    {path && !requestError && resultQuery.isPending && (
                         <div className="space-y-2">
                             <Skeleton className="h-9 w-full" />
                             <Skeleton className="h-9 w-full" />
