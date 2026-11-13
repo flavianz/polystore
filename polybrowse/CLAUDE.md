@@ -20,8 +20,9 @@ The earlier prototype in `src/` (a `Home.tsx` / `query-view.tsx` / `connection-f
 | `api/` | `types.ts` (TS mirrors of the Kotlin types), `client.ts` (the only place that calls `fetch`), `hooks.ts` (TanStack Query bindings) |
 | `query/` | `condition.ts` (filter clauses → condition DSL), `path.ts` (the structured query path ↔ wire format), `url.ts` (URL (de)serialization), `use-query-path.ts` (URL-backed state), `keys.ts` (query keys) |
 | `schema/` | `model.ts` (read helpers over `DatabaseSchema`), `schema-sidebar.tsx` |
-| `browse/` | `browse-page.tsx` (layout), `path-bar.tsx`, `result-table.tsx` |
-| `lens/`, `mutate/` | not built yet (build order steps 5 and 6) |
+| `browse/` | `browse-page.tsx` (layout), `path-bar.tsx`, `result-table.tsx`, `filter-editor.tsx`, `raw-query-panel.tsx`, `inspector.tsx` |
+| `lens/` | `storage-lens.tsx` (per-instance physical layout, field mapping, raw data), `native-queries.tsx` (per-path explain + force driver) |
+| `mutate/` | `field-input.tsx` (typed input per DataType), `values.ts`, `insert-instance-dialog.tsx`, `edit-fields-form.tsx`, `connection-picker.tsx` |
 
 Two design points worth keeping:
 
@@ -48,5 +49,7 @@ Two design points worth keeping:
 
 ## Known deviations from the spec
 
+- **Delete is not implemented, because no route exists.** The spec asks for deleting an instance (with a confirmation naming the subcollection entries that go with it) and removing a connection. The server has neither: `/collection/drop` drops a whole collection, and single-instance delete and connection removal have no route or driver method (`DatabaseDriver.kt:26` carries a `// TODO: update connection`). Both would need new driver code, not just a route, so they are out of scope until that is built.
+- **Only schema fields are editable.** `PostgresDriver.updateDocument` has an open TODO for dynamic data, so editing a non-schema field would write in MongoDB and Neo4j but silently drop in PostgreSQL. The edit form therefore generates inputs from `PolySchema` only.
 - **Subcollection/connection count columns are not implemented.** The root `CLAUDE.md` calls for the result table to show counts that drill down on click. The HTTP API cannot produce counts: `PolyResultData.Count` exists in Kotlin but no route returns it, and `GetQuery.limit` is not exposed either — so a count per row would mean one extra query per row. The table instead shows the joined row the server actually returns, grouped by segment, and navigation happens from the sidebar. Revisit if a count route is ever added.
 - **Floats are fragile end to end.** `Neo4jDriver.toPolyValue` uses `Value.asFloat()`, which throws `LossyCoercion` for a double that is not float-exact. Inserting e.g. `9.99` makes every later Neo4j read of that collection fail. Until the driver is fixed (off-limits code), prefer float-exact values in demo data.

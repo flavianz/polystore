@@ -7,7 +7,7 @@
  * have high fan-out and must never be pulled in eagerly.
  */
 import { useState } from 'react';
-import { ChevronRight, ExternalLink, Search, Table2 } from 'lucide-react';
+import { ChevronRight, ExternalLink, Plus, Search, Table2 } from 'lucide-react';
 import { useQueryResult, useSchema } from '@/api/hooks';
 import type { PolyFieldValue, PolyRow } from '@/api/types';
 import {
@@ -17,8 +17,11 @@ import {
     toRequest,
     type QueryPath,
 } from '@/query/path';
-import { childCollections, connectionsOf } from '@/schema/model';
+import { childCollections, collectionByName, connectionsOf } from '@/schema/model';
 import { StorageLens } from '@/lens/storage-lens';
+import { ConnectionPicker } from '@/mutate/connection-picker';
+import { EditFieldsForm } from '@/mutate/edit-fields-form';
+import { InsertInstanceDialog } from '@/mutate/insert-instance-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,6 +48,7 @@ export function Inspector({ instance, onNavigate, onClose }: InspectorProps) {
 
     const children = schema ? childCollections(schema, instance.collection) : [];
     const connections = schema ? connectionsOf(schema, instance.collection) : [];
+    const collection = schema ? collectionByName(schema, instance.collection) : undefined;
 
     return (
         <aside className="bg-card flex w-[26rem] shrink-0 flex-col overflow-y-auto border-l">
@@ -82,8 +86,15 @@ export function Inspector({ instance, onNavigate, onClose }: InspectorProps) {
                     </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="fields" className="p-3">
+                <TabsContent value="fields" className="space-y-3 p-3">
                     <FieldList fields={instance.fields} />
+                    {collection && (
+                        <EditFieldsForm
+                            collection={collection}
+                            instanceId={instance.id}
+                            fields={instance.fields}
+                        />
+                    )}
                 </TabsContent>
 
                 <TabsContent value="subcollections" className="space-y-2 p-3">
@@ -105,6 +116,22 @@ export function Inspector({ instance, onNavigate, onClose }: InspectorProps) {
                                 )
                             }
                             onNavigate={onNavigate}
+                            action={
+                                <InsertInstanceDialog
+                                    collection={child}
+                                    parentDocUuid={instance.id}
+                                    trigger={
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="size-6"
+                                            title={`Add a ${child.name} to this instance`}
+                                        >
+                                            <Plus className="size-3" />
+                                        </Button>
+                                    }
+                                />
+                            }
                         />
                     ))}
                 </TabsContent>
@@ -130,6 +157,14 @@ export function Inspector({ instance, onNavigate, onClose }: InspectorProps) {
                                 )
                             }
                             onNavigate={onNavigate}
+                            action={
+                                <ConnectionPicker
+                                    connection={connection}
+                                    thisCollection={instance.collection}
+                                    thisInstanceId={instance.id}
+                                    otherCollection={otherCollection}
+                                />
+                            }
                         />
                     ))}
                 </TabsContent>
@@ -175,6 +210,8 @@ interface RelationSectionProps {
     readonly searchable?: boolean;
     readonly buildPath: () => QueryPath;
     readonly onNavigate: (path: QueryPath) => void;
+    /** A mutation affordance for this relation (insert / connect). */
+    readonly action?: React.ReactNode;
 }
 
 function RelationSection({
@@ -184,6 +221,7 @@ function RelationSection({
     searchable = false,
     buildPath,
     onNavigate,
+    action,
 }: RelationSectionProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState('');
@@ -213,6 +251,7 @@ function RelationSection({
                         </Badge>
                     )}
                 </button>
+                {action}
                 <Button
                     variant="ghost"
                     size="icon"

@@ -19,7 +19,9 @@ import {
 } from '@/query/path';
 import { useQueryPath } from '@/query/use-query-path';
 import { SchemaSidebar } from '@/schema/schema-sidebar';
+import { collectionByName } from '@/schema/model';
 import { NativeQueries } from '@/lens/native-queries';
+import { InsertInstanceDialog } from '@/mutate/insert-instance-dialog';
 import type { DriverType, PolyRow } from '@/api/types';
 import { Badge } from '@/components/ui/badge';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
@@ -46,6 +48,14 @@ export function BrowsePage() {
         path && rows && selectedRow !== null
             ? resolveInstance(path, rows[selectedRow])
             : null;
+
+    const currentName = path ? currentCollection(path) : null;
+    const currentModel =
+        currentName && schemaQuery.data
+            ? collectionByName(schemaQuery.data, currentName)
+            : undefined;
+    const currentRootCollection =
+        currentModel && currentModel.parentCollection === null ? currentModel : null;
 
     const navigate = (next: QueryPath | null) => {
         setPath(next);
@@ -135,6 +145,16 @@ export function BrowsePage() {
                         <ErrorNote
                             title="The query failed"
                             detail={describeError(resultQuery.error)}
+                        />
+                    )}
+
+                    {/* Inserting into a subcollection needs a parent instance, so
+                        the top-level affordance only appears for root collections;
+                        subcollections are inserted from the inspector. */}
+                    {currentRootCollection && (
+                        <InsertInstanceDialog
+                            collection={currentRootCollection}
+                            parentDocUuid={null}
                         />
                     )}
 
