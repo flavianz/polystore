@@ -37,7 +37,8 @@ The stack is Kotlin, Ktor as the HTTP server, Gradle with the Kotlin DSL, and Sh
 | `ps_cfk_<collectionName>` | Postgres column | FK column in a connection join table pointing to one side (`PostgresDriver.kt:103-104`) |
 | `ps_parent_fk` | Postgres column | FK from a subcollection table to its parent's `_id` (`PostgresDriver.kt:42-46`) |
 | `ps_parent_of` | Neo4j relationship type | Directed parent → child edge for subcollections (`Neo4jDriver.kt:100-106`) |
-| `ps_config_collections` / `ps_config_connections` | all stores | Metadata tables/collections/labels holding the registered schema |
+| `ps_config_collections` / `ps_config_connections` | Postgres, Mongo | Metadata tables/collections holding the registered schema |
+| `ps_config_collection` / `ps_config_connection` | Neo4j node labels | The same metadata in Neo4j — **singular** labels (`Neo4jDriver.kt:367`, `:393`) |
 | `_sub_<name>` | Mongo field | Embedded array holding a subcollection's documents (`MongoDriver.kt:72`) |
 | `_con_<name>` | Mongo field | Embedded array of connection entries, each `{_rel: <connection data>, _doc: <other side's document>}`, duplicated into **both** sides' documents (`MongoDriver.kt:181-188`) |
 
