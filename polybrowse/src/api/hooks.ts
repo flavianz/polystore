@@ -2,12 +2,13 @@
  * TanStack Query bindings for the polystore API. Components use these rather
  * than calling the client (or fetch) directly.
  */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/query/keys';
 import { api } from './client';
 import type {
     DriverType,
     InsertConnectionRequest,
+    MappingResponse,
     InsertDocumentRequest,
     QueryRequest,
     UpdateDocumentRequest,
@@ -58,6 +59,47 @@ export function useMapping(collection: string | null) {
         enabled: collection !== null,
         staleTime: 5 * 60 * 1000,
     });
+}
+
+export interface MappingsResult {
+    /** Every requested mapping by collection name; undefined until all have loaded. */
+    readonly data: Readonly<Record<string, MappingResponse>> | undefined;
+    readonly isPending: boolean;
+    readonly error: Error | null;
+}
+
+/**
+ * The storage mapping of several collections at once. Shares cache entries
+ * with useMapping, so the storage lens and the schema graph fetch each only once.
+ */
+export function useMappings(collections: readonly string[]): MappingsResult {
+    return useQueries({
+        queries: collections.map((collection) => ({
+            queryKey: queryKeys.mapping(collection),
+            queryFn: () => api.mapping(collection),
+            staleTime: 5 * 60 * 1000,
+        })),
+        combine: combineMappings,
+    });
+}
+
+/**
+ * Module-level (stable) so TanStack Query only recomputes it when a result
+ * changes — the graph re-layouts whenever this object's identity changes.
+ * Keyed by the `collection` each response names itself.
+ */
+function combineMappings(
+    results: readonly { readonly data?: MappingResponse; readonly error: Error | null }[],
+): MappingsResult {
+    const error = results.find((result) => result.error)?.error ?? null;
+    const data: Record<string, MappingResponse> = {};
+    for (const result of results) {
+        if (result.data === undefined) {
+            return { data: undefined, isPending: error === null, error };
+        }
+        data[result.data.collection] = result.data;
+    }
+    return { data, isPending: false, error };
 }
 
 /**

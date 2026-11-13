@@ -3,51 +3,74 @@
  * layout.ts) so that the dagre layout computed up front matches what renders.
  *
  * Every header and row reports hover with its mapping keys, and reads the
- * shared hover state to light up or dim itself.
+ * shared hover state to light up or dim itself. Every row has its own pair of
+ * invisible handles so an edge can attach to a column (a foreign key).
  */
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { assertNever } from '@/lib/assert-never';
+import type { GraphNode, GraphRow, RowTone } from './graph-model';
 import { highlightOf, useGraphContext, type HighlightState } from './highlight-context';
 import {
     CONNECTION_HEADER_HEIGHT,
     CONNECTION_WIDTH,
     ENTITY_HEADER_HEIGHT,
     ENTITY_WIDTH,
+    NODE_HANDLE_IN,
+    NODE_HANDLE_OUT,
     ROW_HEIGHT,
+    rowHandleIn,
+    rowHandleOut,
     type FlowNode,
 } from './layout';
-import type { GraphNode, GraphRow, RowTone } from './store-graph';
 
+/** A collection or a table: square card with a tinted header. */
 export function EntityNode({ data }: NodeProps<FlowNode>) {
-    const { node } = data;
+    return <CardNode node={data.node} shape="card" />;
+}
+
+/** A Neo4j label: rounded card whose header is a filled pill, like Neo4j Browser. */
+export function LabelNode({ data }: NodeProps<FlowNode>) {
+    return <CardNode node={data.node} shape="label" />;
+}
+
+function CardNode({ node, shape }: { readonly node: GraphNode; readonly shape: 'card' | 'label' }) {
     const { hovered, setHovered, colors } = useGraphContext();
     const color = (node.colorOf && colors.get(node.colorOf)) ?? 'var(--muted-foreground)';
-    const nodeState = containerHighlight(hovered, node);
+    const headerActive = highlightOf(hovered, node.keys) === 'active';
 
     return (
-        <div
-            style={{ width: ENTITY_WIDTH, '--node-color': color } as CSSProperties}
+        <NodeFrame
+            node={node}
+            width={ENTITY_WIDTH}
             className={cn(
-                'bg-card text-card-foreground overflow-hidden rounded-lg border-2 shadow-sm transition-opacity',
-                nodeState === 'dimmed' && 'opacity-35',
+                'border-2',
+                shape === 'card' ? 'rounded-lg' : 'rounded-[1.5rem]',
+                headerActive && 'border-[var(--node-color)]',
             )}
+            color={color}
         >
-            <Handle type="target" position={Position.Left} className="opacity-0" />
             <div
                 style={{ height: ENTITY_HEADER_HEIGHT }}
                 className={cn(
                     'flex flex-col justify-center border-b px-3',
-                    highlightOf(hovered, node.keys) === 'active'
+                    shape === 'label' && 'items-center',
+                    headerActive
                         ? 'bg-[color-mix(in_oklch,var(--node-color)_45%,var(--card))]'
                         : 'bg-[color-mix(in_oklch,var(--node-color)_20%,var(--card))]',
                 )}
                 onMouseEnter={() => setHovered(node.keys)}
                 onMouseLeave={() => setHovered(null)}
             >
-                <span className="truncate font-mono text-sm font-semibold">{node.title}</span>
+                {shape === 'label' ? (
+                    <span className="max-w-full truncate rounded-full bg-[var(--node-color)] px-2.5 py-0.5 font-mono text-xs font-semibold text-black">
+                        {node.title}
+                    </span>
+                ) : (
+                    <span className="truncate font-mono text-sm font-semibold">{node.title}</span>
+                )}
                 {node.caption && (
                     <span className="text-muted-foreground truncate text-[11px]">
                         {node.caption}
@@ -59,26 +82,25 @@ export function EntityNode({ data }: NodeProps<FlowNode>) {
                     <Row key={row.id} row={row} />
                 ))}
             </div>
-            <Handle type="source" position={Position.Right} className="opacity-0" />
-        </div>
+        </NodeFrame>
     );
 }
 
+/** A poly connection: a dashed chip listing the connection's data fields. */
 export function ConnectionNode({ data }: NodeProps<FlowNode>) {
     const { node } = data;
     const { hovered, setHovered } = useGraphContext();
-    const nodeState = containerHighlight(hovered, node);
 
     return (
-        <div
-            style={{ width: CONNECTION_WIDTH }}
+        <NodeFrame
+            node={node}
+            width={CONNECTION_WIDTH}
             className={cn(
-                'bg-card text-card-foreground overflow-hidden rounded-2xl border-2 border-dashed shadow-sm transition-opacity',
-                nodeState === 'dimmed' && 'opacity-35',
+                'rounded-2xl border-2 border-dashed',
                 highlightOf(hovered, node.keys) === 'active' && 'border-primary',
             )}
+            color="var(--primary)"
         >
-            <Handle type="target" position={Position.Left} className="opacity-0" />
             <div
                 style={{ height: CONNECTION_HEADER_HEIGHT }}
                 className="flex items-center justify-center gap-1.5 px-3"
@@ -95,7 +117,45 @@ export function ConnectionNode({ data }: NodeProps<FlowNode>) {
                     ))}
                 </div>
             )}
-            <Handle type="source" position={Position.Right} className="opacity-0" />
+        </NodeFrame>
+    );
+}
+
+interface NodeFrameProps {
+    readonly node: GraphNode;
+    readonly width: number;
+    readonly color: string;
+    readonly className: string;
+    readonly children: ReactNode;
+}
+
+/** Shared outer box: size, colour variable, dimming and the node-level handles. */
+function NodeFrame({ node, width, color, className, children }: NodeFrameProps) {
+    const { hovered } = useGraphContext();
+    return (
+        <div
+            style={{ width, '--node-color': color } as CSSProperties}
+            className={cn(
+                'bg-card text-card-foreground relative overflow-hidden shadow-sm transition-opacity',
+                containerHighlight(hovered, node) === 'dimmed' && 'opacity-35',
+                className,
+            )}
+        >
+            <Handle
+                id={NODE_HANDLE_IN}
+                type="target"
+                position={Position.Left}
+                className="opacity-0"
+                isConnectable={false}
+            />
+            {children}
+            <Handle
+                id={NODE_HANDLE_OUT}
+                type="source"
+                position={Position.Right}
+                className="opacity-0"
+                isConnectable={false}
+            />
         </div>
     );
 }
@@ -107,18 +167,33 @@ function Row({ row }: { readonly row: GraphRow }) {
     return (
         <div
             style={{ height: ROW_HEIGHT }}
+            title={row.hint}
             className={cn(
-                'flex items-center gap-2 px-3 font-mono text-xs',
+                'relative flex items-center gap-2 px-3 font-mono text-xs',
                 state === 'active' &&
-                    'bg-[color-mix(in_oklch,var(--node-color,var(--primary))_30%,transparent)]',
+                    'bg-[color-mix(in_oklch,var(--node-color)_30%,transparent)]',
             )}
-            onMouseEnter={() => setHovered(row.keys)}
+            onMouseEnter={() => setHovered(row.keys.length > 0 ? row.keys : null)}
             onMouseLeave={() => setHovered(null)}
         >
+            <Handle
+                id={rowHandleIn(row.id)}
+                type="target"
+                position={Position.Left}
+                className="opacity-0"
+                isConnectable={false}
+            />
             <span className={cn('truncate', toneClass(row.tone))}>{row.label}</span>
             {row.detail && (
                 <span className="text-muted-foreground ml-auto shrink-0">{row.detail}</span>
             )}
+            <Handle
+                id={rowHandleOut(row.id)}
+                type="source"
+                position={Position.Right}
+                className="opacity-0"
+                isConnectable={false}
+            />
         </div>
     );
 }
@@ -131,16 +206,15 @@ function toneClass(tone: RowTone): string {
             return '';
         case 'reference':
             return 'italic';
+        case 'meta':
+            return 'text-muted-foreground';
         default:
             return assertNever(tone);
     }
 }
 
 /** A node is dimmed only when neither it nor any of its rows matches. */
-function containerHighlight(
-    hovered: ReadonlySet<string> | null,
-    node: GraphNode,
-): HighlightState {
+function containerHighlight(hovered: ReadonlySet<string> | null, node: GraphNode): HighlightState {
     const own = highlightOf(hovered, node.keys);
     if (own !== 'dimmed') return own;
     return node.rows.some((row) => highlightOf(hovered, row.keys) === 'active')

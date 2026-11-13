@@ -23,7 +23,7 @@ import { useQueryPath } from '@/query/use-query-path';
 import type { AppView } from '@/query/url';
 import { SchemaGraphPage } from '@/graph/schema-graph-page';
 import type { FocusRequest } from '@/graph/schema-graph';
-import { collectionNodeId } from '@/graph/store-graph';
+import { collectionNodeId } from '@/graph/graph-model';
 import { SchemaSidebar } from '@/schema/schema-sidebar';
 import { collectionByName } from '@/schema/model';
 import { NativeQueries } from '@/lens/native-queries';
