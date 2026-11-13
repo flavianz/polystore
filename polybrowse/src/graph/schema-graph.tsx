@@ -35,18 +35,31 @@ export interface FocusRequest {
     readonly nonce: number;
 }
 
+/** Bumping the number fits the whole graph into view again. */
+export type FitRequest = number;
+
 export interface SchemaGraphProps {
     readonly view: StoreView;
     readonly schema: DatabaseSchema;
     /** Required for the physical views (see needsMappings). */
     readonly mappings: Mappings | null;
+    /** Also draw the store's schema-registry metadata. */
+    readonly includeConfig: boolean;
     readonly focus: FocusRequest | null;
+    readonly fit: FitRequest;
 }
 
-export function SchemaGraph({ view, schema, mappings, focus }: SchemaGraphProps) {
+export function SchemaGraph({
+    view,
+    schema,
+    mappings,
+    includeConfig,
+    focus,
+    fit,
+}: SchemaGraphProps) {
     const laidOut = useMemo(
-        () => layoutGraph(buildStoreGraph(view, schema, mappings)),
-        [view, schema, mappings],
+        () => layoutGraph(buildStoreGraph(view, schema, mappings, includeConfig)),
+        [view, schema, mappings, includeConfig],
     );
     // Remount when the layout changes, so dragged positions reset to the fresh
     // layout instead of being reconciled against it.
@@ -61,6 +74,7 @@ export function SchemaGraph({ view, schema, mappings, focus }: SchemaGraphProps)
             initialNodes={laidOut.nodes}
             edges={laidOut.edges}
             focus={focus}
+            fit={fit}
         />
     );
 }
@@ -69,9 +83,10 @@ interface FlowPaneProps {
     readonly initialNodes: FlowNode[];
     readonly edges: FlowEdge[];
     readonly focus: FocusRequest | null;
+    readonly fit: FitRequest;
 }
 
-function FlowPane({ initialNodes, edges, focus }: FlowPaneProps) {
+function FlowPane({ initialNodes, edges, focus, fit }: FlowPaneProps) {
     const [nodes, , onNodesChange] = useNodesState(initialNodes);
     const { setHovered, select } = useGraphContext();
     const { theme } = useTheme();
@@ -104,8 +119,23 @@ function FlowPane({ initialNodes, edges, focus }: FlowPaneProps) {
             <Background gap={24} size={1} />
             <Controls showInteractive={false} />
             <FocusController focus={focus} />
+            <FitController fit={fit} />
         </ReactFlow>
     );
+}
+
+/**
+ * Refits on request. Waits a frame so that a container that just resized
+ * (fullscreen, compare split) has its new size before measuring.
+ */
+function FitController({ fit }: { readonly fit: FitRequest }) {
+    const { fitView } = useReactFlow();
+    useEffect(() => {
+        if (fit === 0) return;
+        const frame = requestAnimationFrame(() => void fitView({ duration: 400 }));
+        return () => cancelAnimationFrame(frame);
+    }, [fit, fitView]);
+    return null;
 }
 
 function FocusController({ focus }: { readonly focus: FocusRequest | null }) {

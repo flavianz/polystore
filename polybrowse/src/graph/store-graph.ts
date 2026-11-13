@@ -3,6 +3,7 @@
  */
 import type { DatabaseSchema } from '@/api/types';
 import { assertNever } from '@/lib/assert-never';
+import { buildConfigGraph, type ConfigStore } from './config-graph';
 import type { Mappings, StoreGraph } from './graph-model';
 import { buildMongoGraph } from './mongo-graph';
 import { buildNeo4jGraph } from './neo4j-graph';
@@ -41,8 +42,38 @@ export function needsMappings(view: StoreView): boolean {
     }
 }
 
-/** `mappings` may be null only for views where needsMappings() is false. */
+/** The store whose schema-registry metadata belongs in this view, if any. */
+export function configStoreOf(view: StoreView): ConfigStore | null {
+    switch (view) {
+        case 'poly':
+            return null;
+        case 'postgres':
+        case 'mongo':
+        case 'neo4j':
+            return view;
+        default:
+            return assertNever(view);
+    }
+}
+
+/**
+ * `mappings` may be null only for views where needsMappings() is false.
+ * `includeConfig` adds the store's schema-registry tables/collections/labels.
+ */
 export function buildStoreGraph(
+    view: StoreView,
+    schema: DatabaseSchema,
+    mappings: Mappings | null,
+    includeConfig = false,
+): StoreGraph {
+    const graph = buildDataGraph(view, schema, mappings);
+    const configStore = includeConfig ? configStoreOf(view) : null;
+    if (!configStore) return graph;
+    const config = buildConfigGraph(configStore);
+    return { nodes: [...graph.nodes, ...config.nodes], edges: [...graph.edges, ...config.edges] };
+}
+
+function buildDataGraph(
     view: StoreView,
     schema: DatabaseSchema,
     mappings: Mappings | null,

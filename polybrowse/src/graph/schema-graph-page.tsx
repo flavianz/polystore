@@ -4,8 +4,8 @@
  * one store ("Compare"). Hover highlights an element in every pane; a click
  * pins it and explains how it is stored.
  */
-import { useMemo, useState } from 'react';
-import { AlertCircle, Columns2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AlertCircle, Columns2, FileCog, Maximize, Minimize } from 'lucide-react';
 import { useMappings, type MappingsResult } from '@/api/hooks';
 import type { DatabaseSchema } from '@/api/types';
 import { Button } from '@/components/ui/button';
@@ -13,11 +13,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { collectionColors } from './colors';
 import { explain } from './explain';
+import type { Mappings } from './graph-model';
 import { ExplanationCard } from './explanation-card';
 import { GraphContext, type GraphContextValue } from './highlight-context';
 import { keyId, type MappingKey } from './mapping-key';
-import { SchemaGraph, type FocusRequest } from './schema-graph';
-import { needsMappings, STORE_VIEWS, storeViewLabel, type StoreView } from './store-graph';
+import { SchemaGraph, type FitRequest, type FocusRequest } from './schema-graph';
+import {
+    configStoreOf,
+    needsMappings,
+    STORE_VIEWS,
+    storeViewLabel,
+    type StoreView,
+} from './store-graph';
 
 const PHYSICAL_VIEWS = STORE_VIEWS.filter(needsMappings);
 
@@ -33,6 +40,25 @@ export function SchemaGraphPage({ schema, focus, onBrowse }: SchemaGraphPageProp
     const [compare, setCompare] = useState(false);
     const [hovered, setHoveredState] = useState<ReadonlySet<string> | null>(null);
     const [selected, setSelected] = useState<MappingKey | null>(null);
+    const [includeConfig, setIncludeConfig] = useState(false);
+    const [fit, setFit] = useState<FitRequest>(0);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Entering or leaving fullscreen resizes the panes: refit them afterwards.
+    useEffect(() => {
+        const onChange = () => {
+            setIsFullscreen(document.fullscreenElement === containerRef.current);
+            setFit((n) => n + 1);
+        };
+        document.addEventListener('fullscreenchange', onChange);
+        return () => document.removeEventListener('fullscreenchange', onChange);
+    }, []);
+
+    const toggleFullscreen = () => {
+        if (document.fullscreenElement) void document.exitFullscreen();
+        else void containerRef.current?.requestFullscreen();
+    };
 
     const collectionNames = useMemo(
         () => schema.collections.map((collection) => collection.name),
@@ -55,20 +81,24 @@ export function SchemaGraphPage({ schema, focus, onBrowse }: SchemaGraphPageProp
     // In Compare the left pane is always the poly model; the tabs pick the store.
     const rightView: StoreView = view === 'poly' ? 'postgres' : view;
     const tabViews: readonly StoreView[] = compare ? PHYSICAL_VIEWS : STORE_VIEWS;
+    // The registry only exists in the physical stores.
+    const configAvailable = configStoreOf(compare ? rightView : view) !== null;
 
     const pane = (paneView: StoreView) => (
         <GraphPane
             view={paneView}
             schema={schema}
             mappings={mappings}
+            includeConfig={includeConfig}
             focus={focus}
+            fit={fit}
             showTitle={compare}
         />
     );
 
     return (
         <GraphContext value={context}>
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div ref={containerRef} className="bg-background flex min-h-0 flex-1 flex-col">
                 <div className="flex flex-wrap items-center gap-3 border-b px-4 py-2">
                     <Tabs
                         value={compare ? rightView : view}
@@ -94,9 +124,31 @@ export function SchemaGraphPage({ schema, focus, onBrowse }: SchemaGraphPageProp
                         <Columns2 />
                         Compare with Polystore
                     </Button>
-                    <span className="text-muted-foreground text-xs">
+                    <Button
+                        variant={includeConfig && configAvailable ? 'secondary' : 'outline'}
+                        size="sm"
+                        aria-pressed={includeConfig}
+                        disabled={!configAvailable}
+                        title="Also show the tables / collections / labels where each store keeps the registered schema"
+                        onClick={() => setIncludeConfig((on) => !on)}
+                    >
+                        <FileCog />
+                        Schema registry
+                    </Button>
+                    <span className="text-muted-foreground hidden text-xs xl:inline">
                         Hover to highlight across views · click to explain · drag to rearrange
                     </span>
+                    <div className="ml-auto flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen'}
+                            aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+                            onClick={toggleFullscreen}
+                        >
+                            {isFullscreen ? <Minimize /> : <Maximize />}
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="relative flex min-h-0 flex-1">
@@ -130,16 +182,34 @@ interface GraphPaneProps {
     readonly view: StoreView;
     readonly schema: DatabaseSchema;
     readonly mappings: MappingsResult;
+    readonly includeConfig: boolean;
     readonly focus: FocusRequest | null;
+    readonly fit: FitRequest;
     readonly showTitle: boolean;
 }
 
 /** One pane, with the loading/error states of the mappings it may need. */
-function GraphPane({ view, schema, mappings, focus, showTitle }: GraphPaneProps) {
+function GraphPane({
+    view,
+    schema,
+    mappings,
+    includeConfig,
+    focus,
+    fit,
+    showTitle,
+}: GraphPaneProps) {
+    const graph = (loaded: Mappings | null) => (
+        <SchemaGraph
+            view={view}
+            schema={schema}
+            mappings={loaded}
+            includeConfig={includeConfig}
+            focus={focus}
+            fit={fit}
+        />
+    );
     const body = () => {
-        if (!needsMappings(view)) {
-            return <SchemaGraph view={view} schema={schema} mappings={null} focus={focus} />;
-        }
+        if (!needsMappings(view)) return graph(null);
         if (mappings.error) {
             return (
                 <div className="border-destructive/50 bg-destructive/10 m-4 flex items-start gap-2 rounded-md border p-3 text-sm">
@@ -158,7 +228,7 @@ function GraphPane({ view, schema, mappings, focus, showTitle }: GraphPaneProps)
                 </div>
             );
         }
-        return <SchemaGraph view={view} schema={schema} mappings={mappings.data} focus={focus} />;
+        return graph(mappings.data);
     };
 
     return (

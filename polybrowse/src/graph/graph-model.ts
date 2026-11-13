@@ -56,6 +56,8 @@ export interface GraphNode {
     readonly colorOf: string | null;
     readonly keys: readonly MappingKey[];
     readonly rows: readonly GraphRow[];
+    /** Drawn greyed out: storage bookkeeping rather than data (the schema registry). */
+    readonly muted?: boolean;
 }
 
 export type GraphEdgeKind =

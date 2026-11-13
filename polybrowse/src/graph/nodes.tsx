@@ -153,6 +153,7 @@ function NodeFrame({ node, width, color, className, children }: NodeFrameProps) 
                 'bg-card text-card-foreground relative overflow-hidden shadow-sm transition-opacity',
                 containerHighlight(highlighted, node) === 'dimmed' && 'opacity-35',
                 className,
+                node.muted && 'border-dashed opacity-60',
             )}
         >
             <Handle
