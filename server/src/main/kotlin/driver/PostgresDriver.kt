@@ -281,6 +281,72 @@ class PostgresDriver(val connection: Connection) : DatabaseDriver {
         )
     }
 
+    /**
+     * Builds the exact SQL that [get] would execute for this query, without executing it.
+     * Composes the same private builders as [get]; purely read-only.
+     */
+    fun explain(query: GetQuery): List<String> {
+        val sql = StringBuilder()
+
+        val selectClauses = buildSelectClause(query.path.flatMap {
+            when (it) {
+                is QuerySegment.Collection -> listOf(Triple(it.name, it.only, false))
+                is QuerySegment.Connection -> listOf(
+                    Triple(it.connectionName, it.connectionOnly, true),
+                    Triple(it.collectionName, it.collectionOnly, false)
+                )
+            }
+        })
+
+        sql.append("SELECT ").append(selectClauses)
+        appendFromAndJoins(sql, query.path)
+        appendWhere(sql, query.path)
+        appendLimit(sql, query.limit)
+
+        return listOf(sql.toString())
+    }
+
+    /**
+     * Returns the raw stored rows for one instance: its own row, the rows of its
+     * child-collection tables referencing it via ps_parent_fk, and the rows of all
+     * connection join tables referencing it via its ps_cfk column.
+     * Keys are physical table names.
+     */
+    fun getRawInstance(collection: CollectionModel, uuid: UUID): Map<String, List<Map<String, Any?>>> {
+        fun queryRows(sql: String): List<Map<String, Any?>> {
+            val rs = connection.prepareStatement(sql).executeQuery()
+            val metaData = rs.metaData
+            val columnNames = (1..metaData.columnCount).map { metaData.getColumnName(it) }
+            return buildList {
+                while (rs.next()) {
+                    add(columnNames.associateWith { rs.getObject(it) })
+                }
+            }
+        }
+
+        val result = linkedMapOf<String, List<Map<String, Any?>>>()
+        val mainTable = "ps_col_${collection.name}"
+        result[mainTable] = queryRows(
+            "SELECT * FROM ${quoteIdentifier(mainTable)} WHERE ${quoteIdentifier("_id")} = ${prepareValue(uuid)}"
+        )
+        for (child in collection.childCollections) {
+            val childTable = "ps_col_$child"
+            result[childTable] = queryRows(
+                "SELECT * FROM ${quoteIdentifier(childTable)} WHERE ${quoteIdentifier("ps_parent_fk")} = ${prepareValue(uuid)}"
+            )
+        }
+        for (connectionModel in DatabaseManager.listConnections()) {
+            if (connectionModel.collection1Name != collection.name && connectionModel.collection2Name != collection.name) {
+                continue
+            }
+            val connectionTable = "ps_con_${connectionModel.name}"
+            result[connectionTable] = queryRows(
+                "SELECT * FROM ${quoteIdentifier(connectionTable)} WHERE ${quoteIdentifier("ps_cfk_${collection.name}")} = ${prepareValue(uuid)}"
+            )
+        }
+        return result
+    }
+
     /*override fun count(path: GetQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
         val sql = StringBuilder()
         sql.append("SELECT COUNT(*) AS ps_count")

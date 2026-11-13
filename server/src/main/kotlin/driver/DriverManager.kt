@@ -182,8 +182,16 @@ object DriverManager {
         }
     }
 
-    fun get(query: GetQuery): GetQueryResult {
-        val activeDriver = chooseDriverModel(query)
+    fun driverFor(type: DriverType): DatabaseDriver {
+        return when (type) {
+            DriverType.Postgres -> postgresDriver
+            DriverType.Mongo -> mongoDriver
+            DriverType.Neo4j -> neo4jDriver
+        } ?: throw IllegalStateException("driver $type is not active")
+    }
+
+    fun get(query: GetQuery, forceDriver: DriverType? = null): GetQueryResult {
+        val activeDriver = if (forceDriver == null) chooseDriverModel(query) else driverFor(forceDriver)
         val result = activeDriver.get(query)
         return GetQueryResult(
             result.data, result.duration, PolyExecutionEnvironment(

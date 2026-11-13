@@ -101,7 +101,8 @@ fun JsonElement.toPolyValue(): Any? = when (this) {
 
 @Serializable
 data class QueryRequest(
-    val path: List<RequestQuerySegment>
+    val path: List<RequestQuerySegment>,
+    val forceDriver: String? = null,
 )
 
 @Serializable
@@ -110,4 +111,17 @@ data class RequestQuerySegment(
     val type: String,
     val condition: String?,
     val only: List<String>?,
+)
+
+@Serializable
+data class UpdateDocumentRequest(
+    val collection: String,
+    val uuid: String,
+    val fields: Map<String, JsonElement>,
+)
+
+@Serializable
+data class RawInstanceRequest(
+    val collection: String,
+    val id: String,
 )

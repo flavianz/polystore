@@ -11,6 +11,7 @@ import model.PolySchema
 import query.QueryPath
 import query.QuerySegment
 import query.Condition
+import query.DriverType
 import query.GetQuery
 import ch.flavianz.query.GetQueryBuilder
 import query.PolyQueryDuration
@@ -201,7 +202,7 @@ object DatabaseManager {
         return get(GetQueryBuilder().apply(block).build())
     }
 
-    fun get(query: GetQuery): PolyQueryResult {
+    fun get(query: GetQuery, forceDriver: DriverType? = null): PolyQueryResult {
         require(query.path.isNotEmpty()) { "query path cannot be empty" }
         require(query.path[0] is QuerySegment.Collection) { "query path must start with a collection" }
 
@@ -277,7 +278,7 @@ object DatabaseManager {
             break
         }
 
-        val queryResult = DriverManager.get(GetQuery(QueryPath(segments), query.limit))
+        val queryResult = DriverManager.get(GetQuery(QueryPath(segments), query.limit), forceDriver)
 
         val elapsedTime = (System.nanoTime() - startTime).nanoseconds
 

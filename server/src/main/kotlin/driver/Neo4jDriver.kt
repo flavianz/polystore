@@ -230,6 +230,71 @@ class Neo4jDriver(val connection: Neo4jConnection) : DatabaseDriver {
         )
     }
 
+    /**
+     * Builds the exact Cypher that [get] would execute for this query, without executing it.
+     * Composes the same private builders as [get]; purely read-only.
+     */
+    fun explain(query: GetQuery): List<String> {
+        val cypher = buildMatchClause(query)
+        val returnClause = buildReturnClause(query.path.flatMap {
+            when (it) {
+                is QuerySegment.Collection -> listOf(Pair(it.name, it.only))
+                is QuerySegment.Connection -> listOf(
+                    Pair(it.connectionName, it.connectionOnly),
+                    Pair(it.collectionName, it.collectionOnly)
+                )
+            }
+        })
+        val whereClause = buildWhereClause(query)
+
+        return listOf(buildString {
+            append(cypher)
+            if (whereClause.isNotBlank()) append(" WHERE $whereClause")
+            append(" RETURN $returnClause")
+            query.limit?.let {
+                append(" LIMIT $it")
+            }
+        })
+    }
+
+    /**
+     * Returns the raw stored node (labels + properties) and all relationships touching it,
+     * each with type, direction relative to this node, properties and the other node's id/labels.
+     */
+    fun getRawInstance(collectionName: String, uuid: UUID): Map<String, Any?> {
+        val label = collectionLabel(collectionName)
+        return connection.neo4jSession.use { session ->
+            val nodeRecords = session.run(
+                "MATCH (n:`$label` {_id: ${'$'}id}) RETURN properties(n) AS props, labels(n) AS labels",
+                mapOf("id" to uuid.toString())
+            ).list()
+            if (nodeRecords.isEmpty()) {
+                return@use mapOf("node" to null, "relationships" to emptyList<Any?>())
+            }
+            val relationships = session.run(
+                "MATCH (n:`$label` {_id: ${'$'}id})-[r]-(m) " +
+                        "RETURN type(r) AS type, startNode(r) = n AS outgoing, properties(r) AS relProps, " +
+                        "labels(m) AS otherLabels, m._id AS otherId",
+                mapOf("id" to uuid.toString())
+            ).list { record ->
+                mapOf(
+                    "type" to record["type"].asString(),
+                    "direction" to if (record["outgoing"].asBoolean()) "outgoing" else "incoming",
+                    "properties" to record["relProps"].asMap(),
+                    "otherLabels" to record["otherLabels"].asList { it.asString() },
+                    "otherId" to if (record["otherId"].isNull) null else record["otherId"].asString()
+                )
+            }
+            mapOf(
+                "node" to mapOf(
+                    "labels" to nodeRecords.first()["labels"].asList { it.asString() },
+                    "properties" to nodeRecords.first()["props"].asMap()
+                ),
+                "relationships" to relationships
+            )
+        }
+    }
+
     /*override fun count(path: GetQuery, terminal: PolyTerminal.Count): PolyResultData.Count {
         val (cypher, aliases) = buildMatchClause(path)
         val whereClause = buildWhereClause(path, aliases)

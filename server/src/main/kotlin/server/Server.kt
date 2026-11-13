@@ -169,6 +169,10 @@ fun startServer() {
             post("/query/get") {
                 val body = call.receive<QueryRequest>()
 
+                val forceDriver = runCatching { body.forceDriver?.let { parseDriverType(it) } }.getOrElse {
+                    return@post call.respond(HttpStatusCode.BadRequest, it.message ?: "invalid forceDriver")
+                }
+
                 val querySegments = mutableListOf<QuerySegment>()
 
                 var i = 0
@@ -209,7 +213,8 @@ fun startServer() {
 
                 val result = runCatching {
                     DatabaseManager.get(
-                        getQuery
+                        getQuery,
+                        forceDriver
                     )
                 }
 
@@ -224,6 +229,74 @@ fun startServer() {
                         print(it)
                         print(it.stackTraceToString())
                     }
+                )
+            }
+            post("/query/explain") {
+                val body = runCatching { call.receive<QueryRequest>() }.getOrElse {
+                    return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+                }
+
+                val result = runCatching {
+                    val querySegments = parseQuerySegments(body.path)
+                    buildExplainResponse(GetQuery(QueryPath(querySegments)))
+                }
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.OK, it) },
+                    onFailure = {
+                        call.respond(
+                            HttpStatusCode.InternalServerError,
+                            buildJsonObject { put("message", it.message); put("stack_trace", it.stackTraceToString()) })
+                    }
+                )
+            }
+            post("/instance/raw") {
+                val body = runCatching { call.receive<RawInstanceRequest>() }.getOrElse {
+                    return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+                }
+
+                val result = runCatching {
+                    val collectionModel = DatabaseManager.getCollectionModel(body.collection)
+                    val uuid = UUID.fromString(body.id)
+                    buildRawInstanceResponse(collectionModel, uuid)
+                }
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.OK, it) },
+                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
+                )
+            }
+            post("/document/update") {
+                val body = runCatching { call.receive<UpdateDocumentRequest>() }.getOrElse {
+                    return@post call.respond(HttpStatusCode.BadRequest, "Invalid request body")
+                }
+
+                val polyFields = body.fields.mapValues { (_, v) -> v.toPolyValue() }
+
+                val result = runCatching {
+                    DatabaseManager.updateDocument(
+                        body.collection,
+                        UUID.fromString(body.uuid),
+                        polyFields.toMap()
+                    )
+                }
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.OK, "Updated document with UUID ${body.uuid}") },
+                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
+                )
+            }
+            get("/schema/mapping/{collection}") {
+                val collectionName = call.parameters["collection"]
+                    ?: return@get call.respond(HttpStatusCode.BadRequest, "missing collection parameter")
+
+                val result = runCatching {
+                    buildMappingResponse(DatabaseManager.getCollectionModel(collectionName))
+                }
+
+                result.fold(
+                    onSuccess = { call.respond(HttpStatusCode.OK, it) },
+                    onFailure = { call.respond(HttpStatusCode.InternalServerError, it.message ?: "Failed") }
                 )
             }
             /*post("/query/bench") {

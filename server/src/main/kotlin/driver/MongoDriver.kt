@@ -888,6 +888,106 @@ class MongoDriver(val mongoDatabase: MongoDatabase) : DatabaseDriver {
         }
     }
 
+    /**
+     * Builds a representation of the native Mongo query (filter + projection) that [get]
+     * would run for this query, without executing it. Mirrors the three cases of [get]:
+     * 1 segment and 2 segments produce a single find(); longer paths have no single
+     * native query (the driver runs multiple sequential finds joined in memory), which
+     * is reported as such.
+     */
+    fun explain(query: GetQuery): List<String> {
+        check(query.path.isNotEmpty()) { "empty query" }
+
+        fun render(bson: Bson): String = runCatching {
+            bson.toBsonDocument(org.bson.BsonDocument::class.java, mongoDatabase.codecRegistry).toJson()
+        }.getOrElse { bson.toString() }
+
+        return when (query.path.size) {
+            1 -> {
+                val segment = query.path[0]
+                require(segment is QuerySegment.Collection) { "connection segment must be placed before a collection segment" }
+                val collectionModel = DatabaseManager.getCollectionModel(segment.name)
+                val projection = if (segment.only == null) Projections.exclude(
+                    collectionModel.childCollections.map { "_sub_${it}" } +
+                            collectionModel.getConnectedCollections().map { "_con_${it}" }
+                ) else Projections.include(segment.only)
+                listOf("db.${segment.name}.find(${render(conditionToFilter(segment.condition))}, ${render(projection)})")
+            }
+
+            2 if query.path[0] is QuerySegment.Collection && query.path[1] is QuerySegment.Collection -> {
+                val parentCol = query.path[0] as QuerySegment.Collection
+                val childCol = query.path[1] as QuerySegment.Collection
+                val parentCollectionModel = DatabaseManager.getCollectionModel(parentCol.name)
+                val filter = Filters.and(
+                    conditionToFilter(parentCol.condition),
+                    Filters.elemMatch("_sub_${childCol.name}", conditionToFilter(childCol.condition))
+                )
+                val projection = if (parentCol.only == null)
+                    Projections.exclude(
+                        (parentCollectionModel.childCollections.map { "_sub_${it}" } - "_sub_${childCol.name}") +
+                                parentCollectionModel.getConnectedCollections().map { "_con_${it}" }
+                    ) else Projections.include(parentCol.only + "_sub_${childCol.name}")
+                listOf(
+                    "db.${parentCol.name}.find(${render(filter)}, ${render(projection)})",
+                    "(embedded _sub_${childCol.name} entries are then filtered in memory by the driver)"
+                )
+            }
+
+            2 if query.path[0] is QuerySegment.Collection && query.path[1] is QuerySegment.Connection -> {
+                val collectionSegment = query.path[0] as QuerySegment.Collection
+                val connectionSegment = query.path[1] as QuerySegment.Connection
+                val collectionModel = DatabaseManager.getCollectionModel(collectionSegment.name)
+                val filters = buildList {
+                    collectionSegment.condition?.let {
+                        add(conditionToFilter(it))
+                    }
+                    connectionSegment.connectionCondition?.let {
+                        add(
+                            Filters.elemMatch(
+                                "_con_${connectionSegment.connectionName}",
+                                conditionToFilter(it, "_rel.")
+                            )
+                        )
+                    }
+                    connectionSegment.collectionCondition?.let {
+                        add(
+                            Filters.elemMatch(
+                                "_con_${connectionSegment.connectionName}",
+                                conditionToFilter(it, "_doc.")
+                            )
+                        )
+                    }
+                }
+                val projection = if (collectionSegment.only == null) Projections.exclude(
+                    collectionModel.childCollections.map { "_sub_${it}" } +
+                            (collectionModel.getConnectedCollections()
+                                .map { "_con_${it}" } - "_con_${connectionSegment.connectionName}")
+                ) else Projections.include(collectionSegment.only + "_con_${connectionSegment.connectionName}")
+                listOf(
+                    "db.${collectionSegment.name}.find(${render(if (filters.isEmpty()) Filters.empty() else Filters.and(filters))}, ${render(projection)})",
+                    "(embedded _con_${connectionSegment.connectionName} entries are then filtered in memory by the driver)"
+                )
+            }
+
+            else -> listOf(
+                "no single native query: this ${query.path.size}-segment path is executed as multiple sequential find() operations joined in memory by the driver"
+            )
+        }
+    }
+
+    /**
+     * Returns the raw stored document for one instance: the document in its own collection,
+     * and (for subcollections) the parent document in which a copy is embedded under
+     * _sub_<collection>. Either element is null if not found.
+     */
+    fun getRawInstance(collection: CollectionModel, uuid: UUID): Pair<Document?, Document?> {
+        val ownDocument = mongoDatabase.getCollection(collection.name).find(Filters.eq("_id", uuid)).firstOrNull()
+        val parentDocument = collection.parentCollection?.let {
+            mongoDatabase.getCollection(it).find(Filters.eq("_sub_${collection.name}._id", uuid)).firstOrNull()
+        }
+        return Pair(ownDocument, parentDocument)
+    }
+
     /*override fun count(
         path: GetQuery,
         terminal: PolyTerminal.Count
