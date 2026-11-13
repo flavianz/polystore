@@ -46,5 +46,6 @@ tasks.test {
 }
 
 application {
-    mainClass.set("ch.flavianz.MainKt")
+    // Main.kt has no package declaration, so the JVM class is just MainKt
+    mainClass.set("MainKt")
 }
