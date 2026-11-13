@@ -4,7 +4,8 @@
  * appends a segment to the existing one.
  */
 import { useState } from 'react';
-import { ChevronRight, Database, Hash, Link2, Table2, Type } from 'lucide-react';
+import { ChevronRight, Hash, Link2, Table2, Type } from 'lucide-react';
+import { PolybrowseLogo } from '@/components/polybrowse-logo';
 import type { CollectionModel, DatabaseSchema, DataType } from '@/api/types';
 import {
     canAppendCollection,
@@ -55,7 +56,7 @@ export function SchemaSidebar({
         <Sidebar>
             <SidebarHeader>
                 <div className="flex items-center gap-2 px-2 py-1.5">
-                    <Database className="size-4 shrink-0" />
+                    <PolybrowseLogo className="size-6 shrink-0" />
                     <span className="font-semibold">polybrowse</span>
                 </div>
             </SidebarHeader>
