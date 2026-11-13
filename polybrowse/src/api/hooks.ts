@@ -10,6 +10,7 @@ import type {
     InsertConnectionRequest,
     MappingResponse,
     InsertDocumentRequest,
+    PolySchema,
     QueryRequest,
     UpdateDocumentRequest,
 } from './types';
@@ -120,14 +121,16 @@ function useWriteMutation<TVariables, TResult>(
     });
 }
 
-export function useInsertDocument() {
-    return useWriteMutation((body: InsertDocumentRequest) => api.insertDocument(body));
+/** `schema` types the written fields — the client needs it to serialize FLOATs. */
+export function useInsertDocument(schema: PolySchema) {
+    return useWriteMutation((body: InsertDocumentRequest) => api.insertDocument(body, schema));
 }
 
-export function useUpdateDocument() {
-    return useWriteMutation((body: UpdateDocumentRequest) => api.updateDocument(body));
+export function useUpdateDocument(schema: PolySchema) {
+    return useWriteMutation((body: UpdateDocumentRequest) => api.updateDocument(body, schema));
 }
 
-export function useInsertConnection() {
-    return useWriteMutation((body: InsertConnectionRequest) => api.insertConnection(body));
+/** `schema` is the connection's connectionDataSchema. */
+export function useInsertConnection(schema: PolySchema) {
+    return useWriteMutation((body: InsertConnectionRequest) => api.insertConnection(body, schema));
 }

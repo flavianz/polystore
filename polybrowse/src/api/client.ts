@@ -17,6 +17,8 @@ import type {
     InsertConnectionRequest,
     InsertDocumentRequest,
     MappingResponse,
+    PolyInputValue,
+    PolySchema,
     QueryRequest,
     QueryResponse,
     RawInstanceRequest,
@@ -58,11 +60,40 @@ async function requestText(route: string, init?: RequestInit): Promise<string> {
 }
 
 function postJson(body: unknown): RequestInit {
+    return postText(JSON.stringify(body));
+}
+
+function postText(json: string): RequestInit {
     return {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: json,
     };
+}
+
+/**
+ * Serializes a write body whose `fields` follow `schema`.
+ *
+ * The server parses a JSON number as Int whenever it is integral
+ * (`JsonElement.toPolyValue`, RequestDefinitions.kt), and `DataType.matchesType`
+ * accepts only Float/Double for FLOAT — so `"price": 10` is rejected with
+ * "does not contain all required fields". `JSON.stringify(10.0)` yields `10`,
+ * hence FLOAT fields holding a whole number are written as `10.0` by hand.
+ */
+function postWriteJson(
+    body: { readonly fields: Record<string, PolyInputValue> },
+    schema: PolySchema,
+): RequestInit {
+    const { fields, ...rest } = body;
+    const fieldsJson = Object.entries(fields)
+        .map(([field, value]) => {
+            const isWholeFloat =
+                schema[field] === 'FLOAT' && typeof value === 'number' && Number.isSafeInteger(value);
+            return `${JSON.stringify(field)}:${isWholeFloat ? `${value}.0` : JSON.stringify(value)}`;
+        })
+        .join(',');
+    const restJson = JSON.stringify(rest).slice(1, -1);
+    return postText(`{${restJson}${restJson ? ',' : ''}"fields":{${fieldsJson}}}`);
 }
 
 export const api = {
@@ -86,8 +117,8 @@ export const api = {
         requestJson<MappingResponse>(`/schema/mapping/${encodeURIComponent(collection)}`),
 
     /** POST /document/insert — returns the new instance's UUID. */
-    insertDocument: async (body: InsertDocumentRequest): Promise<string> => {
-        const message = await requestText('/document/insert', postJson(body));
+    insertDocument: async (body: InsertDocumentRequest, schema: PolySchema): Promise<string> => {
+        const message = await requestText('/document/insert', postWriteJson(body, schema));
         const uuid = message.replace('Inserted document with UUID ', '').trim();
         if (!uuid) {
             throw new PolystoreError(200, message, '/document/insert');
@@ -96,10 +127,10 @@ export const api = {
     },
 
     /** POST /document/update — scalar schema fields only; dynamic data is not updatable. */
-    updateDocument: (body: UpdateDocumentRequest) =>
-        requestText('/document/update', postJson(body)),
+    updateDocument: (body: UpdateDocumentRequest, schema: PolySchema) =>
+        requestText('/document/update', postWriteJson(body, schema)),
 
-    /** POST /connection/insert */
-    insertConnection: (body: InsertConnectionRequest) =>
-        requestText('/connection/insert', postJson(body)),
+    /** POST /connection/insert — `schema` is the connection's connectionDataSchema. */
+    insertConnection: (body: InsertConnectionRequest, schema: PolySchema) =>
+        requestText('/connection/insert', postWriteJson(body, schema)),
 };

@@ -63,7 +63,7 @@ function EditForm({ collection, instanceId, fields, onDone }: EditFormProps) {
         ),
     );
     const [invalidFields, setInvalidFields] = useState<readonly string[]>([]);
-    const update = useUpdateDocument();
+    const update = useUpdateDocument(collection.schema);
 
     return (
         <div className="space-y-3 rounded-md border p-2">

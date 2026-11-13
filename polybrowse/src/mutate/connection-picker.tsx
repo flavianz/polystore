@@ -76,7 +76,7 @@ function PickerForm({
         Object.fromEntries(dataFields.map(([field, type]) => [field, emptyValueFor(type)])),
     );
     const [invalidFields, setInvalidFields] = useState<readonly string[]>([]);
-    const insert = useInsertConnection();
+    const insert = useInsertConnection(connection.connectionDataSchema);
 
     const matches =
         search === ''

@@ -77,7 +77,7 @@ function InsertForm({ collection, parentDocUuid, onDone }: InsertFormProps) {
         Object.fromEntries(fields.map(([field, type]) => [field, emptyValueFor(type)])),
     );
     const [invalidFields, setInvalidFields] = useState<readonly string[]>([]);
-    const insert = useInsertDocument();
+    const insert = useInsertDocument(collection.schema);
 
     const needsParent = collection.parentCollection !== null;
     const isMissingParent = needsParent && parentDocUuid === null;
