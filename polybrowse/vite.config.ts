@@ -16,4 +16,19 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    proxy: Object.fromEntries(
+      [
+        '/query',
+        '/schema',
+        '/collections',
+        '/connections',
+        '/collection',
+        '/connection',
+        '/document',
+        '/instance',
+        '/version',
+      ].map((route) => [route, { target: 'http://localhost:8080', changeOrigin: true }]),
+    ),
+  },
 })
