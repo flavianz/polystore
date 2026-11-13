@@ -10,6 +10,7 @@ import {
     appendConnection,
     appendSubcollection,
     currentCollection,
+    replaceStep,
     rootPath,
     toRequest,
     truncate,
@@ -21,11 +22,13 @@ import { SchemaSidebar } from '@/schema/schema-sidebar';
 import { Badge } from '@/components/ui/badge';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FilterEditor } from './filter-editor';
 import { PathBar } from './path-bar';
+import { RawQueryPanel } from './raw-query-panel';
 import { ResultTable } from './result-table';
 
 export function BrowsePage() {
-    const { path, setPath } = useQueryPath();
+    const { path, setPath, replacePath } = useQueryPath();
     const [selectedStep, setSelectedStep] = useState<number | null>(null);
     const [selectedRow, setSelectedRow] = useState<number | null>(null);
 
@@ -36,6 +39,17 @@ export function BrowsePage() {
     const navigate = (next: QueryPath | null) => {
         setPath(next);
         setSelectedStep(null);
+        setSelectedRow(null);
+    };
+
+    /**
+     * Editing a step's filters is not navigation: it replaces the current
+     * history entry so that Back does not walk through every keystroke, and it
+     * keeps the editor open.
+     */
+    const editStep = (index: number, step: PathStep) => {
+        if (!path) return;
+        replacePath(replaceStep(path, index, step));
         setSelectedRow(null);
     };
 
@@ -88,6 +102,15 @@ export function BrowsePage() {
                         </p>
                     )}
 
+                    {path && selectedStep !== null && schemaQuery.data && path[selectedStep] && (
+                        <FilterEditor
+                            schema={schemaQuery.data}
+                            step={path[selectedStep]}
+                            onChange={(step) => editStep(selectedStep, step)}
+                            onClose={() => setSelectedStep(null)}
+                        />
+                    )}
+
                     {path && resultQuery.isPending && (
                         <div className="space-y-2">
                             <Skeleton className="h-9 w-full" />
@@ -118,6 +141,8 @@ export function BrowsePage() {
                             {renderResult(resultQuery.data.data, path, selectedRow, setSelectedRow)}
                         </>
                     )}
+
+                    {path && <RawQueryPanel path={path} onApply={navigate} />}
                 </main>
             </SidebarInset>
         </>
