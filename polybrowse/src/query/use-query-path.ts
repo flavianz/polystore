@@ -1,44 +1,64 @@
 /**
- * The query path as URL-backed state. No router library: the path is the only
- * thing in the URL, so History + popstate is all that's needed.
+ * The query path and the top-level view as URL-backed state. No router
+ * library: these two are the only things in the URL, so History + popstate is
+ * all that's needed.
  */
 import { useCallback, useEffect, useState } from 'react';
 import type { QueryPath } from './path';
-import { decodePath, encodePath } from './url';
+import { decodePath, decodeView, encodeLocation, type AppView } from './url';
 
 export interface QueryPathState {
     /** null = nothing selected yet (show the empty state). */
     readonly path: QueryPath | null;
-    /** Navigates, pushing a history entry. */
+    readonly view: AppView;
+    /** Navigates, pushing a history entry. Keeps the current view. */
     readonly setPath: (path: QueryPath | null) => void;
     /** Replaces the current entry — for edits that should not add history steps. */
     readonly replacePath: (path: QueryPath) => void;
+    /** Switches the view, pushing a history entry. Keeps the current path. */
+    readonly setView: (view: AppView) => void;
+}
+
+interface LocationState {
+    readonly path: QueryPath | null;
+    readonly view: AppView;
+}
+
+function readLocation(): LocationState {
+    return {
+        path: decodePath(window.location.search),
+        view: decodeView(window.location.search),
+    };
 }
 
 export function useQueryPath(): QueryPathState {
-    const [path, setPathState] = useState<QueryPath | null>(() =>
-        decodePath(window.location.search),
-    );
+    const [state, setState] = useState<LocationState>(readLocation);
 
     useEffect(() => {
-        const onPopState = () => setPathState(decodePath(window.location.search));
+        const onPopState = () => setState(readLocation());
         window.addEventListener('popstate', onPopState);
         return () => window.removeEventListener('popstate', onPopState);
     }, []);
 
+    // The callbacks read the other half of the state from the URL itself, so
+    // they never act on a stale closure.
     const setPath = useCallback((next: QueryPath | null) => {
-        setPathState(next);
-        window.history.pushState(
-            null,
-            '',
-            next === null ? window.location.pathname : encodePath(next),
-        );
+        const view = decodeView(window.location.search);
+        setState({ path: next, view });
+        window.history.pushState(null, '', encodeLocation(next, view));
     }, []);
 
     const replacePath = useCallback((next: QueryPath) => {
-        setPathState(next);
-        window.history.replaceState(null, '', encodePath(next));
+        const view = decodeView(window.location.search);
+        setState({ path: next, view });
+        window.history.replaceState(null, '', encodeLocation(next, view));
     }, []);
 
-    return { path, setPath, replacePath };
+    const setView = useCallback((next: AppView) => {
+        const path = decodePath(window.location.search);
+        setState({ path, view: next });
+        window.history.pushState(null, '', encodeLocation(path, next));
+    }, []);
+
+    return { path: state.path, view: state.view, setPath, replacePath, setView };
 }

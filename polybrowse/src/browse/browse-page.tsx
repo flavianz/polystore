@@ -1,9 +1,10 @@
 /**
- * The browse view: schema sidebar + path bar + result table.
- * Everything here is a rendering of exactly one query path.
+ * The app shell: schema sidebar plus either the browse view (path bar + result
+ * table — everything a rendering of exactly one query path) or the schema
+ * graph view.
  */
 import { useMemo, useState } from 'react';
-import { AlertCircle, Clock, Cpu } from 'lucide-react';
+import { AlertCircle, Clock, Cpu, Network, Table2 } from 'lucide-react';
 import { useQueryResult, useSchema } from '@/api/hooks';
 import { assertNever } from '@/lib/assert-never';
 import {
@@ -19,6 +20,10 @@ import {
     type QueryPath,
 } from '@/query/path';
 import { useQueryPath } from '@/query/use-query-path';
+import type { AppView } from '@/query/url';
+import { SchemaGraphPage } from '@/graph/schema-graph-page';
+import type { FocusRequest } from '@/graph/schema-graph';
+import { collectionNodeId } from '@/graph/store-graph';
 import { SchemaSidebar } from '@/schema/schema-sidebar';
 import { collectionByName } from '@/schema/model';
 import { NativeQueries } from '@/lens/native-queries';
@@ -27,6 +32,7 @@ import type { DriverType, PolyRow } from '@/api/types';
 import { Badge } from '@/components/ui/badge';
 import { SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FilterEditor } from './filter-editor';
 import { Inspector, type SelectedInstance } from './inspector';
 import { PathBar } from './path-bar';
@@ -34,7 +40,8 @@ import { RawQueryPanel } from './raw-query-panel';
 import { ResultTable } from './result-table';
 
 export function BrowsePage() {
-    const { path, setPath, replacePath } = useQueryPath();
+    const { path, view, setPath, replacePath, setView } = useQueryPath();
+    const [graphFocus, setGraphFocus] = useState<FocusRequest | null>(null);
     const [selectedStep, setSelectedStep] = useState<number | null>(null);
     const [selectedRow, setSelectedRow] = useState<number | null>(null);
     const [forceDriver, setForceDriver] = useState<DriverType | null>(null);
@@ -81,6 +88,50 @@ export function BrowsePage() {
         setSelectedRow(null);
     };
 
+    /** In the schema view the sidebar does not build paths; it centres nodes. */
+    const focusCollection = (name: string) =>
+        setGraphFocus((current) => ({
+            nodeId: collectionNodeId(name),
+            nonce: (current?.nonce ?? 0) + 1,
+        }));
+
+    if (view === 'schema') {
+        return (
+            <>
+                <SchemaSidebar
+                    schema={schemaQuery.data}
+                    isLoading={schemaQuery.isLoading}
+                    path={null}
+                    onSelectCollection={focusCollection}
+                    onAppendSubcollection={focusCollection}
+                    onAppendConnection={(_, target) => focusCollection(target)}
+                />
+                <SidebarInset className="min-w-0 overflow-hidden">
+                    <header className="flex min-h-14 items-center gap-2 border-b px-4 py-2">
+                        <SidebarTrigger />
+                        <ViewSwitch view={view} onChange={setView} />
+                    </header>
+                    {schemaQuery.isError && (
+                        <div className="p-4">
+                            <ErrorNote
+                                title="Could not load the schema"
+                                detail={describeError(schemaQuery.error)}
+                            />
+                        </div>
+                    )}
+                    {schemaQuery.isLoading && (
+                        <div className="p-4">
+                            <Skeleton className="h-64 w-full" />
+                        </div>
+                    )}
+                    {schemaQuery.data && (
+                        <SchemaGraphPage schema={schemaQuery.data} focus={graphFocus} />
+                    )}
+                </SidebarInset>
+            </>
+        );
+    }
+
     return (
         <>
             <SchemaSidebar
@@ -100,6 +151,7 @@ export function BrowsePage() {
                 <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
                 <header className="flex min-h-14 items-center gap-2 border-b px-4 py-2">
                     <SidebarTrigger />
+                    <ViewSwitch view={view} onChange={setView} />
                     {path ? (
                         <PathBar
                             path={path}
@@ -257,6 +309,29 @@ function renderResult(
         default:
             return assertNever(data);
     }
+}
+
+function ViewSwitch({
+    view,
+    onChange,
+}: {
+    readonly view: AppView;
+    readonly onChange: (view: AppView) => void;
+}) {
+    return (
+        <Tabs value={view} onValueChange={(value) => onChange(value as AppView)}>
+            <TabsList>
+                <TabsTrigger value="browse">
+                    <Table2 className="size-3.5" />
+                    Browse
+                </TabsTrigger>
+                <TabsTrigger value="schema">
+                    <Network className="size-3.5" />
+                    Schema
+                </TabsTrigger>
+            </TabsList>
+        </Tabs>
+    );
 }
 
 interface ExecutionStripProps {

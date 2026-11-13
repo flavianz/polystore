@@ -13,11 +13,28 @@ import type { Clause, ClauseValue, Filter } from './condition';
 import { duplicateNames, type PathStep, type QueryPath } from './path';
 
 const PARAM = 'path';
+const VIEW_PARAM = 'view';
 
-export function encodePath(path: QueryPath): string {
+/** The top-level view. 'browse' is the default and is left out of the URL. */
+export const APP_VIEWS = ['browse', 'schema'] as const;
+export type AppView = (typeof APP_VIEWS)[number];
+
+/**
+ * The URL for a path and view. Returns the bare pathname when there is nothing
+ * to encode, so the default state keeps a clean URL.
+ */
+export function encodeLocation(path: QueryPath | null, view: AppView): string {
     const params = new URLSearchParams();
-    params.set(PARAM, JSON.stringify(path));
-    return `?${params.toString()}`;
+    if (path !== null) params.set(PARAM, JSON.stringify(path));
+    if (view !== 'browse') params.set(VIEW_PARAM, view);
+    const search = params.toString();
+    return search === '' ? window.location.pathname : `?${search}`;
+}
+
+/** Unknown values fall back to 'browse' rather than failing. */
+export function decodeView(search: string): AppView {
+    const raw = new URLSearchParams(search).get(VIEW_PARAM);
+    return APP_VIEWS.find((view) => view === raw) ?? 'browse';
 }
 
 export function decodePath(search: string): QueryPath | null {

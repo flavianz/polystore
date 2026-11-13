@@ -23,6 +23,7 @@ The earlier prototype in `src/` (a `Home.tsx` / `query-view.tsx` / `connection-f
 | `browse/` | `browse-page.tsx` (layout), `path-bar.tsx`, `result-table.tsx`, `filter-editor.tsx`, `raw-query-panel.tsx`, `inspector.tsx` |
 | `lens/` | `storage-lens.tsx` (per-instance physical layout, field mapping, raw data), `native-queries.tsx` (per-path explain + force driver) |
 | `mutate/` | `field-input.tsx` (typed input per DataType), `values.ts`, `insert-instance-dialog.tsx`, `edit-fields-form.tsx`, `connection-picker.tsx` |
+| `graph/` | Schema graph view (`?view=schema`): `store-graph.ts` (typed node/edge model per `StoreView`, built from the schema), `mapping-key.ts` (poly element identity used for linked highlighting), `colors.ts` (one stable colour per collection), `layout.ts` (dagre → React Flow), `nodes.tsx`, `schema-graph.tsx` (one pane), `schema-graph-page.tsx` |
 
 Three design points worth keeping:
 
@@ -39,7 +40,8 @@ Three design points worth keeping:
 - `baseUrl` was removed from both tsconfigs (deprecated in TS 6); `paths` alone resolves `@/*`.
 - The Vite dev server proxies the API routes to `http://localhost:8080` (`vite.config.ts` → `server.proxy`). The frontend therefore uses **relative** URLs only. Do not reintroduce a host/port entry form, and do not rely on the server's open CORS.
 - `eslint.config.js` relaxes `react-refresh/only-export-components` and `react-hooks/set-state-in-effect` for `src/components/ui/**` and `use-mobile.ts`, because those are shadcn-generated and regenerating would overwrite any fix. Keep app code clean of both rules instead (`theme-provider.tsx` has its hook split out into `theme-context.ts` for exactly this reason).
-- No router library: the query path is the only URL state, handled by History + `popstate` in `use-query-path.ts`.
+- No router library: the URL holds the query path (`path`) and the top-level view (`view`, omitted for the default `browse`), handled by History + `popstate` in `use-query-path.ts`.
+- The schema graph uses React Flow (`@xyflow/react` v12) with `@dagrejs/dagre` for a deterministic left-to-right layout. Node components have fixed sizes that must match `nodeSize()` in `graph/layout.ts`.
 
 ## Conventions (binding)
 
