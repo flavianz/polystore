@@ -18,7 +18,9 @@ export type RowTone =
     /** A reference to another instance (a foreign key). */
     | 'reference'
     /** Storage bookkeeping with no poly counterpart (e.g. `_dynamic_data`). */
-    | 'meta';
+    | 'meta'
+    /** A nested array or object holding further rows (MongoDB `_sub_`, `_con_`, `_rel`). */
+    | 'container';
 
 export interface GraphRow {
     /** Unique within its node or edge; also the React Flow handle prefix. */
@@ -30,6 +32,8 @@ export interface GraphRow {
     readonly keys: readonly MappingKey[];
     /** Optional explanation shown as a native tooltip. */
     readonly hint?: string;
+    /** Nesting level inside a document (MongoDB); 0 when absent. */
+    readonly depth?: number;
 }
 
 export type GraphNodeKind =
@@ -37,6 +41,8 @@ export type GraphNodeKind =
     | 'entity'
     /** A Neo4j node label: a rounded card. */
     | 'label'
+    /** A MongoDB collection, drawn as the shape of its documents. */
+    | 'document'
     /** A small chip standing for a poly connection, carrying its data fields. */
     | 'connection';
 
@@ -60,10 +66,16 @@ export type GraphEdgeKind =
     /** PostgreSQL: a foreign key column referencing a primary key. */
     | 'foreignKey'
     /** Neo4j: a relationship type between two labels. */
-    | 'relationship';
+    | 'relationship'
+    /** MongoDB: an embedded array whose documents are also stored in their own collection. */
+    | 'embeddedCopy'
+    /** MongoDB: an embedded array holding only the ids of another collection's documents. */
+    | 'idReference'
+    /** MongoDB: a connection, denormalized into the documents of both sides. */
+    | 'denormalized';
 
-/** Where the arrowhead goes: none, at the target, or back at the source. */
-export type EdgeArrow = 'none' | 'target' | 'source';
+/** Where the arrowhead goes: none, at the target, back at the source, or both. */
+export type EdgeArrow = 'none' | 'target' | 'source' | 'both';
 
 export interface GraphEdge {
     readonly id: string;

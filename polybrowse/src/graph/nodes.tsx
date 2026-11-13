@@ -8,7 +8,7 @@
  */
 import type { CSSProperties, ReactNode } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Link2 } from 'lucide-react';
+import { Braces, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { assertNever } from '@/lib/assert-never';
 import type { GraphNode, GraphRow, RowTone } from './graph-model';
@@ -36,7 +36,14 @@ export function LabelNode({ data }: NodeProps<FlowNode>) {
     return <CardNode node={data.node} shape="label" />;
 }
 
-function CardNode({ node, shape }: { readonly node: GraphNode; readonly shape: 'card' | 'label' }) {
+/** A MongoDB collection: a card showing the nested shape of its documents. */
+export function DocumentNode({ data }: NodeProps<FlowNode>) {
+    return <CardNode node={data.node} shape="document" />;
+}
+
+type CardShape = 'card' | 'label' | 'document';
+
+function CardNode({ node, shape }: { readonly node: GraphNode; readonly shape: CardShape }) {
     const { hovered, setHovered, colors } = useGraphContext();
     const color = (node.colorOf && colors.get(node.colorOf)) ?? 'var(--muted-foreground)';
     const headerActive = highlightOf(hovered, node.keys) === 'active';
@@ -47,7 +54,7 @@ function CardNode({ node, shape }: { readonly node: GraphNode; readonly shape: '
             width={ENTITY_WIDTH}
             className={cn(
                 'border-2',
-                shape === 'card' ? 'rounded-lg' : 'rounded-[1.5rem]',
+                shapeClass(shape),
                 headerActive && 'border-[var(--node-color)]',
             )}
             color={color}
@@ -69,7 +76,12 @@ function CardNode({ node, shape }: { readonly node: GraphNode; readonly shape: '
                         {node.title}
                     </span>
                 ) : (
-                    <span className="truncate font-mono text-sm font-semibold">{node.title}</span>
+                    <span className="flex items-center gap-1.5 truncate font-mono text-sm font-semibold">
+                        {shape === 'document' && (
+                            <Braces className="text-muted-foreground size-3.5 shrink-0" />
+                        )}
+                        {node.title}
+                    </span>
                 )}
                 {node.caption && (
                     <span className="text-muted-foreground truncate text-[11px]">
@@ -166,10 +178,10 @@ function Row({ row }: { readonly row: GraphRow }) {
 
     return (
         <div
-            style={{ height: ROW_HEIGHT }}
+            style={{ height: ROW_HEIGHT, paddingLeft: 12 + (row.depth ?? 0) * 16 }}
             title={row.hint}
             className={cn(
-                'relative flex items-center gap-2 px-3 font-mono text-xs',
+                'relative flex items-center gap-2 pr-3 font-mono text-xs',
                 state === 'active' &&
                     'bg-[color-mix(in_oklch,var(--node-color)_30%,transparent)]',
             )}
@@ -208,8 +220,23 @@ function toneClass(tone: RowTone): string {
             return 'italic';
         case 'meta':
             return 'text-muted-foreground';
+        case 'container':
+            return 'font-semibold text-muted-foreground';
         default:
             return assertNever(tone);
+    }
+}
+
+function shapeClass(shape: CardShape): string {
+    switch (shape) {
+        case 'card':
+            return 'rounded-lg';
+        case 'label':
+            return 'rounded-[1.5rem]';
+        case 'document':
+            return 'rounded-xl';
+        default:
+            return assertNever(shape);
     }
 }
 

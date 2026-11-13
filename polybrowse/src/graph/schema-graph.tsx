@@ -17,12 +17,13 @@ import { SchemaEdge } from './edges';
 import type { GraphNode, Mappings } from './graph-model';
 import { useGraphContext } from './highlight-context';
 import { layoutGraph, type FlowEdge, type FlowNode } from './layout';
-import { ConnectionNode, EntityNode, LabelNode } from './nodes';
+import { ConnectionNode, DocumentNode, EntityNode, LabelNode } from './nodes';
 import { buildStoreGraph, type StoreView } from './store-graph';
 
 const nodeTypes = {
     entity: EntityNode,
     label: LabelNode,
+    document: DocumentNode,
     connection: ConnectionNode,
 } satisfies Record<GraphNode['kind'], unknown>;
 

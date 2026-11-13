@@ -4,11 +4,12 @@
 import type { DatabaseSchema } from '@/api/types';
 import { assertNever } from '@/lib/assert-never';
 import type { Mappings, StoreGraph } from './graph-model';
+import { buildMongoGraph } from './mongo-graph';
 import { buildNeo4jGraph } from './neo4j-graph';
 import { buildPolyGraph } from './poly-graph';
 import { buildPostgresGraph } from './postgres-graph';
 
-export const STORE_VIEWS = ['poly', 'postgres', 'neo4j'] as const;
+export const STORE_VIEWS = ['poly', 'postgres', 'mongo', 'neo4j'] as const;
 export type StoreView = (typeof STORE_VIEWS)[number];
 
 export function storeViewLabel(view: StoreView): string {
@@ -17,6 +18,8 @@ export function storeViewLabel(view: StoreView): string {
             return 'Polystore';
         case 'postgres':
             return 'PostgreSQL';
+        case 'mongo':
+            return 'MongoDB';
         case 'neo4j':
             return 'Neo4j';
         default:
@@ -30,6 +33,7 @@ export function needsMappings(view: StoreView): boolean {
         case 'poly':
             return false;
         case 'postgres':
+        case 'mongo':
         case 'neo4j':
             return true;
         default:
@@ -48,6 +52,8 @@ export function buildStoreGraph(
             return buildPolyGraph(schema);
         case 'postgres':
             return buildPostgresGraph(schema, requireMappings(view, mappings));
+        case 'mongo':
+            return buildMongoGraph(schema, requireMappings(view, mappings));
         case 'neo4j':
             return buildNeo4jGraph(schema, requireMappings(view, mappings));
         default:

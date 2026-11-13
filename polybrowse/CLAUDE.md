@@ -23,7 +23,7 @@ The earlier prototype in `src/` (a `Home.tsx` / `query-view.tsx` / `connection-f
 | `browse/` | `browse-page.tsx` (layout), `path-bar.tsx`, `result-table.tsx`, `filter-editor.tsx`, `raw-query-panel.tsx`, `inspector.tsx` |
 | `lens/` | `storage-lens.tsx` (per-instance physical layout, field mapping, raw data), `native-queries.tsx` (per-path explain + force driver) |
 | `mutate/` | `field-input.tsx` (typed input per DataType), `values.ts`, `insert-instance-dialog.tsx`, `edit-fields-form.tsx`, `connection-picker.tsx` |
-| `graph/` | Schema graph view (`?view=schema`): `graph-model.ts` (typed node/row/edge model, no React Flow types), one builder per store view (`poly-graph.ts`, `postgres-graph.ts`, `neo4j-graph.ts`) dispatched by `store-graph.ts`, `physical-types.ts` (native type names the mapping route does not report, mirrored from the server), `mapping-key.ts` (poly element identity used for linked highlighting), `colors.ts` (one stable colour per collection), `layout.ts` (dagre → React Flow, handle ids), `nodes.tsx` / `edges.tsx`, `schema-graph.tsx` (one pane), `schema-graph-page.tsx` |
+| `graph/` | Schema graph view (`?view=schema`): `graph-model.ts` (typed node/row/edge model, no React Flow types), one builder per store view (`poly-graph.ts`, `postgres-graph.ts`, `mongo-graph.ts`, `neo4j-graph.ts`) dispatched by `store-graph.ts`, `physical-types.ts` (native type names the mapping route does not report, mirrored from the server), `mapping-key.ts` (poly element identity used for linked highlighting), `colors.ts` (one stable colour per collection), `layout.ts` (dagre → React Flow, handle ids), `nodes.tsx` / `edges.tsx`, `schema-graph.tsx` (one pane), `schema-graph-page.tsx` |
 
 Three design points worth keeping:
 

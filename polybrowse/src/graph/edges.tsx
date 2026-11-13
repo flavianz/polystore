@@ -133,6 +133,12 @@ function kindStyle(edge: GraphEdge): CSSProperties {
             return { strokeWidth: 1.5 };
         case 'relationship':
             return { strokeWidth: 2 };
+        case 'embeddedCopy':
+            return { strokeWidth: 2, strokeDasharray: '8 5' };
+        case 'idReference':
+            return { strokeWidth: 1.5, strokeDasharray: '2 4' };
+        case 'denormalized':
+            return { strokeWidth: 2, strokeDasharray: '8 5' };
         default:
             return assertNever(edge.kind);
     }

@@ -36,6 +36,7 @@ export function nodeSize(node: GraphNode): { width: number; height: number } {
     switch (node.kind) {
         case 'entity':
         case 'label':
+        case 'document':
             return {
                 width: ENTITY_WIDTH,
                 height: ENTITY_HEADER_HEIGHT + node.rows.length * ROW_HEIGHT + 8,
@@ -119,6 +120,8 @@ function markers(arrow: EdgeArrow): Pick<FlowEdge, 'markerStart' | 'markerEnd'> 
             return { markerEnd: marker };
         case 'source':
             return { markerStart: marker };
+        case 'both':
+            return { markerStart: marker, markerEnd: marker };
         default:
             return assertNever(arrow);
     }
